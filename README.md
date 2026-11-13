@@ -10,10 +10,10 @@ ExamPulse AI is a full-stack Computer-Based Testing (CBT) & AI Assessment platfo
 | :--- | :--- |
 | **Frontend Build** | Vite SPA (`dist/`) |
 | **Backend API** | Express (`server.ts`, routed via `/api/index.ts` on Vercel) |
-| **Firebase / GCP Project ID** | `amazing-centaur-462112-n5` |
-| **Firestore Database ID** | `ai-studio-821afd27-84e2-43ab-b5af-651da3cbc0da` |
-| **Firebase Auth Domain** | `amazing-centaur-462112-n5.firebaseapp.com` |
-| **Immutable Main Admin** | `rajanprasaila@gmail.com` |
+| **Firebase / GCP Project ID** | `your-firebase-project-id` (Set via `VITE_FIREBASE_PROJECT_ID` or `.env`) |
+| **Firestore Database ID** | `(default)` or custom database ID (Set via `VITE_FIREBASE_DATABASE_ID`) |
+| **Firebase Auth Domain** | `your-project.firebaseapp.com` (Set via `VITE_FIREBASE_AUTH_DOMAIN`) |
+| **Immutable Main Admin** | Configured in `MAIN_ADMIN_EMAIL` / `VITE_MAIN_ADMIN_EMAIL` env variable |
 
 ---
 
@@ -57,9 +57,9 @@ ExamPulse AI is a full-stack Computer-Based Testing (CBT) & AI Assessment platfo
 
 ---
 
-## 3. Configure Google Cloud Console (`amazing-centaur-462112-n5`)
+## 3. Configure Google Cloud Console
 
-Open [Google Cloud Console](https://console.cloud.google.com/) and make sure project **`amazing-centaur-462112-n5`** is selected in the top project switcher.
+Open [Google Cloud Console](https://console.cloud.google.com/) and make sure your project is selected in the top project switcher.
 
 ### A. Enable Required APIs
 Go to **APIs & Services → Enabled APIs & Services** and verify these are enabled:
@@ -75,21 +75,21 @@ Go to **APIs & Services → OAuth consent screen** (or **Google Auth Platform �
    - To allow any candidate/student with a Gmail account to sign in, either add their emails under **Test users** or click **Publish App** (**In production**).
 3. **Authorized domains:** Add:
    - `vercel.app` (or your custom domain, e.g., `yourdomain.com`)
-   - `amazing-centaur-462112-n5.firebaseapp.com`
+   - `<your-project-id>.firebaseapp.com`
 4. **Scopes:** Ensure `openid`, `.../auth/userinfo.email`, and `.../auth/userinfo.profile` are included.
 
 ### C. Update OAuth 2.0 Client ID Origins & Redirect URIs
-Go to **APIs & Services → Credentials → OAuth 2.0 Client IDs** and open the Web client used by Firebase (`468903270383-utg6hcoft631q2tina3g2npb2t37tohn.apps.googleusercontent.com` or your Web Client):
+Go to **APIs & Services → Credentials → OAuth 2.0 Client IDs** and open the Web client used by Firebase:
 1. **Authorized JavaScript origins** — add:
    - `https://<your-vercel-project>.vercel.app`
    - `https://<your-custom-domain>` *(if using a custom domain)*
-   - `https://amazing-centaur-462112-n5.firebaseapp.com`
+   - `https://<your-project-id>.firebaseapp.com`
    - `http://localhost:3000` *(for local testing)*
 2. **Authorized redirect URIs** — ensure this Firebase handler URI is present:
-   - `https://amazing-centaur-462112-n5.firebaseapp.com/__/auth/handler`
+   - `https://<your-project-id>.firebaseapp.com/__/auth/handler`
 
 ### D. Restrict Your Browser Firebase API Key (Recommended)
-Go to **APIs & Services → Credentials → API Keys** and open the Firebase Browser Key (`AIzaSy...` from `firebase-applet-config.json`):
+Go to **APIs & Services → Credentials → API Keys** and open the Firebase Browser Key:
 - **Application restrictions → Websites (HTTP referrers):**
   - `https://<your-vercel-project>.vercel.app/*`
   - `https://*.vercel.app/*` *(optional, if you test Vercel preview URLs)*
@@ -98,9 +98,9 @@ Go to **APIs & Services → Credentials → API Keys** and open the Firebase Bro
 
 ---
 
-## 4. Configure Firebase Console (`amazing-centaur-462112-n5`)
+## 4. Configure Firebase Console
 
-Open [Firebase Console](https://console.firebase.google.com/project/amazing-centaur-462112-n5):
+Open [Firebase Console](https://console.firebase.google.com/):
 
 ### A. Authorize Your Vercel Domain for Google Sign-In
 1. Go to **Authentication → Settings → Authorized domains**.
@@ -108,12 +108,12 @@ Open [Firebase Console](https://console.firebase.google.com/project/amazing-cent
    - `<your-vercel-project>.vercel.app`
    - Any custom domain (e.g., `exam.yourdomain.com`)
    - Keep `localhost` for local development.
-3. Go to **Authentication → Sign-in method** and confirm **Google** is **Enabled** with `rajanprasaila@gmail.com` (or your support email) configured.
+3. Go to **Authentication → Sign-in method** and confirm **Google** is **Enabled** with your support email configured.
 
 > If users see `auth/unauthorized-domain` after deploying to Vercel, the exact Vercel hostname is missing from **Authentication → Settings → Authorized domains**.
 
 ### B. Verify Firestore Security Rules
-1. Go to **Firestore Database** and select database **`ai-studio-821afd27-84e2-43ab-b5af-651da3cbc0da`**.
+1. Go to **Firestore Database** and select your database.
 2. Confirm the rules from `firestore.rules` in this repo are published to that database.
    - Before sharing publicly, review and verify `firestore.rules` in the Firebase Console Rules editor.
 

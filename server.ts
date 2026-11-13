@@ -9,7 +9,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 const require = createRequire(import.meta.url);
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const PORT = Number(process.env.PORT || 3000);
-const MAIN_ADMIN_EMAIL = 'rajanprasaila@gmail.com';
+const MAIN_ADMIN_EMAIL = process.env.MAIN_ADMIN_EMAIL?.trim() || 'rajanprasaila@gmail.com';
 const BUNDLED_UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
 const UPLOADS_DIR = IS_VERCEL
   ? '/tmp/exampulse/uploads'

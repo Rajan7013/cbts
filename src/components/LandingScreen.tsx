@@ -195,10 +195,7 @@ export function LandingScreen({
               )}
 
               <p className="mt-3 text-xs text-slate-500">
-                Always prompts Google&apos;s account chooser when multiple Gmail accounts are signed in. Admin Studio is locked to verified main admin{' '}
-                <span className="font-mono font-medium text-slate-700 break-all">
-                  rajanprasaila@gmail.com
-                </span>.
+                Always prompts Google&apos;s account chooser when multiple Gmail accounts are signed in. Admin Studio is restricted to authorized platform administrators.
               </p>
             </div>
 

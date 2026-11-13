@@ -39,7 +39,7 @@
     },
     "AdminRecord": {
       "title": "AdminRecord",
-      "description": "Secondary admin allowlist managed exclusively by immutable main admin rajanprasaila@gmail.com.",
+      "description": "Secondary admin allowlist managed exclusively by the immutable platform main admin.",
       "type": "object",
       "properties": {
         "uid": {
