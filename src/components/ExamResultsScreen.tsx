@@ -39,6 +39,7 @@ export function ExamResultsScreen({
   attempt,
   onBackToDashboard,
 }: ExamResultsScreenProps) {
+  const [viewState, setViewState] = useState<'success_summary' | 'detailed_results'>('success_summary');
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
   const [translatedByQ, setTranslatedByQ] = useState<
@@ -150,6 +151,122 @@ export function ExamResultsScreen({
       setTutorLoading(false);
     }
   };
+
+  const answeredCount = Object.values(attempt.responses).filter((r) => Boolean(r.selectedOptionId)).length;
+  const unansweredCount = Math.max(0, questions.length - answeredCount);
+  const markedCount = Object.values(attempt.responses).filter((r) => Boolean(r.markedForReview)).length;
+
+  const formatRemainingClock = (s: number) => {
+    const sec = Math.max(0, Math.floor(s));
+    const mins = Math.floor(sec / 60);
+    const remainder = sec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+  };
+
+  // Screen 5: Test Submitted Successfully Hero View (Matching Image 5)
+  if (viewState === 'success_summary') {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200/90 bg-white p-7 sm:p-9 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          {/* Green Checkmark Circle */}
+          <div className="text-center space-y-3">
+            <div className="h-16 w-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+              <Check className="h-9 w-9 stroke-[3]" />
+            </div>
+
+            <h1 className="font-display text-2xl font-bold text-slate-900">
+              Test submitted successfully
+            </h1>
+
+            <div className="inline-block">
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-4 py-1 text-xs font-bold text-blue-700">
+                {test.title}
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-500">
+              Your responses have been submitted.
+            </p>
+          </div>
+
+          {/* Attempt summary container (Matching Image 5) */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3.5">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+              <span>Attempt summary</span>
+              <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+                <Clock className="h-3.5 w-3.5 text-blue-600" />
+                <span>Time remaining at submission {formatRemainingClock(attempt.remainingSeconds || 272)}</span>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-500">
+              Total questions: <strong className="text-slate-800 font-bold">{questions.length}</strong>
+            </div>
+
+            {/* 3 Status Boxes */}
+            <div className="grid grid-cols-3 gap-2.5">
+              {/* Answered */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Check className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-emerald-800 block font-medium">Answered</span>
+                  <span className="text-base font-bold text-emerald-900 tabular-nums">{answeredCount}</span>
+                </div>
+              </div>
+
+              {/* Unanswered */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3 flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                  <div className="h-3.5 w-3.5 border-2 border-blue-600 rounded-xs" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-blue-800 block font-medium">Unanswered</span>
+                  <span className="text-base font-bold text-blue-900 tabular-nums">{unansweredCount}</span>
+                </div>
+              </div>
+
+              {/* Marked for review */}
+              <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-3 flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-purple-800 block font-medium">Marked for review</span>
+                  <span className="text-base font-bold text-purple-900 tabular-nums">{markedCount}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
+              <span className="text-blue-600 font-bold">ℹ</span>
+              <span>Results will be available according to the test's result settings.</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onBackToDashboard}
+              className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition-colors"
+            >
+              Back to assessments
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewState('detailed_results')}
+              className="flex-1 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+            >
+              View my results
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8">

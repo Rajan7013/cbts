@@ -5,16 +5,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Languages,
-  Loader2,
-  Maximize2,
-  Send,
+  Check,
+  CheckCircle2,
+  HelpCircle,
+  Info,
+  Layers,
+  Upload,
   X,
   ZoomIn,
 } from 'lucide-react';
 import { MediaPipeProctor } from './MediaPipeProctor';
 import { MathText } from './MathText';
-import { translateTextsWithAI } from '../lib/api';
 import type { OptionId, SanitizedQuestion, StrikeLog, TestAttempt, TestExam } from '../types';
 
 interface LiveExamRunnerProps {
@@ -28,23 +29,10 @@ interface LiveExamRunnerProps {
   ) => Promise<void>;
 }
 
-const TARGET_LANGUAGES = [
-  'English',
-  'Hindi',
-  'Tamil',
-  'Bengali',
-  'Bahasa Indonesia',
-  'Japanese',
-];
-
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
-  const hrs = Math.floor(s / 3600);
-  const mins = Math.floor((s % 3600) / 60);
+  const mins = Math.floor(s / 60);
   const secs = s % 60;
-  if (hrs > 0) {
-    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
@@ -68,133 +56,96 @@ export function LiveExamRunner({
   const [submitting, setSubmitting] = useState(false);
   const [zoomImgUrl, setZoomImgUrl] = useState<string | null>(null);
 
-  // Translation state
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
-  const [translating, setTranslating] = useState(false);
-  const [translationCache, setTranslationCache] = useState<
-    Record<string, { questionText: string; options: string[] }>
-  >({});
-
   const isLockedRef = useRef(false);
   const wasFullscreenRef = useRef(Boolean(document.fullscreenElement));
   const lastStrikeTsRef = useRef(0);
-  const strikeModalOpenRef = useRef(false);
 
+  // Maintain attempt ref
   useEffect(() => {
-    strikeModalOpenRef.current = Boolean(strikeModal);
-  }, [strikeModal]);
+    attemptRef.current = attempt;
+  }, [attempt]);
 
-  const currentQuestion = questions[currentIndex];
+  const currentQuestion: SanitizedQuestion | undefined = questions[currentIndex];
+  const activeSection = test.sections.find((s) => s.id === currentQuestion?.sectionId);
+  const currentResp = currentQuestion ? attempt.responses[currentQuestion.questionId] : undefined;
 
-  const sectionQuestionsMap = useMemo(() => {
-    const map: Record<string, Array<{ q: SanitizedQuestion; globalIdx: number }>> = {};
-    test.sections.forEach((s) => {
-      map[s.id] = [];
-    });
-    questions.forEach((q, idx) => {
-      if (!map[q.sectionId]) map[q.sectionId] = [];
-      map[q.sectionId].push({ q, globalIdx: idx });
-    });
-    return map;
-  }, [questions, test.sections]);
-
-  const activeSectionId = currentQuestion?.sectionId || test.sections[0]?.id || '';
-
-  const persistAttempt = useCallback(
-    async (nextAttempt: TestAttempt) => {
-      attemptRef.current = nextAttempt;
-      setAttempt(nextAttempt);
-      try {
-        await onSyncProgress(nextAttempt);
-      } catch {
-        // Non-blocking background sync
-      }
-    },
-    [onSyncProgress]
+  // Counts
+  const answeredCount = useMemo(
+    () => Object.values(attempt.responses).filter((r) => Boolean(r.selectedOptionId)).length,
+    [attempt.responses]
   );
+  const markedCount = useMemo(
+    () => Object.values(attempt.responses).filter((r) => Boolean(r.markedForReview)).length,
+    [attempt.responses]
+  );
+  const unansweredCount = questions.length - answeredCount;
 
+  // Finalize and exit
   const finalizeAndExit = useCallback(
     async (finalAttempt: TestAttempt, status: 'submitted' | 'auto_submitted_strike') => {
       if (isLockedRef.current) return;
       isLockedRef.current = true;
       setSubmitting(true);
-      if (document.fullscreenElement && document.exitFullscreen) {
-        try {
-          await document.exitFullscreen();
-        } catch {
-          // Ignore fullscreen exit failure
+      try {
+        if (document.fullscreenElement) {
+          try {
+            await document.exitFullscreen();
+          } catch {
+            // Ignore
+          }
         }
+      } finally {
+        await onSubmitExam(finalAttempt, status);
       }
-      await onSubmitExam(finalAttempt, status);
     },
     [onSubmitExam]
   );
 
+  // Trigger strike
   const triggerStrike = useCallback(
     (reason: string) => {
-      if (isLockedRef.current || strikeModalOpenRef.current) return;
+      if (isLockedRef.current) return;
       const now = Date.now();
       if (now - lastStrikeTsRef.current < 2500) return;
       lastStrikeTsRef.current = now;
 
-      const cur = attemptRef.current;
-      const nextCount = cur.strikeCount + 1;
-      const logEntry: StrikeLog = {
-        count: nextCount,
+      const newCount = attemptRef.current.strikeCount + 1;
+      const newStrike: StrikeLog = {
+        count: newCount,
         reason,
         timestamp: new Date().toISOString(),
       };
-      const updated: TestAttempt = {
-        ...cur,
-        strikeCount: nextCount,
-        strikes: [...cur.strikes, logEntry],
-        remainingSeconds,
-        currentQuestionIndex: currentIndex,
-        currentSectionId: activeSectionId,
-      };
-      attemptRef.current = updated;
-      setAttempt(updated);
 
-      if (test.maxStrikes > 0 && nextCount >= test.maxStrikes) {
-        finalizeAndExit(updated, 'auto_submitted_strike');
-      } else {
-        setStrikeModal({ count: nextCount, reason });
-        onSyncProgress(updated).catch(() => {});
-      }
-    },
-    [activeSectionId, currentIndex, finalizeAndExit, onSyncProgress, remainingSeconds, test.maxStrikes]
-  );
-
-  // Mark current question visited on index change
-  useEffect(() => {
-    if (!currentQuestion || isLockedRef.current) return;
-    const prevResp = attemptRef.current.responses[currentQuestion.questionId];
-    if (!prevResp?.visited || attemptRef.current.currentQuestionIndex !== currentIndex) {
       const updated: TestAttempt = {
         ...attemptRef.current,
-        currentQuestionIndex: currentIndex,
-        currentSectionId: currentQuestion.sectionId,
-        responses: {
-          ...attemptRef.current.responses,
-          [currentQuestion.questionId]: {
-            selectedOptionId: prevResp?.selectedOptionId ?? null,
-            markedForReview: prevResp?.markedForReview ?? false,
-            visited: true,
-          },
-        },
+        strikeCount: newCount,
+        strikes: [...attemptRef.current.strikes, newStrike],
+        remainingSeconds,
       };
-      persistAttempt(updated);
-    }
-  }, [currentIndex, currentQuestion, persistAttempt]);
 
-  // Countdown Timer + 5s Heartbeat Sync
+      attemptRef.current = updated;
+      setAttempt(updated);
+      onSyncProgress(updated).catch(() => {});
+
+      if (test.maxStrikes > 0 && newCount >= test.maxStrikes) {
+        setStrikeModal(null);
+        finalizeAndExit(updated, 'auto_submitted_strike');
+      } else {
+        setStrikeModal({ count: newCount, reason });
+      }
+    },
+    [finalizeAndExit, onSyncProgress, remainingSeconds, test.maxStrikes]
+  );
+
+  // Countdown timer
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (isLockedRef.current) return;
       setRemainingSeconds((prev) => {
-        const next = prev - 1;
-        attemptRef.current = { ...attemptRef.current, remainingSeconds: Math.max(0, next) };
-        if (next <= 0) {
+        const next = Math.max(0, prev - 1);
+        attemptRef.current = { ...attemptRef.current, remainingSeconds: next };
+        if (next === 0) {
+          window.clearInterval(timer);
           finalizeAndExit(attemptRef.current, 'submitted');
           return 0;
         }
@@ -208,7 +159,7 @@ export function LiveExamRunner({
     return () => window.clearInterval(timer);
   }, [finalizeAndExit, onSyncProgress]);
 
-  // Fullscreen, Visibility, and Window Blur Anti-Cheat Listeners
+  // Anti-cheat listeners
   useEffect(() => {
     const armTimeout = window.setTimeout(() => {
       if (document.fullscreenElement) {
@@ -248,42 +199,6 @@ export function LiveExamRunner({
     };
   }, [test.detectTabSwitch, test.enforceFullscreen, triggerStrike]);
 
-  // Language Translation Handler
-  useEffect(() => {
-    if (!currentQuestion || selectedLanguage === 'English') return;
-    const cacheKey = `${currentQuestion.questionId}__${selectedLanguage}`;
-    if (translationCache[cacheKey]) return;
-
-    let cancelled = false;
-    setTranslating(true);
-    const textsToTranslate = [
-      currentQuestion.questionText,
-      ...currentQuestion.options.map((o) => o.text),
-    ];
-
-    translateTextsWithAI(textsToTranslate, selectedLanguage)
-      .then((translated) => {
-        if (cancelled) return;
-        setTranslationCache((prev) => ({
-          ...prev,
-          [cacheKey]: {
-            questionText: translated[0] || currentQuestion.questionText,
-            options: currentQuestion.options.map((o, idx) => translated[idx + 1] || o.text),
-          },
-        }));
-      })
-      .catch(() => {
-        // Keep English if translation fails
-      })
-      .finally(() => {
-        if (!cancelled) setTranslating(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentQuestion, selectedLanguage, translationCache]);
-
   const handleSelectOption = (optionId: OptionId) => {
     if (!currentQuestion || isLockedRef.current) return;
     const prev = attempt.responses[currentQuestion.questionId];
@@ -301,15 +216,20 @@ export function LiveExamRunner({
         },
       },
     };
-    persistAttempt(updated);
+    setAttempt(updated);
+    attemptRef.current = updated;
+    onSyncProgress(updated).catch(() => {});
   };
 
   const handleClearResponse = () => {
     if (!currentQuestion || isLockedRef.current) return;
     const prev = attempt.responses[currentQuestion.questionId];
+    if (!prev?.selectedOptionId) return;
+
     const updated: TestAttempt = {
       ...attempt,
       remainingSeconds,
+      currentQuestionIndex: currentIndex,
       responses: {
         ...attempt.responses,
         [currentQuestion.questionId]: {
@@ -319,470 +239,446 @@ export function LiveExamRunner({
         },
       },
     };
-    persistAttempt(updated);
+    setAttempt(updated);
+    attemptRef.current = updated;
+    onSyncProgress(updated).catch(() => {});
   };
 
-  const handleMarkAndNext = () => {
+  const handleToggleMark = () => {
     if (!currentQuestion || isLockedRef.current) return;
     const prev = attempt.responses[currentQuestion.questionId];
+    const isMarked = !prev?.markedForReview;
+
     const updated: TestAttempt = {
       ...attempt,
       remainingSeconds,
+      currentQuestionIndex: currentIndex,
       responses: {
         ...attempt.responses,
         [currentQuestion.questionId]: {
           selectedOptionId: prev?.selectedOptionId ?? null,
-          markedForReview: !(prev?.markedForReview ?? false),
+          markedForReview: isMarked,
           visited: true,
         },
       },
     };
-    persistAttempt(updated);
+    setAttempt(updated);
+    attemptRef.current = updated;
+    onSyncProgress(updated).catch(() => {});
+  };
+
+  const handleSaveAndNext = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex((i) => i + 1);
     }
   };
-
-  const handleReenterFullscreen = async () => {
-    if (test.enforceFullscreen && document.documentElement.requestFullscreen) {
-      try {
-        await document.documentElement.requestFullscreen();
-      } catch {
-        // Allow continuation if browser blocks programmatic fullscreen
-      }
-    }
-    setStrikeModal(null);
-  };
-
-  if (!currentQuestion) {
-    return (
-      <div className="p-10 text-center text-sm text-slate-600">
-        No questions available in this test yet.
-      </div>
-    );
-  }
-
-  const currentResp = attempt.responses[currentQuestion.questionId];
-  const cacheKey = `${currentQuestion.questionId}__${selectedLanguage}`;
-  const translatedView = selectedLanguage !== 'English' ? translationCache[cacheKey] : undefined;
-  const displayedQuestionText = translatedView?.questionText || currentQuestion.questionText;
-
-  const answeredCount = Object.values(attempt.responses).filter((r) => Boolean(r.selectedOptionId)).length;
-  const markedCount = Object.values(attempt.responses).filter((r) => r.markedForReview).length;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Exam Top Bar */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-3.5 sm:px-5 py-2.5 sm:py-3">
-        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-2.5 sm:gap-4">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <span className="font-display text-sm font-bold text-slate-900 truncate max-w-[180px] sm:max-w-[260px]">
-              {test.title}
-            </span>
-            <div className="hidden md:flex items-center gap-1 rounded-lg bg-slate-100 p-1 overflow-x-auto">
-              {test.sections.map((sec) => {
-                const firstInSec = sectionQuestionsMap[sec.id]?.[0]?.globalIdx;
-                const isActive = sec.id === activeSectionId;
-                return (
-                  <button
-                    key={sec.id}
-                    type="button"
-                    onClick={() => {
-                      if (firstInSec !== undefined) setCurrentIndex(firstInSec);
-                    }}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                      isActive
-                        ? 'bg-white text-blue-700 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {sec.name}
-                  </button>
-                );
-              })}
-            </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none">
+      {/* MediaPipe Face Proctoring if enabled */}
+      {test.proctoringAIEnabled && (
+        <MediaPipeProctor
+          active={!isLockedRef.current}
+          onMultipleFacesDetected={() => triggerStrike('Multiple Faces Detected by MediaPipe AI')}
+          onNoFaceDetected={() => triggerStrike('No Candidate Face Detected by MediaPipe AI')}
+        />
+      )}
+
+      {/* Top Header Bar (Matching Image 3) */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/90 bg-white px-4 sm:px-6 py-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs">
+            EP
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-            {test.proctoringAIEnabled && (
-              <MediaPipeProctor active={true} compact={true} onViolation={triggerStrike} />
-            )}
-
-            <div
-              className={`flex items-center gap-1.5 rounded-lg border px-2.5 sm:px-3 py-1.5 font-mono text-[11px] sm:text-xs font-semibold tabular-nums ${
-                attempt.strikeCount > 0
-                  ? 'border-amber-300 bg-amber-50 text-amber-800'
-                  : 'border-slate-200 bg-slate-50 text-slate-700'
-              }`}
-            >
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                {attempt.strikeCount}/{test.maxStrikes || '∞'}
-              </span>
-            </div>
-
-            <div
-              className={`flex items-center gap-1.5 rounded-lg border px-2.5 sm:px-3 py-1.5 font-mono text-xs sm:text-sm font-bold tabular-nums ${
-                remainingSeconds <= 300
-                  ? 'border-red-300 bg-red-50 text-red-700'
-                  : 'border-slate-200 bg-slate-900 text-white'
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-              <span>{formatClock(remainingSeconds)}</span>
-            </div>
-
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => setShowSubmitConfirm(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Submit</span>
-            </button>
-          </div>
+          <span className="font-bold text-sm sm:text-base text-slate-900">ExamPulse</span>
+          <span className="text-slate-300">|</span>
+          <h1 className="font-semibold text-sm sm:text-base text-slate-900 truncate max-w-xs sm:max-w-md">
+            {test.title}
+          </h1>
         </div>
 
-        {/* Mobile Section Switcher */}
-        {test.sections.length > 1 && (
-          <div className="mt-2 flex md:hidden items-center gap-1.5 overflow-x-auto pb-0.5">
-            {test.sections.map((sec) => {
-              const firstInSec = sectionQuestionsMap[sec.id]?.[0]?.globalIdx;
-              const isActive = sec.id === activeSectionId;
-              return (
-                <button
-                  key={sec.id}
-                  type="button"
-                  onClick={() => {
-                    if (firstInSec !== undefined) setCurrentIndex(firstInSec);
-                  }}
-                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                    isActive
-                      ? 'bg-slate-900 text-white'
-                      : 'border border-slate-200 bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  {sec.name}
-                </button>
-              );
-            })}
+        <div className="flex items-center gap-3">
+          {/* Timer Pill */}
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 shadow-2xs">
+            <Clock className="h-4 w-4 text-blue-600 shrink-0" />
+            <div className="text-right">
+              <span className="font-mono text-xs sm:text-sm font-bold text-slate-900 tabular-nums">
+                {formatClock(remainingSeconds)} remaining
+              </span>
+              <span className="text-[10px] text-slate-400 block leading-none">
+                Time continues during test
+              </span>
+            </div>
           </div>
-        )}
+
+          {/* Submit Test Button */}
+          <button
+            type="button"
+            onClick={() => setShowSubmitConfirm(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Submit Test</span>
+          </button>
+        </div>
       </header>
 
-      {/* Main Split Workspace */}
-      <div className="mx-auto w-full max-w-[1440px] flex-1 grid grid-cols-1 gap-4 sm:gap-6 p-3.5 sm:p-6 lg:grid-cols-12">
-        {/* Left 70%: Question Canvas */}
-        <section className="lg:col-span-8 min-w-0 flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-              <div className="text-xs font-mono font-semibold text-slate-600 tabular-nums">
-                Question {currentIndex + 1} of {questions.length} · +{currentQuestion.marks} Marks
-                {test.negativeMarking ? ` / -${test.negativeMarkValue} Negative` : ''}
-              </div>
+      {/* Main Content Area: Left 70% Question, Right 30% Navigator (Matching Image 3) */}
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Question Area */}
+          <div className="lg:col-span-8 flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs">
+            {currentQuestion ? (
+              <div className="space-y-4">
+                {/* Section Header */}
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-blue-600" />
+                    <h2 className="font-display text-base font-bold text-slate-900">
+                      {activeSection?.name || 'General Section'}
+                    </h2>
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <Languages className="h-4 w-4 text-slate-500" />
-                <select
-                  aria-label="Translate question language"
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 focus:border-blue-600 focus:outline-none"
-                >
-                  {TARGET_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-                {translating && <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-700" />}
-              </div>
-            </div>
+                {/* Subtitle spec */}
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <span>Question {currentIndex + 1} of {questions.length}</span>
+                  <span className="text-slate-300">|</span>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Time continues during test</span>
+                  </div>
+                </div>
 
-            <div className="mt-5">
-              <MathText
-                text={displayedQuestionText}
-                className="text-[15.5px] leading-[1.75] text-slate-900"
-              />
-            </div>
+                {/* Question Stem */}
+                <div className="pt-2 text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+                  <MathText text={currentQuestion.questionText} />
+                </div>
 
-            {currentQuestion.questionImageUrl && (
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={() => setZoomImgUrl(currentQuestion.questionImageUrl!)}
-                  className="group relative inline-block rounded-lg border border-slate-200 bg-white p-2.5 hover:border-blue-400 cursor-pointer"
-                >
-                  <img
-                    src={currentQuestion.questionImageUrl}
-                    alt="Question diagram"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                    className="max-h-72 rounded object-contain"
-                  />
-                  <span className="mt-1.5 flex items-center justify-center gap-1 text-xs text-slate-500 group-hover:text-blue-700">
-                    <ZoomIn className="h-3.5 w-3.5" />
-                    <span>Click to enlarge diagram</span>
-                  </span>
-                </button>
-              </div>
-            )}
+                {/* Question Diagram Image if present */}
+                {currentQuestion.questionImageUrl && (
+                  <div className="mt-3">
+                    <img
+                      src={currentQuestion.questionImageUrl}
+                      alt="Question diagram"
+                      className="max-h-64 rounded-xl border border-slate-200 object-contain"
+                    />
+                  </div>
+                )}
 
-            {(() => {
-              const allCompact = currentQuestion.options.every((opt, idx) => {
-                const label = translatedView?.options[idx] || opt.text;
-                return !opt.imageUrl && label.length <= 55 && !label.includes('$$') && !label.includes('\\[');
-              });
-              return (
-                <div className={allCompact ? 'mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2' : 'mt-6 space-y-3'}>
-                  {currentQuestion.options.map((opt, idx) => {
+                {/* Radio Option Rows (Matching Image 3) */}
+                <div className="pt-4 space-y-3">
+                  {currentQuestion.options.map((opt) => {
                     const isSelected = currentResp?.selectedOptionId === opt.id;
-                    const optionLabel = translatedView?.options[idx] || opt.text;
                     return (
                       <button
                         key={opt.id}
                         type="button"
                         onClick={() => handleSelectOption(opt.id)}
-                        className={`w-full text-left flex items-start gap-3.5 rounded-xl border p-4 transition-colors cursor-pointer ${
+                        className={`w-full text-left flex items-center gap-3.5 rounded-2xl border p-4 transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-blue-700 bg-blue-50/70'
+                            ? 'border-blue-600 bg-blue-50/50 shadow-2xs'
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
-                        <span
-                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-bold ${
+                        {/* Radio Circle */}
+                        <div
+                          className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 ${
                             isSelected
-                              ? 'bg-blue-700 text-white'
-                              : 'border border-slate-300 bg-slate-50 text-slate-700'
+                              ? 'border-blue-600 bg-white'
+                              : 'border-slate-300 bg-white'
                           }`}
                         >
-                          {opt.id}
-                        </span>
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <MathText
-                            text={optionLabel}
-                            className="text-sm font-medium leading-relaxed text-slate-900"
-                          />
-                          {opt.imageUrl && (
-                            <img
-                              src={opt.imageUrl}
-                              alt={`Option ${opt.id}`}
-                              referrerPolicy="no-referrer"
-                              className="max-h-32 rounded border border-slate-200 bg-white object-contain"
-                            />
+                          {isSelected && (
+                            <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
                           )}
                         </div>
+
+                        {/* Option Text */}
+                        <div className="flex-1 text-xs sm:text-sm font-medium text-slate-800">
+                          <MathText text={opt.text} />
+                        </div>
+
+                        {opt.imageUrl && (
+                          <img
+                            src={opt.imageUrl}
+                            alt={`Option ${opt.id}`}
+                            className="max-h-20 rounded border border-slate-200 object-contain"
+                          />
+                        )}
                       </button>
                     );
                   })}
                 </div>
-              );
-            })()}
+              </div>
+            ) : (
+              <div className="p-8 text-center text-slate-400">No question selected</div>
+            )}
+
+            {/* Bottom Controls Bar (Matching Image 3) */}
+            <div className="mt-8 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearResponse}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
+                >
+                  Clear response
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleMark}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold cursor-pointer shadow-2xs transition-colors ${
+                    currentResp?.markedForReview
+                      ? 'border-purple-300 bg-purple-50 text-purple-700'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Bookmark className="h-3.5 w-3.5 text-purple-600" />
+                  <span>Mark for review</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentIndex === 0}
+                  onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAndNext}
+                  className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+                >
+                  <span>Save &amp; Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200 pt-4 sm:pt-5">
-            <div className="grid grid-cols-2 sm:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleClearResponse}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer text-center"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={handleMarkAndNext}
-                className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 sm:py-2 text-xs font-semibold cursor-pointer ${
-                  currentResp?.markedForReview
-                    ? 'border-purple-400 bg-purple-50 text-purple-800'
-                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <Bookmark className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {currentResp?.markedForReview ? 'Unmark & Next' : 'Mark & Next'}
-                </span>
-              </button>
-            </div>
+          {/* Right Column: Question Navigator & Legend (Matching Image 3) */}
+          <div className="lg:col-span-4 space-y-5">
+            {/* Question Navigator */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4">
+              <h2 className="font-display text-sm font-bold text-slate-900">
+                Question navigator
+              </h2>
 
-            <div className="grid grid-cols-2 sm:flex items-center gap-2">
-              <button
-                type="button"
-                disabled={currentIndex === 0}
-                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-                className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 sm:py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span>Previous</span>
-              </button>
-              <button
-                type="button"
-                disabled={currentIndex >= questions.length - 1}
-                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
-                className="inline-flex items-center justify-center gap-1 rounded-lg bg-blue-700 px-4 py-2.5 sm:py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-40 cursor-pointer"
-              >
-                <span>Save &amp; Next</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </section>
+              {/* Grid 1..N */}
+              <div className="grid grid-cols-5 gap-2.5">
+                {questions.map((q, idx) => {
+                  const resp = attempt.responses[q.questionId];
+                  const isCurrent = idx === currentIndex;
+                  const isAnswered = Boolean(resp?.selectedOptionId);
+                  const isMarked = Boolean(resp?.markedForReview);
 
-        {/* Right 30%: Question Palette Sidebar */}
-        <aside className="lg:col-span-4 min-w-0 space-y-5">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-            <h2 className="font-display text-sm font-bold text-slate-900">Question Palette</h2>
-            <div className="mt-2 text-xs text-slate-500 font-mono tabular-nums">
-              Answered: {answeredCount} · Marked: {markedCount} · Remaining:{' '}
-              {questions.length - answeredCount}
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2 border-y border-slate-100 py-3 text-[11px] text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded bg-emerald-600 inline-block" />
-                <span>Answered</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded bg-purple-600 inline-block" />
-                <span>Marked</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded border border-slate-300 bg-slate-100 inline-block" />
-                <span>Unanswered</span>
+                  return (
+                    <button
+                      key={q.questionId}
+                      type="button"
+                      onClick={() => setCurrentIndex(idx)}
+                      className={`h-11 rounded-xl font-mono text-xs font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : isAnswered
+                          ? 'border border-emerald-300 bg-emerald-50 text-emerald-800'
+                          : isMarked
+                          ? 'border border-purple-300 bg-purple-50 text-purple-800'
+                          : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="tabular-nums">{idx + 1}</span>
+                      {isAnswered && !isCurrent && (
+                        <Check className="h-3 w-3 text-emerald-600 mt-0.5" />
+                      )}
+                      {isMarked && !isAnswered && !isCurrent && (
+                        <Bookmark className="h-2.5 w-2.5 text-purple-600 mt-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="mt-4 space-y-4">
-              {test.sections.map((sec) => {
-                const items = sectionQuestionsMap[sec.id] || [];
-                if (items.length === 0) return null;
-                return (
-                  <div key={sec.id}>
-                    <div className="mb-2 text-xs font-semibold text-slate-700">{sec.name}</div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {items.map(({ q, globalIdx }) => {
-                        const r = attempt.responses[q.questionId];
-                        const isCurrent = globalIdx === currentIndex;
-                        let style =
-                          'border border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200';
-                        if (r?.markedForReview && r?.selectedOptionId) {
-                          style = 'bg-purple-700 text-white border border-purple-700';
-                        } else if (r?.markedForReview) {
-                          style = 'bg-purple-600 text-white border border-purple-600';
-                        } else if (r?.selectedOptionId) {
-                          style = 'bg-emerald-600 text-white border border-emerald-600';
-                        }
-                        return (
-                          <button
-                            key={q.questionId}
-                            type="button"
-                            onClick={() => setCurrentIndex(globalIdx)}
-                            className={`h-9 rounded-lg font-mono text-xs font-semibold tabular-nums transition-transform cursor-pointer ${style} ${
-                              isCurrent ? 'ring-2 ring-blue-700 ring-offset-1' : ''
-                            }`}
-                          >
-                            {globalIdx + 1}
-                          </button>
-                        );
-                      })}
-                    </div>
+            {/* Legend (Matching Image 3) */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+              <h3 className="font-display text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Legend
+              </h3>
+
+              <div className="space-y-3 text-xs">
+                {/* Current question */}
+                <div className="flex items-start gap-3">
+                  <div className="h-6 w-6 rounded-lg bg-blue-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-900 block">Current question</span>
+                    <span className="text-[11px] text-slate-500">The question you are viewing now</span>
                   </div>
-                );
-              })}
+                </div>
+
+                {/* Answered */}
+                <div className="flex items-start gap-3">
+                  <div className="h-6 w-6 rounded-lg border border-emerald-300 bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block">Answered</span>
+                    <span className="text-[11px] text-slate-500">A question you have answered</span>
+                  </div>
+                </div>
+
+                {/* Unanswered */}
+                <div className="flex items-start gap-3">
+                  <div className="h-6 w-6 rounded-lg border border-slate-300 bg-white shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-900 block">Unanswered</span>
+                    <span className="text-[11px] text-slate-500">A question you have not answered yet</span>
+                  </div>
+                </div>
+
+                {/* Marked for review */}
+                <div className="flex items-start gap-3">
+                  <div className="h-6 w-6 rounded-lg border border-purple-300 bg-purple-50 flex items-center justify-center shrink-0">
+                    <Bookmark className="h-3.5 w-3.5 text-purple-600" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block">Marked for review</span>
+                    <span className="text-[11px] text-slate-500">A question flagged for later review (may be answered or unanswered)</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      </main>
 
-      {/* Urgent Anti-Cheat Strike Modal */}
+      {/* Screen 4: Submit Test Confirmation Modal (Matching Image 4) */}
+      {showSubmitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 sm:p-7 shadow-2xl space-y-5">
+            <div className="text-center">
+              <div className="h-14 w-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+              <h2 className="font-display text-xl font-bold text-slate-900">
+                Submit your test?
+              </h2>
+              <p className="mt-1.5 text-xs text-slate-500 max-w-md mx-auto">
+                Submission ends the attempt. You will not be able to return to the test or make any changes.
+              </p>
+            </div>
+
+            {/* Test progress container (Matching Image 4) */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                <span>Test progress</span>
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <Clock className="h-3.5 w-3.5 text-blue-600" />
+                  <span>{formatClock(remainingSeconds)} remaining</span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-500">
+                Total questions: <strong className="text-slate-800">{questions.length}</strong>
+              </div>
+
+              {/* 3 Status Boxes */}
+              <div className="grid grid-cols-3 gap-2.5">
+                {/* Answered */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-emerald-800 block">Answered</span>
+                    <span className="text-base font-bold text-emerald-900 tabular-nums">{answeredCount}</span>
+                  </div>
+                </div>
+
+                {/* Unanswered */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3 flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <div className="h-3.5 w-3.5 border-2 border-blue-600 rounded-xs" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-blue-800 block">Unanswered</span>
+                    <span className="text-base font-bold text-blue-900 tabular-nums">{unansweredCount}</span>
+                  </div>
+                </div>
+
+                {/* Marked for review */}
+                <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-3 flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                    <Bookmark className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-purple-800 block">Marked for review</span>
+                    <span className="text-base font-bold text-purple-900 tabular-nums">{markedCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
+                <Info className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                <span>Marked for review may include answered questions.</span>
+              </div>
+            </div>
+
+            {/* Modal Buttons */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSubmitConfirm(false)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
+              >
+                Return to test
+              </button>
+
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => finalizeAndExit(attemptRef.current, 'submitted')}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+              >
+                {submitting ? 'Submitting…' : 'Confirm submission'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proctoring Strike Modal */}
       {strikeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-xl border border-red-300 bg-white p-6 shadow-2xl">
-            <div className="flex items-center gap-2.5 text-red-700">
+          <div className="w-full max-w-md rounded-2xl border border-rose-300 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2.5 text-rose-700">
               <AlertTriangle className="h-6 w-6 shrink-0" />
               <h2 className="font-display text-lg font-bold">
                 Proctoring Strike {strikeModal.count} of {test.maxStrikes || '∞'} Recorded
               </h2>
             </div>
-            <p className="mt-3 text-sm text-slate-700">
+            <p className="text-sm text-slate-700">
               Violation detected: <strong>{strikeModal.reason}</strong>.
             </p>
-            <p className="mt-2 text-xs text-slate-600">
+            <p className="text-xs text-slate-500">
               {test.maxStrikes > 0
-                ? `${test.maxStrikes - strikeModal.count} more strike(s) will immediately lock and auto-submit your test.`
-                : 'This event has been logged to your exam proctoring record.'}
+                ? `${test.maxStrikes - strikeModal.count} more strike(s) will automatically submit your exam.`
+                : 'This event has been logged to your proctoring history.'}
             </p>
-            <div className="mt-6 flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
-                onClick={handleReenterFullscreen}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-800 cursor-pointer"
+                onClick={() => setStrikeModal(null)}
+                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
               >
-                <Maximize2 className="h-4 w-4" />
-                <span>Return to Fullscreen &amp; Continue</span>
+                Acknowledge &amp; Resume
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Submit Confirmation Modal */}
-      {showSubmitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-            <h2 className="font-display text-lg font-bold text-slate-900">Submit Assessment?</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              You have answered <strong>{answeredCount}</strong> of{' '}
-              <strong>{questions.length}</strong> questions ({markedCount} marked for review). Once
-              submitted, responses cannot be modified.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowSubmitConfirm(false)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Continue Exam
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => finalizeAndExit(attemptRef.current, 'submitted')}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 cursor-pointer"
-              >
-                {submitting ? 'Submitting…' : 'Confirm Submit'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Zoom Diagram Modal */}
-      {zoomImgUrl && (
-        <div
-          onClick={() => setZoomImgUrl(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 cursor-pointer"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl rounded-xl bg-white p-4"
-          >
-            <button
-              type="button"
-              onClick={() => setZoomImgUrl(null)}
-              className="absolute right-3 top-3 rounded-md bg-slate-100 p-1.5 text-slate-700 hover:bg-slate-200 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <img
-              src={zoomImgUrl}
-              alt="Enlarged question diagram"
-              referrerPolicy="no-referrer"
-              className="max-h-[80vh] w-auto object-contain"
-            />
           </div>
         </div>
       )}

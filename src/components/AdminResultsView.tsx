@@ -23,7 +23,8 @@ import {
   ChevronRight,
   Radio,
   MinusCircle,
-  ListOrdered,
+  Award,
+  Lightbulb,
 } from 'lucide-react';
 import { MathText } from './MathText';
 import type { OptionId, QuestionResponse, TestAttempt, TestExam, TestQuestion } from '../types';
@@ -84,14 +85,10 @@ export function AdminResultsView({
   onBack,
 }: AdminResultsViewProps) {
   const [selectedAttempt, setSelectedAttempt] = useState<TestAttempt | null>(null);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [useSampleData, setUseSampleData] = useState(false);
-  const [activeDetailQuestion, setActiveDetailQuestion] = useState<{
-    q: TestQuestion;
-    candidateOptionId: OptionId | null;
-    isCorrect: boolean;
-  } | null>(null);
 
   // Generate mock/sample cohort matching Mockup 4 & 5 if requested or toggled
   const sampleCohortAttempts: TestAttempt[] = useMemo(() => {
@@ -120,7 +117,7 @@ export function AdminResultsView({
           q_2: { selectedOptionId: 'B', markedForReview: false, visited: true },
           q_3: { selectedOptionId: 'C', markedForReview: false, visited: true },
           q_4: { selectedOptionId: 'A', markedForReview: false, visited: true },
-          q_5: { selectedOptionId: 'B', markedForReview: false, visited: true }, // incorrect
+          q_5: { selectedOptionId: 'B', markedForReview: false, visited: true }, // incorrect (chose B: 2 A, correct is C: 3 A)
           q_6: { selectedOptionId: 'C', markedForReview: false, visited: true },
         },
         score: 20,
@@ -278,27 +275,128 @@ export function AdminResultsView({
     document.body.removeChild(link);
   };
 
-  // If viewing candidate attempt details (Image 5)
-  if (selectedAttempt && test) {
-    const isPassed =
-      (selectedAttempt.score / (selectedAttempt.maxScore || 1)) * 100 >= test.passPercentage;
-    const scorePct =
-      selectedAttempt.maxScore > 0
-        ? ((selectedAttempt.score / selectedAttempt.maxScore) * 100).toFixed(1)
-        : '0.0';
+  // Build review questions array for candidate attempt
+  const reviewQuestions = useMemo(() => {
+    if (!test) return [];
 
-    // Build question list for review
-    const reviewQuestions: Array<{
-      q: TestQuestion;
-      qNumber: number;
-      candidateChoiceText: string;
-      candidateOptionId: OptionId | null;
-      correctChoiceText: string;
-      isCorrect: boolean;
-      sectionName: string;
-    }> = questions.map((q, idx) => {
-      const resp = selectedAttempt.responses[q.questionId] ||
-        selectedAttempt.responses[`q_${idx + 1}`];
+    // If real test questions exist, use them; otherwise use sample physics questions matching mockup
+    const baseQuestions: TestQuestion[] =
+      questions.length > 0
+        ? questions
+        : [
+            {
+              questionId: 'q_1',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[0]?.id || 'sec_1',
+              orderIndex: 0,
+              questionText: 'A 2 kg block accelerates at 3 m/s². What is the net force?',
+              options: [
+                { id: 'A', text: '6 N' },
+                { id: 'B', text: '5 N' },
+                { id: 'C', text: '3 N' },
+                { id: 'D', text: '1.5 N' },
+              ],
+              correctOptionId: 'A',
+              shortExplanation: 'Newton’s second law states $F = ma = 2 \\times 3 = 6\\text{ N}$.',
+              stepByStepSolution: ['Apply $F = ma$', '$F = 2\\text{ kg} \\times 3\\text{ m/s}^2 = 6\\text{ N}$'],
+              marks: 4,
+            },
+            {
+              questionId: 'q_2',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[0]?.id || 'sec_1',
+              orderIndex: 1,
+              questionText: 'What is the potential energy of a 1.5 kg mass at a height of 4 m? (g = 9.8 m/s²)',
+              options: [
+                { id: 'A', text: '29.4 J' },
+                { id: 'B', text: '58.8 J' },
+                { id: 'C', text: '14.7 J' },
+                { id: 'D', text: '60 J' },
+              ],
+              correctOptionId: 'B',
+              shortExplanation: 'Potential energy is $PE = mgh = 1.5 \\times 9.8 \\times 4 = 58.8\\text{ J}$.',
+              stepByStepSolution: ['$PE = mgh$', '$PE = 1.5 \\times 9.8 \\times 4 = 58.8\\text{ J}$'],
+              marks: 4,
+            },
+            {
+              questionId: 'q_3',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[0]?.id || 'sec_1',
+              orderIndex: 2,
+              questionText: 'A 1200 W heater operates for 10 minutes. What is the energy used in kJ?',
+              options: [
+                { id: 'A', text: '120 kJ' },
+                { id: 'B', text: '360 kJ' },
+                { id: 'C', text: '720 kJ' },
+                { id: 'D', text: '1200 kJ' },
+              ],
+              correctOptionId: 'C',
+              shortExplanation: 'Energy $E = P \\times t = 1200 \\times (10 \\times 60) = 720,000\\text{ J} = 720\\text{ kJ}$.',
+              stepByStepSolution: ['$E = P \\times t$', '$t = 10 \\times 60 = 600\\text{ s}$', '$E = 1200 \\times 600 = 720,000\\text{ J} = 720\\text{ kJ}$'],
+              marks: 4,
+            },
+            {
+              questionId: 'q_4',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[1]?.id || test.sections[0]?.id || 'sec_2',
+              orderIndex: 3,
+              questionText: 'What is the equivalent resistance of two 6 Ω resistors in series?',
+              options: [
+                { id: 'A', text: '12 Ω' },
+                { id: 'B', text: '3 Ω' },
+                { id: 'C', text: '6 Ω' },
+                { id: 'D', text: '36 Ω' },
+              ],
+              correctOptionId: 'A',
+              shortExplanation: 'For series resistors: $R_{eq} = R_1 + R_2 = 6 + 6 = 12\\text{ }\\Omega$.',
+              stepByStepSolution: ['$R_{eq} = R_1 + R_2 = 6 + 6 = 12\\text{ }\\Omega$'],
+              marks: 4,
+            },
+            {
+              questionId: 'q_5',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[1]?.id || test.sections[0]?.id || 'sec_2',
+              orderIndex: 4,
+              questionText: 'A 12 V battery is connected to a 4 Ω resistor. What is the current?',
+              options: [
+                { id: 'A', text: '1 A' },
+                { id: 'B', text: '2 A' },
+                { id: 'C', text: '3 A' },
+                { id: 'D', text: '4 A' },
+              ],
+              correctOptionId: 'C',
+              shortExplanation: 'The current in a resistor is given by Ohm’s law: $$I = \\frac{V}{R} = \\frac{12}{4} = 3\\text{ A}$$\nTherefore, the current is 3 A. The correct option is C.',
+              stepByStepSolution: ['Ohm’s law: $I = \\frac{V}{R}$', '$I = \\frac{12}{4} = 3\\text{ A}$'],
+              marks: 4,
+            },
+            {
+              questionId: 'q_6',
+              testId: test.testId,
+              testStatus: 'published',
+              sectionId: test.sections[1]?.id || test.sections[0]?.id || 'sec_2',
+              orderIndex: 5,
+              questionText: 'What is the total resistance of two 6 Ω resistors in parallel?',
+              options: [
+                { id: 'A', text: '12 Ω' },
+                { id: 'B', text: '6 Ω' },
+                { id: 'C', text: '3 Ω' },
+                { id: 'D', text: '1.5 Ω' },
+              ],
+              correctOptionId: 'C',
+              shortExplanation: 'For identical parallel resistors: $R_{eq} = \\frac{R}{2} = \\frac{6}{2} = 3\\text{ }\\Omega$.',
+              stepByStepSolution: ['$\\frac{1}{R_{eq}} = \\frac{1}{6} + \\frac{1}{6} = \\frac{2}{6}$', '$R_{eq} = 3\\text{ }\\Omega$'],
+              marks: 4,
+            },
+          ];
+
+    return baseQuestions.map((q, idx) => {
+      const resp = selectedAttempt?.responses[q.questionId] ||
+        selectedAttempt?.responses[`q_${idx + 1}`];
       const candidateOptionId = resp?.selectedOptionId || null;
       const candidateOpt = q.options.find((o) => o.id === candidateOptionId);
       const correctOpt = q.options.find((o) => o.id === q.correctOptionId);
@@ -315,6 +413,362 @@ export function AdminResultsView({
         sectionName: sec?.name || q.sectionId,
       };
     });
+  }, [test, questions, selectedAttempt]);
+
+  // SCREEN 1: Detailed Question View within Candidate Attempt (Matching Image 1)
+  if (selectedAttempt && test && activeQuestionIndex !== null) {
+    const currentReview = reviewQuestions[activeQuestionIndex] || reviewQuestions[0];
+    const marksPerQ = currentReview.q.marks || test.marksPerQuestion || 4;
+    const isCorrect = currentReview.isCorrect;
+    const scorePct =
+      selectedAttempt.maxScore > 0
+        ? ((selectedAttempt.score / selectedAttempt.maxScore) * 100).toFixed(1)
+        : '0.0';
+
+    return (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <button
+              type="button"
+              onClick={() => setActiveQuestionIndex(null)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer mb-2.5"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+              <span>Back to Attempt</span>
+            </button>
+            <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              Question {currentReview.qNumber} details
+            </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              View the question, candidate's answer, correct answer, and scoring for this attempt.
+            </p>
+          </div>
+
+          {useSampleData && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+              <Info className="h-3.5 w-3.5" />
+              <span>Sample data</span>
+            </span>
+          )}
+        </div>
+
+        {/* Candidate & Test Meta Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5 sm:gap-4">
+          {/* Candidate */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <User className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-medium text-slate-400">Candidate</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                {selectedAttempt.userName}
+              </div>
+            </div>
+          </div>
+
+          {/* Test */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-medium text-slate-400">Test</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                {test.title}
+              </div>
+            </div>
+          </div>
+
+          {/* Question Number */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-[11px] font-medium text-slate-400">Question</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-900">
+                {currentReview.qNumber} of {reviewQuestions.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Outcome Pill */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center justify-center">
+            {isCorrect ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-700">
+                <Check className="h-3.5 w-3.5" /> Correct
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3.5 py-1 text-xs font-bold text-rose-700">
+                <X className="h-3.5 w-3.5" /> Incorrect
+              </span>
+            )}
+          </div>
+
+          {/* Marks Pill */}
+          <div className="col-span-2 sm:col-span-1 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-blue-600" />
+              <div className="text-right">
+                <span className="text-[11px] font-medium text-slate-400 block">Marks</span>
+                <span className="text-xs sm:text-sm font-bold text-blue-700 tabular-nums">
+                  {isCorrect ? marksPerQ : 0} / {marksPerQ}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Main Layout: Left 68% Question & Options, Right 32% Summaries */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left Column (Question stem, Options, Explanation) */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* Question Card */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <FileText className="h-4 w-4 text-blue-600" />
+                <span>Question</span>
+              </div>
+
+              {/* Stem */}
+              <div className="text-sm sm:text-base font-medium text-slate-900 leading-relaxed">
+                <MathText text={currentReview.q.questionText} />
+              </div>
+
+              {currentReview.q.questionImageUrl && (
+                <div className="rounded-xl border border-slate-100 overflow-hidden max-h-72">
+                  <img
+                    src={currentReview.q.questionImageUrl}
+                    alt="Question Diagram"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+
+              {/* Options Section */}
+              <div className="pt-2 space-y-2.5">
+                <div className="text-xs font-semibold text-slate-500">
+                  Options (Multiple choice — single answer)
+                </div>
+
+                <div className="space-y-2">
+                  {currentReview.q.options.map((opt) => {
+                    const isCandidateChoice = opt.id === currentReview.candidateOptionId;
+                    const isCorrectChoice = opt.id === currentReview.q.correctOptionId;
+
+                    return (
+                      <div
+                        key={opt.id}
+                        className={`flex items-center justify-between gap-3 rounded-xl border p-3.5 text-xs transition-colors ${
+                          isCorrectChoice
+                            ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold'
+                            : isCandidateChoice && !isCorrectChoice
+                            ? 'border-rose-300 bg-rose-50/70 text-rose-950 font-semibold'
+                            : 'border-slate-200 bg-white text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-lg font-bold text-xs shrink-0 ${
+                              isCorrectChoice
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : isCandidateChoice && !isCorrectChoice
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {opt.id}
+                          </span>
+                          <MathText text={opt.text} className="text-xs sm:text-sm font-medium" />
+                        </div>
+
+                        {/* Badges on right */}
+                        <div className="shrink-0 flex items-center gap-2">
+                          {isCandidateChoice && !isCorrectChoice && (
+                            <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-bold text-rose-800">
+                              Candidate's answer
+                            </span>
+                          )}
+                          {isCorrectChoice && (
+                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-800">
+                              Correct answer
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Explanation Card */}
+              {currentReview.q.shortExplanation && (
+                <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                    <Lightbulb className="h-4 w-4 text-blue-600" />
+                    <span>Explanation</span>
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                    <MathText text={currentReview.q.shortExplanation} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column (Attempt Summary & Question Navigator) */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Attempt Summary */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <span>Attempt Summary</span>
+              </div>
+
+              <div className="pt-1">
+                <span className="text-[11px] font-medium text-slate-400 block">Score</span>
+                <div className="text-xl font-bold text-blue-700 tabular-nums">
+                  {selectedAttempt.score} / {selectedAttempt.maxScore} ({scorePct}%)
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2 text-xs border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Correct
+                  </span>
+                  <span className="font-bold text-slate-800 tabular-nums">{selectedAttempt.correctCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <XCircle className="h-3.5 w-3.5 text-rose-600" /> Incorrect
+                  </span>
+                  <span className="font-bold text-slate-800 tabular-nums">{selectedAttempt.wrongCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <MinusCircle className="h-3.5 w-3.5 text-slate-400" /> Unanswered
+                  </span>
+                  <span className="font-bold text-slate-800 tabular-nums">{selectedAttempt.unattemptedCount}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <Award className="h-3.5 w-3.5 text-blue-600" /> Total Questions
+                  </span>
+                  <span className="font-bold text-slate-800 tabular-nums">{reviewQuestions.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Question Navigator */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                <Layers className="h-4 w-4 text-blue-600" />
+                <span>Question Navigator</span>
+              </div>
+
+              {/* Grid of Questions */}
+              <div className="grid grid-cols-6 gap-2">
+                {reviewQuestions.map((item, idx) => {
+                  const isActive = idx === activeQuestionIndex;
+                  return (
+                    <button
+                      key={item.q.questionId}
+                      type="button"
+                      onClick={() => setActiveQuestionIndex(idx)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? item.isCorrect
+                            ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-400/40'
+                            : 'border-rose-500 bg-rose-50/80 text-rose-900 ring-2 ring-rose-400/40'
+                          : item.isCorrect
+                          ? 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-rose-300'
+                      }`}
+                    >
+                      <span className="tabular-nums">{item.qNumber}</span>
+                      <div className="mt-1">
+                        {item.isCorrect ? (
+                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                            <Check className="h-2.5 w-2.5" />
+                          </span>
+                        ) : item.candidateOptionId ? (
+                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                            <X className="h-2.5 w-2.5" />
+                          </span>
+                        ) : (
+                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Legend */}
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <Check className="h-2.5 w-2.5" />
+                  </span>
+                  <span>Correct ({selectedAttempt.correctCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                    <X className="h-2.5 w-2.5" />
+                  </span>
+                  <span>Incorrect ({selectedAttempt.wrongCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    -
+                  </span>
+                  <span>Unanswered ({selectedAttempt.unattemptedCount})</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Navigation Buttons */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-200/80">
+          <button
+            type="button"
+            disabled={activeQuestionIndex === 0}
+            onClick={() => setActiveQuestionIndex((i) => Math.max(0, (i || 0) - 1))}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Previous Question</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={activeQuestionIndex === reviewQuestions.length - 1}
+            onClick={() => setActiveQuestionIndex((i) => Math.min(reviewQuestions.length - 1, (i || 0) + 1))}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <span>Next Question</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // SCREEN 4 / 5: Candidate Results Cohort View (Matching Image 4) or Attempt Details (Image 5)
+  if (selectedAttempt && test) {
+    const isPassed =
+      (selectedAttempt.score / (selectedAttempt.maxScore || 1)) * 100 >= test.passPercentage;
+    const scorePct =
+      selectedAttempt.maxScore > 0
+        ? ((selectedAttempt.score / selectedAttempt.maxScore) * 100).toFixed(1)
+        : '0.0';
 
     // Calculate section breakdown
     const sectionPerformance = test.sections.map((sec) => {
@@ -423,9 +877,8 @@ export function AdminResultsView({
           </div>
         </div>
 
-        {/* 6 Metric Cards Row (Matching Image 5) */}
+        {/* 6 Metric Cards Row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-3.5">
-          {/* Score */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-slate-400 mb-1">
               <BarChart3 className="h-4 w-4 text-blue-600" />
@@ -436,7 +889,6 @@ export function AdminResultsView({
             </div>
           </div>
 
-          {/* Correct */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-slate-400 mb-1">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -447,7 +899,6 @@ export function AdminResultsView({
             </div>
           </div>
 
-          {/* Incorrect */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-slate-400 mb-1">
               <XCircle className="h-4 w-4 text-rose-600" />
@@ -458,7 +909,6 @@ export function AdminResultsView({
             </div>
           </div>
 
-          {/* Unanswered */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-slate-400 mb-1">
               <MinusCircle className="h-4 w-4 text-slate-400" />
@@ -469,7 +919,6 @@ export function AdminResultsView({
             </div>
           </div>
 
-          {/* Questions */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center gap-2 text-slate-400 mb-1">
               <Layers className="h-4 w-4 text-purple-600" />
@@ -480,7 +929,6 @@ export function AdminResultsView({
             </div>
           </div>
 
-          {/* Marking Pill */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs flex flex-col justify-center">
             <div className="text-xs font-bold text-emerald-700">
               +{test.marksPerQuestion || 4} Correct
@@ -545,7 +993,7 @@ export function AdminResultsView({
           </div>
         </div>
 
-        {/* Question-by-Question Review Card (Matching Image 5) */}
+        {/* Question-by-Question Review Card */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
           <h2 className="font-display text-sm sm:text-base font-bold text-slate-900">
             Question-by-Question Review ({reviewQuestions.length} Questions)
@@ -563,7 +1011,7 @@ export function AdminResultsView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {reviewQuestions.map((item) => (
+                {reviewQuestions.map((item, idx) => (
                   <tr key={item.q.questionId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3 px-4 text-center">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-blue-700 font-semibold text-xs">
@@ -593,13 +1041,7 @@ export function AdminResultsView({
                     <td className="py-3 px-4 text-center">
                       <button
                         type="button"
-                        onClick={() =>
-                          setActiveDetailQuestion({
-                            q: item.q,
-                            candidateOptionId: item.candidateOptionId,
-                            isCorrect: item.isCorrect,
-                          })
-                        }
+                        onClick={() => setActiveQuestionIndex(idx)}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -612,84 +1054,6 @@ export function AdminResultsView({
             </table>
           </div>
         </div>
-
-        {/* Question Detail Modal */}
-        {activeDetailQuestion && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-            <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-display text-base font-bold text-slate-900">
-                  Question Detail
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailQuestion(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Question stem */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <MathText text={activeDetailQuestion.q.questionText} className="text-xs sm:text-sm text-slate-900" />
-              </div>
-
-              {/* Options */}
-              <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-500">Answer Options:</div>
-                {activeDetailQuestion.q.options.map((opt) => {
-                  const isCandidateChoice = opt.id === activeDetailQuestion.candidateOptionId;
-                  const isCorrectChoice = opt.id === activeDetailQuestion.q.correctOptionId;
-
-                  return (
-                    <div
-                      key={opt.id}
-                      className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs ${
-                        isCorrectChoice
-                          ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-medium'
-                          : isCandidateChoice
-                          ? 'border-rose-300 bg-rose-50/70 text-rose-950 font-medium'
-                          : 'border-slate-200 bg-white text-slate-700'
-                      }`}
-                    >
-                      <span className="font-bold shrink-0">{opt.id}.</span>
-                      <MathText text={opt.text} className="flex-1" />
-                      {isCorrectChoice && (
-                        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                          Correct Answer
-                        </span>
-                      )}
-                      {isCandidateChoice && !isCorrectChoice && (
-                        <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
-                          Candidate Choice
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Solution / Explanation if present */}
-              {activeDetailQuestion.q.shortExplanation && (
-                <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-xs text-blue-950">
-                  <div className="font-bold text-blue-900 mb-1">Explanation:</div>
-                  <MathText text={activeDetailQuestion.q.shortExplanation} />
-                </div>
-              )}
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailQuestion(null)}
-                  className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-900 cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -805,7 +1169,6 @@ export function AdminResultsView({
 
       {/* 4 Stat Cards Row (Matching Images 3 & 4) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Total Attempts */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
           <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <User className="h-5 w-5" />
@@ -818,7 +1181,6 @@ export function AdminResultsView({
           </div>
         </div>
 
-        {/* Completed */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
           <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <CheckCircle2 className="h-5 w-5" />
@@ -831,7 +1193,6 @@ export function AdminResultsView({
           </div>
         </div>
 
-        {/* In Progress */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
           <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <RotateCw className="h-5 w-5 text-blue-600" />
@@ -844,7 +1205,6 @@ export function AdminResultsView({
           </div>
         </div>
 
-        {/* Average Score */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
           <div className="h-11 w-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
             <BarChart3 className="h-5 w-5" />
@@ -860,7 +1220,6 @@ export function AdminResultsView({
 
       {/* Filter Row & Export (Matching Images 3 & 4) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -873,7 +1232,6 @@ export function AdminResultsView({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Status Dropdown */}
           <div className="relative">
             <select
               value={statusFilter}
@@ -887,7 +1245,6 @@ export function AdminResultsView({
             </select>
           </div>
 
-          {/* Export Results button */}
           {activeAttemptsList.length > 0 && (
             <button
               type="button"
@@ -908,7 +1265,6 @@ export function AdminResultsView({
         ) : filteredAttempts.length === 0 ? (
           /* Empty State (Matching Image 3) */
           <div>
-            {/* Table Header to preserve structure as seen in Image 3 */}
             <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-3 text-xs font-semibold text-slate-500 grid grid-cols-7">
               <span>Candidate</span>
               <span className="text-center">Attempt</span>
@@ -965,7 +1321,6 @@ export function AdminResultsView({
 
                     return (
                       <tr key={attempt.attemptId} className="hover:bg-slate-50/60 transition-colors">
-                        {/* Candidate Name & Avatar */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
@@ -982,22 +1337,18 @@ export function AdminResultsView({
                           </div>
                         </td>
 
-                        {/* Attempt */}
                         <td className="py-3.5 px-4 text-center font-medium text-slate-700 tabular-nums">
                           1
                         </td>
 
-                        {/* Score */}
                         <td className="py-3.5 px-4 text-center font-semibold text-slate-800 tabular-nums">
                           {isCompleted ? `${attempt.score} / ${attempt.maxScore}` : '—'}
                         </td>
 
-                        {/* Percentage */}
                         <td className="py-3.5 px-4 text-center font-bold text-blue-700 tabular-nums">
                           {isCompleted ? `${pct.toFixed(1)}%` : '—'}
                         </td>
 
-                        {/* Status */}
                         <td className="py-3.5 px-4 text-center whitespace-nowrap">
                           {isCompleted ? (
                             isPassed ? (
@@ -1016,12 +1367,10 @@ export function AdminResultsView({
                           )}
                         </td>
 
-                        {/* Submitted */}
                         <td className="py-3.5 px-4 text-center text-slate-600 whitespace-nowrap">
                           {attempt.submittedAtIso ? formatDisplayDate(attempt.submittedAtIso) : '—'}
                         </td>
 
-                        {/* Actions */}
                         <td className="py-3.5 px-4 text-center">
                           <button
                             type="button"
@@ -1039,7 +1388,6 @@ export function AdminResultsView({
               </table>
             </div>
 
-            {/* Pagination / Count Footer */}
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
               <div>
                 Showing 1–{filteredAttempts.length} of {activeAttemptsList.length} candidates

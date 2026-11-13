@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { MathText } from './MathText';
 import {
+  generateDiagramWithAI,
   generateQuestionsWithAI,
   generateSolutionWithAI,
   importQuestionsFromJson,
@@ -142,6 +143,7 @@ export function AdminQuestionStudio({
   const [savingQ, setSavingQ] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<'question' | OptionId | null>(null);
   const [generatingWithAi, setGeneratingWithAi] = useState(false);
+  const [generatingDiagram, setGeneratingDiagram] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -479,6 +481,30 @@ export function AdminQuestionStudio({
     }
   };
 
+  const handleGenerateDiagramWithAi = async (target: 'question' | OptionId = 'question') => {
+    const prompt = window.prompt(
+      'Enter diagram prompt for Gemini (e.g. "Wheatstone bridge circuit with 4 resistors and galvanometer", "Inclined plane with 2kg block at 30 degrees", "Optics ray diagram with convex lens"):',
+      questionText.slice(0, 160) || 'Physics circuit diagram'
+    );
+    if (!prompt) return;
+    setGeneratingDiagram(true);
+    setErrorMsg(null);
+    try {
+      const res = await generateDiagramWithAI({ prompt, topic: currentSection?.name || 'Physics' });
+      if (target === 'question') {
+        setQuestionImageUrl(res.dataUrl);
+      } else {
+        setOptions((prev) =>
+          prev.map((o) => (o.id === target ? { ...o, imageUrl: res.dataUrl } : o))
+        );
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to generate diagram with Gemini.');
+    } finally {
+      setGeneratingDiagram(false);
+    }
+  };
+
   // Image Upload helper
   const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
     setUploadingTarget(target);
@@ -798,6 +824,16 @@ export function AdminQuestionStudio({
                     <span>{uploadingTarget === 'question' ? 'Uploading…' : 'Upload Image'}</span>
                   </button>
 
+                  <button
+                    type="button"
+                    disabled={generatingDiagram}
+                    onClick={() => handleGenerateDiagramWithAi('question')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50 text-xs font-bold text-purple-700 hover:bg-purple-100 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>{generatingDiagram ? 'Drawing diagram…' : 'Generate Diagram with Gemini'}</span>
+                  </button>
+
                   {questionImageUrl && (
                     <button
                       type="button"
@@ -1104,9 +1140,9 @@ export function AdminQuestionStudio({
           </button>
 
           <div>
-            <h2 className="font-display text-xl font-bold text-slate-900">Import questions from JSON</h2>
+            <h2 className="font-display text-xl font-bold text-slate-900">Import questions from JSON or Markdown</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Upload a .json file or paste JSON to create questions. We'll parse the content and show a preview for your review before adding to this section.
+              Upload a .json, .md, or .txt file, or paste your questions in JSON or Markdown format. We'll parse the content and show a live preview for your review before adding to this section.
             </p>
           </div>
 
@@ -1115,13 +1151,13 @@ export function AdminQuestionStudio({
             {/* Drag & Drop File */}
             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
               <Upload className="h-8 w-8 text-blue-600 mb-2" />
-              <p className="text-xs font-bold text-slate-800">Drag and drop your .json file here</p>
+              <p className="text-xs font-bold text-slate-800">Drag and drop your .json or .md file here</p>
               <p className="text-[11px] text-slate-500 mt-0.5">or choose a file from your computer</p>
 
               <input
                 ref={jsonFileInputRef}
                 type="file"
-                accept=".json"
+                accept=".json,.md,.txt,.markdown"
                 className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -1139,17 +1175,17 @@ export function AdminQuestionStudio({
               >
                 Browse files
               </button>
-              <span className="text-[10px] text-slate-400 mt-2">Only .json files are supported.</span>
+              <span className="text-[10px] text-slate-400 mt-2">Supports .json, .md, and .txt files.</span>
             </div>
 
-            {/* Paste JSON */}
+            {/* Paste JSON / Markdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">Paste / Edit JSON</label>
+              <label className="block text-xs font-semibold text-slate-700">Paste / Edit JSON or Markdown</label>
               <textarea
                 rows={8}
                 value={jsonInputText}
                 onChange={(e) => setJsonInputText(e.target.value)}
-                placeholder="Paste your JSON here..."
+                placeholder="Paste your JSON or Markdown notes here... (e.g. ## Question 1, A) 6 N, B) 5 N... or JSON format)"
                 className="w-full rounded-2xl border border-slate-200/80 bg-white p-3.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
               />
             </div>

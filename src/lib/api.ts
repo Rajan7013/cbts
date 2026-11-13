@@ -143,6 +143,13 @@ export async function generateSolutionWithAI(params: {
   return postJson('/api/ai/generate-solution', params);
 }
 
+export async function generateDiagramWithAI(params: {
+  prompt: string;
+  topic?: string;
+}): Promise<{ svg: string; dataUrl: string }> {
+  return postJson('/api/ai/generate-diagram', params);
+}
+
 export async function importQuestionsFromJson(params: {
   jsonTextOrData: string;
   sectionName: string;

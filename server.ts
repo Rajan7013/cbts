@@ -1510,6 +1510,51 @@ Your task:
     }
   });
 
+  app.post('/api/ai/generate-diagram', async (req: Request, res: Response) => {
+    try {
+      const { prompt, topic = 'Scientific Diagram' } = req.body as {
+        prompt?: string;
+        topic?: string;
+      };
+
+      if (!prompt?.trim()) {
+        res.status(400).json({ error: 'Please provide a diagram description or topic.' });
+        return;
+      }
+
+      const ai = getAiClient();
+      const diagramPrompt = `You are an expert technical illustrator for academic STEM assessments.
+Create a clean, beautiful, self-contained SVG diagram for:
+"${prompt.trim()}" (Topic: ${topic}).
+
+Requirements:
+1. Return ONLY raw valid XML/SVG code starting with <svg and ending with </svg>.
+2. Set viewBox="0 0 600 350" with width="100%" height="100%".
+3. Use clean modern styling, crisp dark lines (#1e293b), light backgrounds, labels, arrows, and scientific symbols suitable for test questions.
+4. No markdown ticks, no html wrappers, only pure SVG.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: diagramPrompt,
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
+      });
+
+      let svgText = response.text?.trim() || '';
+      svgText = svgText.replace(/^```(svg|xml)?/i, '').replace(/```$/, '').trim();
+      if (!svgText.includes('<svg')) {
+        res.status(500).json({ error: 'Failed to generate valid SVG diagram.' });
+        return;
+      }
+
+      const svgDataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+      res.json({ svg: svgText, dataUrl: svgDataUrl });
+    } catch (err) {
+      sendAiError(res, err);
+    }
+  });
+
   app.post('/api/ai/import-json', async (req: Request, res: Response) => {
     try {
       const {
@@ -1538,11 +1583,37 @@ Your task:
         }
         try {
           parsedJson = JSON.parse(trimmed);
-        } catch (parseErr) {
-          res.status(400).json({
-            error: `Invalid JSON syntax: ${extractErrorMessage(parseErr)}`,
-          });
-          return;
+        } catch {
+          // If JSON parse fails, attempt to extract questions from raw markdown/text via Gemini
+          try {
+            const ai = getAiClient();
+            const mdPrompt = `You are an expert assessment parser for CBT exams.
+Extract all multiple-choice questions from the following text or markdown notes into a clean JSON object with a "questions" array.
+Each question in the array must strictly have:
+- "questionText": string (clear question stem, preserving any Markdown or LaTeX math formulas)
+- "options": array of 4 objects [{ "id": "A", "text": "..." }, { "id": "B", "text": "..." }, { "id": "C", "text": "..." }, { "id": "D", "text": "..." }]
+- "correctOptionId": "A" | "B" | "C" | "D"
+- "shortExplanation": string
+- "stepByStepSolution": array of strings
+
+Input notes/markdown:
+${trimmed}`;
+            const mdResponse = await ai.models.generateContent({
+              model: 'gemini-4-hydrogen',
+              contents: mdPrompt,
+              config: {
+                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+                responseMimeType: 'application/json',
+              },
+            });
+            const textOut = mdResponse.text?.trim() || '{}';
+            parsedJson = JSON.parse(textOut);
+          } catch (aiErr) {
+            res.status(400).json({
+              error: `Invalid JSON syntax or Markdown question structure: ${extractErrorMessage(aiErr)}`,
+            });
+            return;
+          }
         }
       } else {
         parsedJson = jsonTextOrData;
