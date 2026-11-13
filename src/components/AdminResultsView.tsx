@@ -159,75 +159,87 @@ export function AdminResultsView({
             </div>
 
             {/* Desktop Results Table */}
-            <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
               <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
-                  <tr>
-                    <th className="px-5 py-3.5">Candidate</th>
-                    <th className="px-4 py-3.5 text-right">Score</th>
-                    <th className="px-4 py-3.5 text-right">Accuracy</th>
-                    <th className="px-4 py-3.5 text-right">Time Taken</th>
-                    <th className="px-4 py-3.5 text-right">Strikes</th>
-                    <th className="px-4 py-3.5">Submission Status</th>
-                    <th className="px-5 py-3.5 text-right">Audit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {attempts.map((att) => (
-                    <tr key={att.attemptId} className="hover:bg-slate-50/70">
-                      <td className="px-5 py-3.5">
-                        <div className="font-semibold text-slate-900">{att.userName}</div>
-                        <div className="text-xs text-slate-500">{att.userEmail}</div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold text-slate-900 tabular-nums">
-                        {att.status === 'in_progress' ? '—' : `${att.score} / ${att.maxScore}`}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-700 tabular-nums">
-                        {att.status === 'in_progress' ? '—' : `${att.accuracy}%`}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-xs text-slate-700 tabular-nums">
-                        {formatDuration(att.timeTakenSeconds)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums">
-                        <span
-                          className={
-                            att.strikeCount > 0 ? 'text-amber-700' : 'text-slate-600'
-                          }
-                        >
-                          {att.strikeCount} / {test.maxStrikes || '∞'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-xs font-semibold whitespace-nowrap">
-                        {att.status === 'submitted' ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Submitted
-                          </span>
-                        ) : att.status === 'auto_submitted_strike' ? (
-                          <span className="inline-flex items-center gap-1 text-red-700">
-                            <ShieldAlert className="h-3.5 w-3.5" /> Auto-Submitted (Strikes)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-blue-700">
-                            <Clock className="h-3.5 w-3.5" /> In Progress
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAttempt(att)}
-                          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer whitespace-nowrap"
-                        >
-                          View Strike Log
-                        </button>
-                      </td>
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
+                    <tr>
+                      <th className="px-5 py-3.5">Candidate</th>
+                      <th className="px-4 py-3.5 text-center">Score</th>
+                      <th className="px-4 py-3.5 text-center">Accuracy</th>
+                      <th className="px-4 py-3.5 text-center">Time Taken</th>
+                      <th className="px-4 py-3.5 text-center">Strikes</th>
+                      <th className="px-4 py-3.5 text-center">Status</th>
+                      <th className="px-5 py-3.5 text-center">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {attempts.map((att) => (
+                      <tr key={att.attemptId} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="font-semibold text-slate-900">{att.userName}</div>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">{att.userEmail}</div>
+                        </td>
+                        <td className="px-4 py-4 text-center font-mono text-xs font-semibold text-slate-900 tabular-nums">
+                          {att.status === 'in_progress' ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span className="rounded-md bg-blue-50 text-blue-700 px-2 py-1 border border-blue-100 font-bold">
+                              {att.score} / {att.maxScore}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center font-mono text-xs text-slate-700 tabular-nums">
+                          {att.status === 'in_progress' ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span className="font-semibold">{att.accuracy}%</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center font-mono text-xs text-slate-700 tabular-nums">
+                          {formatDuration(att.timeTakenSeconds)}
+                        </td>
+                        <td className="px-4 py-4 text-center font-mono text-xs font-semibold tabular-nums">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                              att.strikeCount > 0
+                                ? 'bg-amber-100 text-amber-800 font-bold'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {att.strikeCount} / {test.maxStrikes || '∞'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center text-xs font-semibold whitespace-nowrap">
+                          {att.status === 'submitted' ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Submitted
+                            </span>
+                          ) : att.status === 'auto_submitted_strike' ? (
+                            <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2.5 py-1 rounded-full border border-red-200">
+                              <ShieldAlert className="h-3.5 w-3.5" /> Auto-Submitted
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                              <Clock className="h-3.5 w-3.5" /> In Progress
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAttempt(att)}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
+                          >
+                            View Strike Log
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
           </>
         )}
       </div>
