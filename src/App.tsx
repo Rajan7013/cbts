@@ -625,5 +625,4 @@ export default function App() {
       )}
     </AppSidebarLayout>
   );
-  );
 }
