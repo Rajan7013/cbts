@@ -32,6 +32,7 @@ import {
   type SaveQuestionOptions,
 } from './lib/dataService';
 import { TopBar } from './components/TopBar';
+import { AppSidebarLayout } from './components/AppSidebar';
 import { LandingScreen } from './components/LandingScreen';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminTestBuilder } from './components/AdminTestBuilder';
@@ -111,6 +112,9 @@ export default function App() {
 
   useEffect(() => {
     testFirestoreConnection();
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
 
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
@@ -142,8 +146,8 @@ export default function App() {
           setUser(profile);
           const defaultMode = profile.role === 'admin' ? 'admin' : 'user';
           setPortalMode(defaultMode);
-          // Keep screen at landing if user navigated to landing, or go to candidate dashboard by default
-          setScreen((prev) => (prev === 'landing' ? 'landing' : defaultMode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard'));
+          // Authenticated users go directly to their dedicated dashboard
+          setScreen(defaultMode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard');
         } catch (err) {
           setAuthError(err instanceof Error ? err.message : 'Failed to sync user profile.');
         }
@@ -398,30 +402,91 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden">
-      {screen !== 'exam-runner' && (
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 overflow-x-hidden">
         <TopBar
-          user={user}
+          user={null}
           activeScreen={screen}
           portalMode={portalMode}
           authLoading={authLoading}
           recentAccounts={recentAccounts}
-          onNavigate={(next) => {
-            if (next.startsWith('admin') && user?.role !== 'admin') return;
-            setScreen(next);
-          }}
-          onSwitchPortal={(mode) => {
-            if (mode === 'admin' && user?.role !== 'admin') return;
-            setPortalMode(mode);
-          }}
+          onNavigate={(next) => setScreen(next)}
+          onSwitchPortal={(mode) => setPortalMode(mode)}
           onSignInGoogle={handleSignInGoogle}
           onForgetRecentAccount={handleForgetRecentAccount}
           onSignOut={handleSignOut}
         />
-      )}
 
-      {globalError && screen !== 'exam-runner' && (
+        {globalError && (
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+              <span className="min-w-0 flex-1">{globalError}</span>
+              <button
+                type="button"
+                onClick={() => setGlobalError(null)}
+                className="font-semibold underline shrink-0 cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        <LandingScreen
+          user={null}
+          authLoading={authLoading}
+          authError={authError}
+          recentAccounts={recentAccounts}
+          onSignInGoogle={handleSignInGoogle}
+          onForgetRecentAccount={handleForgetRecentAccount}
+          onContinueToPortal={() => {}}
+          onEnterDemo={handleEnterDemo}
+        />
+      </div>
+    );
+  }
+
+  if (screen === 'exam-runner' && selectedTest && activeAttempt) {
+    return (
+      <LiveExamRunner
+        test={selectedTest}
+        questions={sanitizedQuestions}
+        initialAttempt={activeAttempt}
+        onSyncProgress={(att) => syncAttemptProgress(user, att)}
+        onSubmitExam={async (att, status) => {
+          const { attempt: finalized, unlockedQuestions } = await finalizeAttempt(
+            user,
+            selectedTest,
+            sanitizedQuestions,
+            att,
+            status
+          );
+          setActiveAttempt(finalized);
+          setUnlockedResultQuestions(unlockedQuestions);
+          setScreen('exam-results');
+        }}
+      />
+    );
+  }
+
+  return (
+    <AppSidebarLayout
+      user={user}
+      activeScreen={screen}
+      portalMode={portalMode}
+      onNavigate={(next) => {
+        if (next.startsWith('admin') && user.role !== 'admin') return;
+        setScreen(next);
+      }}
+      onSwitchPortal={(mode) => {
+        if (mode === 'admin' && user.role !== 'admin') return;
+        setPortalMode(mode);
+        setScreen(mode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard');
+      }}
+      onSignOut={handleSignOut}
+    >
+      {globalError && (
         <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
             <span className="min-w-0 flex-1">{globalError}</span>
@@ -436,27 +501,7 @@ export default function App() {
         </div>
       )}
 
-      {screen === 'landing' && (
-        <LandingScreen
-          user={user}
-          authLoading={authLoading}
-          authError={authError}
-          recentAccounts={recentAccounts}
-          onSignInGoogle={handleSignInGoogle}
-          onForgetRecentAccount={handleForgetRecentAccount}
-          onContinueToPortal={() => {
-            if (!user) return;
-            const target =
-              user.role === 'admin' && portalMode === 'admin'
-                ? 'admin-dashboard'
-                : 'candidate-dashboard';
-            setScreen(target);
-          }}
-          onEnterDemo={handleEnterDemo}
-        />
-      )}
-
-      {user && user.role === 'admin' && screen === 'admin-dashboard' && (
+      {user.role === 'admin' && screen === 'admin-dashboard' && (
         <AdminDashboard
           tests={tests}
           loading={loadingData}
@@ -477,7 +522,7 @@ export default function App() {
         />
       )}
 
-      {user && user.role === 'admin' && screen === 'admin-test-builder' && (
+      {user.role === 'admin' && screen === 'admin-test-builder' && (
         <AdminTestBuilder
           initialTest={selectedTest}
           createdByUid={user.uid}
@@ -486,7 +531,7 @@ export default function App() {
         />
       )}
 
-      {user && user.role === 'admin' && screen === 'admin-question-studio' && selectedTest && (
+      {user.role === 'admin' && screen === 'admin-question-studio' && selectedTest && (
         <AdminQuestionStudio
           test={selectedTest}
           questions={adminQuestions}
@@ -527,7 +572,7 @@ export default function App() {
         />
       )}
 
-      {user && user.role === 'admin' && screen === 'admin-results' && selectedTest && (
+      {user.role === 'admin' && screen === 'admin-results' && selectedTest && (
         <AdminResultsView
           test={selectedTest}
           attempts={adminTestAttempts}
@@ -536,7 +581,7 @@ export default function App() {
         />
       )}
 
-      {user && screen === 'candidate-dashboard' && (
+      {screen === 'candidate-dashboard' && (
         <CandidateDashboard
           tests={tests}
           attempts={attempts}
@@ -546,7 +591,7 @@ export default function App() {
         />
       )}
 
-      {user && screen === 'exam-briefing' && selectedTest && (
+      {screen === 'exam-briefing' && selectedTest && (
         <ExamBriefingScreen
           test={selectedTest}
           resumingAttempt={activeAttempt || undefined}
@@ -555,28 +600,7 @@ export default function App() {
         />
       )}
 
-      {user && screen === 'exam-runner' && selectedTest && activeAttempt && (
-        <LiveExamRunner
-          test={selectedTest}
-          questions={sanitizedQuestions}
-          initialAttempt={activeAttempt}
-          onSyncProgress={(att) => syncAttemptProgress(user, att)}
-          onSubmitExam={async (att, status) => {
-            const { attempt: finalized, unlockedQuestions } = await finalizeAttempt(
-              user,
-              selectedTest,
-              sanitizedQuestions,
-              att,
-              status
-            );
-            setActiveAttempt(finalized);
-            setUnlockedResultQuestions(unlockedQuestions);
-            setScreen('exam-results');
-          }}
-        />
-      )}
-
-      {user && screen === 'exam-results' && selectedTest && activeAttempt && (
+      {screen === 'exam-results' && selectedTest && activeAttempt && (
         <ExamResultsScreen
           test={selectedTest}
           questions={unlockedResultQuestions}
@@ -585,7 +609,7 @@ export default function App() {
         />
       )}
 
-      {user && user.role === 'admin' && dashboardPreview && (
+      {user.role === 'admin' && dashboardPreview && (
         <QuestionPreviewModal
           test={dashboardPreview.test}
           questions={dashboardPreview.questions}
@@ -599,6 +623,7 @@ export default function App() {
           }}
         />
       )}
-    </div>
+    </AppSidebarLayout>
+  );
   );
 }

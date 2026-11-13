@@ -89,7 +89,6 @@ export function LandingScreen({
                       <button
                         type="button"
                         onClick={() => {
-                          window.location.hash = '#admin';
                           onContinueToPortal();
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition-colors whitespace-nowrap cursor-pointer"
