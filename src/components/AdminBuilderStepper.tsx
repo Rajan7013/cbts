@@ -16,17 +16,15 @@ export function AdminBuilderStepper({
   onSelectStep,
 }: AdminBuilderStepperProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-xs">
-      <div className="flex items-center min-w-0">
-        <button
-          type="button"
-          onClick={onBackToDashboard}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to Tests</span>
-        </button>
-      </div>
+    <div className="flex items-center justify-between gap-4">
+      <button
+        type="button"
+        onClick={onBackToDashboard}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        <span>Back to Tests</span>
+      </button>
 
       <nav
         aria-label="Test creation steps"
@@ -38,7 +36,7 @@ export function AdminBuilderStepper({
           className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeStep === 1
               ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 border border-transparent'
+              : 'border border-slate-200/80 bg-white text-slate-600 hover:text-slate-900 shadow-xs'
           }`}
         >
           <Sliders className="h-3.5 w-3.5" />
@@ -55,7 +53,7 @@ export function AdminBuilderStepper({
           className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeStep === 2
               ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 border border-transparent'
+              : 'border border-slate-200/80 bg-white text-slate-600 hover:text-slate-900 shadow-xs'
           }`}
         >
           <FileQuestion className="h-3.5 w-3.5" />
