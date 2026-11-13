@@ -285,8 +285,8 @@ export function AdminDashboard({
                     <th className="px-4 py-3.5">Window</th>
                     <th className="px-4 py-3.5 text-right">Duration</th>
                     <th className="px-4 py-3.5 text-right">Questions</th>
-                    <th className="px-4 py-3.5">Status</th>
-                    <th className="px-5 py-3.5 text-right">Actions</th>
+                    <th className="px-4 py-3.5 text-center">Status</th>
+                    <th className="px-5 py-3.5 text-center w-64">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -294,14 +294,14 @@ export function AdminDashboard({
                     const sched = getScheduleLabel(test);
                     return (
                       <tr key={test.testId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-5 py-4 max-w-[240px]">
+                        <td className="px-5 py-4 min-w-[200px]">
                           <div
-                            className="font-semibold text-slate-900 truncate"
+                            className="font-semibold text-slate-900 truncate max-w-xs"
                             title={test.title}
                           >
                             {test.title}
                           </div>
-                          <div className="mt-1 text-xs text-slate-500 truncate" title={test.sections.map((s) => `${s.name} (${s.questionCount})`).join(' · ')}>
+                          <div className="mt-1 text-xs text-slate-500 truncate max-w-xs" title={test.sections.map((s) => `${s.name} (${s.questionCount})`).join(' · ')}>
                             {test.sections.map((s) => `${s.name} (${s.questionCount})`).join(' · ')}
                           </div>
                         </td>
@@ -319,7 +319,7 @@ export function AdminDashboard({
                             ? `${test.questionCountAdded} / ${test.totalQuestions}`
                             : `${test.totalQuestions} Qs`}
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-xs font-semibold">
+                        <td className="px-4 py-4 whitespace-nowrap text-xs font-semibold text-center">
                           {sched === 'Live Window' ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -339,8 +339,8 @@ export function AdminDashboard({
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="inline-flex items-center justify-end gap-1.5">
+                        <td className="px-5 py-4 text-center">
+                          <div className="inline-flex items-center justify-center gap-1.5 mx-auto">
                             <button
                               type="button"
                               onClick={() => onPreviewQuestions(test)}
