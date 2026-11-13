@@ -197,63 +197,80 @@ export function AdminDashboard({
                       {new Date(test.endTime).toLocaleDateString()}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100">
                       <button
                         type="button"
                         onClick={() => onPreviewQuestions(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        title="Preview Exam"
+                        className="relative group p-2 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 bg-white transition-colors cursor-pointer"
                       >
-                        <Eye className="h-3.5 w-3.5 text-indigo-700" />
-                        <span>Preview</span>
+                        <Eye className="h-4 w-4" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          Preview
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onManageQuestions(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        title="Questions & AI Studio"
+                        className="relative group p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 bg-white transition-colors cursor-pointer"
                       >
-                        <FileQuestion className="h-3.5 w-3.5 text-blue-700" />
-                        <span>Questions</span>
+                        <FileQuestion className="h-4 w-4" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          Questions
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onEditSettings(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        title="Test Rules & Settings"
+                        className="relative group p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 bg-white transition-colors cursor-pointer"
                       >
-                        <Settings className="h-3.5 w-3.5" />
-                        <span>Rules</span>
+                        <Settings className="h-4 w-4" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          Settings
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onViewResults(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        title="Candidate Results"
+                        className="relative group p-2 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200 bg-white transition-colors cursor-pointer"
                       >
-                        <BarChart3 className="h-3.5 w-3.5 text-emerald-700" />
-                        <span>Results</span>
+                        <BarChart3 className="h-4 w-4" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          Results
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onTogglePublish(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        title={test.status === 'published' ? 'Unpublish Test' : 'Publish Test'}
+                        className={`relative group p-2 rounded-lg border transition-colors cursor-pointer ${
+                          test.status === 'published'
+                            ? 'text-amber-700 hover:bg-amber-50 border-amber-200 bg-amber-50/50'
+                            : 'text-emerald-700 hover:bg-emerald-50 border-emerald-200 bg-emerald-50/50'
+                        }`}
                       >
                         {test.status === 'published' ? (
-                          <>
-                            <Lock className="h-3.5 w-3.5 text-amber-700" />
-                            <span>Unpublish</span>
-                          </>
+                          <Lock className="h-4 w-4" />
                         ) : (
-                          <>
-                            <Globe className="h-3.5 w-3.5 text-emerald-700" />
-                            <span>Publish</span>
-                          </>
+                          <Globe className="h-4 w-4" />
                         )}
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          {test.status === 'published' ? 'Unpublish' : 'Publish'}
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => onDeleteTest(test)}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50/40 px-2.5 py-2 text-xs font-medium text-red-700 hover:bg-red-50 cursor-pointer"
+                        title="Delete Test"
+                        className="relative group p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 bg-white transition-colors cursor-pointer"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Delete</span>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-red-700 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm z-20">
+                          Delete
+                        </span>
                       </button>
                     </div>
                   </div>
