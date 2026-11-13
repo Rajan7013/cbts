@@ -412,26 +412,37 @@ export async function listQuestionsAdmin(
       const data = d.data() as Record<string, unknown>;
       const qId = String(data.questionId || d.id);
       const key = keyMap[qId] || {};
+      const qText = String(data.questionText || data.stem || '');
+      const qImg = data.questionImageUrl ? String(data.questionImageUrl) : data.imageUrl ? String(data.imageUrl) : undefined;
+      const qShort = String(key.shortExplanation ?? data.shortExplanation ?? '');
+      const qSteps = Array.isArray(key.stepByStepSolution)
+        ? (key.stepByStepSolution as string[])
+        : Array.isArray(data.stepByStepSolution)
+        ? (data.stepByStepSolution as string[])
+        : [];
       return {
         questionId: qId,
         testId: String(data.testId || testId),
         testStatus: data.testStatus === 'published' ? 'published' : 'draft',
         sectionId: String(data.sectionId || ''),
-        orderIndex: Number(data.orderIndex || 0),
-        questionText: String(data.questionText || ''),
-        questionImageUrl: data.questionImageUrl ? String(data.questionImageUrl) : undefined,
+        orderIndex: Number(data.orderIndex ?? data.order ?? 0),
+        questionText: qText,
+        questionImageUrl: qImg,
         options: Array.isArray(data.options) ? (data.options as TestQuestion['options']) : [],
         marks: Number(data.marks ?? 4),
         correctOptionId:
           (key.correctOptionId as TestQuestion['correctOptionId']) ||
           (data.correctOptionId as TestQuestion['correctOptionId']) ||
           'A',
-        shortExplanation: String(key.shortExplanation ?? data.shortExplanation ?? ''),
-        stepByStepSolution: Array.isArray(key.stepByStepSolution)
-          ? (key.stepByStepSolution as string[])
-          : Array.isArray(data.stepByStepSolution)
-          ? (data.stepByStepSolution as string[])
-          : [],
+        shortExplanation: qShort,
+        stepByStepSolution: qSteps,
+        stem: qText,
+        imageUrl: qImg,
+        order: Number(data.orderIndex ?? data.order ?? 0),
+        solution: {
+          shortExplanation: qShort,
+          steps: qSteps,
+        },
       };
     });
 
@@ -483,14 +494,17 @@ export async function recordQuestionVersion(
   const versionId = generateId('ver');
   const vPath = `tests/${question.testId}/questions/${question.questionId}/versions/${versionId}`;
   const cleanOptions = normalizeFourOptions(question.options);
+  const rawText = String(question.questionText || question.stem || '');
+  const rawImg = String(question.questionImageUrl || question.imageUrl || '');
   const safeQuestionText = (
-    question.questionText.trim() ||
-    (question.questionImageUrl?.trim() ? 'Refer to the diagram below.' : 'Question')
+    rawText.trim() ||
+    (rawImg.trim() ? 'Refer to the diagram below.' : 'Question')
   ).slice(0, 3000);
   const safeSectionId = (question.sectionId || 'default').slice(0, 128);
   const safeSummary = (summary.trim() || 'Saved revision').slice(0, 200);
-  const safeShort = (question.shortExplanation || '').slice(0, 1000);
-  const safeSteps = (question.stepByStepSolution || [])
+  const safeShort = String(question.shortExplanation || question.solution?.shortExplanation || '').slice(0, 1000);
+  const rawSteps = question.stepByStepSolution || question.solution?.steps || [];
+  const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
     .slice(0, 20)
     .map((s) => String(s).slice(0, 800));
   const safeMarks = Math.min(Math.max(Number(question.marks) || 4, 0.25), 100);
@@ -515,8 +529,8 @@ export async function recordQuestionVersion(
       createdBy: user.uid,
       createdAt: serverTimestamp(),
     };
-    if (question.questionImageUrl?.trim()) {
-      payload.questionImageUrl = question.questionImageUrl.trim().slice(0, 1000);
+    if (rawImg.trim()) {
+      payload.questionImageUrl = rawImg.trim().slice(0, 1000);
     }
 
     await setDoc(
@@ -653,22 +667,32 @@ export async function saveQuestion(
       return opt;
     });
 
+    const rawQuestionText = String(question.questionText || question.stem || '');
+    const rawQuestionImageUrl = String(question.questionImageUrl || question.imageUrl || '');
     const safeQuestionText =
-      question.questionText.trim() ||
-      (question.questionImageUrl?.trim() ? 'Refer to the diagram below.' : 'Question');
+      rawQuestionText.trim() ||
+      (rawQuestionImageUrl.trim() ? 'Refer to the diagram below.' : 'Question');
+
+    const safeShortExplanation = String(
+      question.shortExplanation || question.solution?.shortExplanation || ''
+    ).slice(0, 1000);
+    const rawSteps = question.stepByStepSolution || question.solution?.steps || [];
+    const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
+      .slice(0, 20)
+      .map((s) => String(s).slice(0, 800));
 
     // Sanitized question payload — ZERO answers or solutions stored here
     const sanitizedPayload: Record<string, unknown> = {
-      testStatus: question.testStatus,
-      sectionId: question.sectionId.slice(0, 128),
-      orderIndex: Number(question.orderIndex) || 0,
+      testStatus: question.testStatus || 'draft',
+      sectionId: String(question.sectionId || 'default').slice(0, 128),
+      orderIndex: Number(question.orderIndex ?? question.order ?? 0) || 0,
       questionText: safeQuestionText.slice(0, 3000),
       options: cleanOptions,
       marks: Math.min(Math.max(Number(question.marks) || 4, 0.25), 100),
       updatedAt: serverTimestamp(),
     };
-    if (question.questionImageUrl?.trim()) {
-      sanitizedPayload.questionImageUrl = question.questionImageUrl.trim().slice(0, 1000);
+    if (rawQuestionImageUrl.trim()) {
+      sanitizedPayload.questionImageUrl = rawQuestionImageUrl.trim().slice(0, 1000);
     } else if (existingSnap.exists() && existingSnap.data()?.questionImageUrl) {
       sanitizedPayload.questionImageUrl = deleteField();
     }
@@ -688,11 +712,9 @@ export async function saveQuestion(
     await setDoc(kRef, {
       questionId: question.questionId,
       testId: question.testId,
-      correctOptionId: question.correctOptionId,
-      shortExplanation: (question.shortExplanation || '').slice(0, 1000),
-      stepByStepSolution: (question.stepByStepSolution || [])
-        .slice(0, 20)
-        .map((s) => String(s).slice(0, 800)),
+      correctOptionId: question.correctOptionId || 'A',
+      shortExplanation: safeShortExplanation,
+      stepByStepSolution: safeSteps,
       updatedAt: serverTimestamp(),
     });
 
@@ -711,14 +733,26 @@ export async function saveQuestion(
     await syncAdminAnswerKeys(token, question.testId, [
       {
         questionId: question.questionId,
-        correctOptionId: question.correctOptionId,
-        shortExplanation: question.shortExplanation,
-        stepByStepSolution: question.stepByStepSolution,
+        correctOptionId: question.correctOptionId || 'A',
+        shortExplanation: safeShortExplanation,
+        stepByStepSolution: safeSteps,
         marks: question.marks,
       },
     ]);
 
-    return question;
+    return {
+      ...question,
+      questionText: safeQuestionText,
+      questionImageUrl: rawQuestionImageUrl.trim() || undefined,
+      shortExplanation: safeShortExplanation,
+      stepByStepSolution: safeSteps,
+      stem: safeQuestionText,
+      imageUrl: rawQuestionImageUrl.trim() || undefined,
+      solution: {
+        shortExplanation: safeShortExplanation,
+        steps: safeSteps,
+      },
+    };
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, qPath);
   }

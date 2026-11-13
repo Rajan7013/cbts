@@ -101,6 +101,23 @@ function formatDateTimeDisplay(iso: string): string {
   }
 }
 
+function formatSafeErrorMessage(err: unknown, fallback: string = 'An error occurred'): string {
+  if (!err) return fallback;
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.startsWith('{') && (msg.includes('"error"') || msg.includes('"authInfo"') || msg.includes('"userId"'))) {
+    try {
+      const parsed = JSON.parse(msg);
+      if (parsed.error && typeof parsed.error === 'string' && !parsed.error.includes('{')) {
+        return parsed.error;
+      }
+    } catch {
+      // fallback
+    }
+    return fallback;
+  }
+  return msg;
+}
+
 type StudioViewMode =
   | 'editor'
   | 'json_import'
@@ -270,19 +287,24 @@ export function AdminQuestionStudio({
   // Load existing question into form
   const loadQuestionIntoEditor = (q: TestQuestion) => {
     setEditingId(q.questionId);
-    setQuestionText(q.stem);
-    setQuestionImageUrl(q.imageUrl || '');
+    setQuestionText(q.questionText || q.stem || '');
+    setQuestionImageUrl(q.questionImageUrl || q.imageUrl || '');
     setOptions(
       OPTION_IDS.map((id) => {
         const found = q.options.find((o) => o.id === id);
         return found ? { ...found } : { id, text: '', imageUrl: '' };
       })
     );
-    setCorrectOptionId(q.correctOptionId);
-    setShortExplanation(q.solution?.shortExplanation || '');
-    setSteps(q.solution?.steps?.length ? [...q.solution.steps] : ['']);
+    setCorrectOptionId(q.correctOptionId || 'A');
+    setShortExplanation(q.shortExplanation || q.solution?.shortExplanation || '');
+    const loadedSteps = q.stepByStepSolution?.length
+      ? q.stepByStepSolution
+      : q.solution?.steps?.length
+      ? q.solution.steps
+      : [''];
+    setSteps(loadedSteps);
     setMarks(q.marks ?? defaultMarks);
-    if (q.solution?.steps?.length) setShowStepsAccordion(true);
+    if (loadedSteps.filter(Boolean).length) setShowStepsAccordion(true);
     setViewMode('editor');
   };
 
@@ -347,23 +369,34 @@ export function AdminQuestionStudio({
     setSavingQ(true);
     try {
       const qId = editingId || generateId('q');
+      const safeText = questionText.trim();
+      const safeImg = questionImageUrl.trim() || undefined;
+      const safeShort = shortExplanation.trim() || 'No explanation provided.';
+      const safeSteps = steps.map((s) => s.trim()).filter(Boolean);
+
       const question: TestQuestion = {
         questionId: qId,
         testId: test.testId,
+        testStatus: test.status || 'draft',
         sectionId: activeSectionId,
-        stem: questionText.trim(),
-        imageUrl: questionImageUrl.trim() || undefined,
+        orderIndex: questions.length + 1,
+        questionText: safeText || (safeImg ? 'Refer to the diagram below.' : 'Question'),
+        questionImageUrl: safeImg,
         options: options.map((o) => ({
           id: o.id,
-          text: o.text.trim(),
+          text: (o.text || '').trim(),
           imageUrl: o.imageUrl?.trim() || undefined,
         })),
         correctOptionId,
-        solution: {
-          shortExplanation: shortExplanation.trim() || 'No explanation provided.',
-          steps: steps.map((s) => s.trim()).filter(Boolean),
-        },
+        shortExplanation: safeShort,
+        stepByStepSolution: safeSteps,
         marks,
+        stem: safeText || (safeImg ? 'Refer to the diagram below.' : 'Question'),
+        imageUrl: safeImg,
+        solution: {
+          shortExplanation: safeShort,
+          steps: safeSteps,
+        },
         order: questions.length + 1,
       };
 
@@ -382,7 +415,7 @@ export function AdminQuestionStudio({
         }
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to save question.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to save question.'));
     } finally {
       setSavingQ(false);
     }
@@ -425,7 +458,7 @@ export function AdminQuestionStudio({
       setStatusMsg('Gemini generated options, correct answer, and solution steps!');
       setTimeout(() => setStatusMsg(null), 4000);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'AI generation failed.');
+      setErrorMsg(formatSafeErrorMessage(err, 'AI generation failed.'));
     } finally {
       setGeneratingWithAi(false);
     }
@@ -451,7 +484,7 @@ export function AdminQuestionStudio({
       setReviewedDraftIndexes({});
       setViewMode('gemini_review');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Bulk AI generation failed.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Bulk AI generation failed.'));
     } finally {
       setGeneratingWithAi(false);
     }
@@ -463,23 +496,31 @@ export function AdminQuestionStudio({
     try {
       for (let i = 0; i < aiDrafts.length; i++) {
         const draft = aiDrafts[i];
+        const draftText = draft.stem || 'Question';
+        const draftShort = draft.solution?.shortExplanation || '';
+        const draftSteps = draft.solution?.steps || [];
         const newQ: TestQuestion = {
           questionId: generateId('q'),
           testId: test.testId,
+          testStatus: test.status || 'draft',
           sectionId: aiTargetSectionId,
-          stem: draft.stem,
+          orderIndex: questions.length + i + 1,
+          questionText: draftText,
           options: draft.options.map((o) => ({
             id: o.id,
-            text: o.text,
+            text: o.text || '',
             imageUrl: o.imageUrl,
           })),
-          correctOptionId: draft.correctOptionId,
-          solution: {
-            shortExplanation: draft.solution?.shortExplanation || '',
-            steps: draft.solution?.steps || [],
-          },
+          correctOptionId: draft.correctOptionId || 'A',
+          shortExplanation: draftShort,
+          stepByStepSolution: draftSteps,
           marks: defaultMarks,
+          stem: draftText,
           order: questions.length + i + 1,
+          solution: {
+            shortExplanation: draftShort,
+            steps: draftSteps,
+          },
         };
         await onSaveQuestion(newQ);
       }
@@ -488,7 +529,7 @@ export function AdminQuestionStudio({
       setStatusMsg(`Successfully added ${aiDrafts.length} questions from Gemini!`);
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to save generated questions.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to save generated questions.'));
     } finally {
       setSavingQ(false);
     }
@@ -513,7 +554,7 @@ export function AdminQuestionStudio({
       setJsonDrafts(parsed);
       setViewMode('json_review');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to parse JSON.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to parse JSON.'));
     } finally {
       setImportingJson(false);
     }
@@ -525,23 +566,31 @@ export function AdminQuestionStudio({
     try {
       for (let i = 0; i < jsonDrafts.length; i++) {
         const draft = jsonDrafts[i];
+        const draftText = draft.stem || 'Question';
+        const draftShort = draft.solution?.shortExplanation || '';
+        const draftSteps = draft.solution?.steps || [];
         const newQ: TestQuestion = {
           questionId: generateId('q'),
           testId: test.testId,
+          testStatus: test.status || 'draft',
           sectionId: activeSectionId,
-          stem: draft.stem,
+          orderIndex: questions.length + i + 1,
+          questionText: draftText,
           options: draft.options.map((o) => ({
             id: o.id,
-            text: o.text,
+            text: o.text || '',
             imageUrl: o.imageUrl,
           })),
-          correctOptionId: draft.correctOptionId,
-          solution: {
-            shortExplanation: draft.solution?.shortExplanation || '',
-            steps: draft.solution?.steps || [],
-          },
+          correctOptionId: draft.correctOptionId || 'A',
+          shortExplanation: draftShort,
+          stepByStepSolution: draftSteps,
           marks: defaultMarks,
+          stem: draftText,
           order: questions.length + i + 1,
+          solution: {
+            shortExplanation: draftShort,
+            steps: draftSteps,
+          },
         };
         await onSaveQuestion(newQ);
       }
@@ -549,7 +598,7 @@ export function AdminQuestionStudio({
       setStatusMsg(`Successfully added ${jsonDrafts.length} questions from JSON!`);
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to save imported questions.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to save imported questions.'));
     } finally {
       setSavingQ(false);
     }
@@ -579,7 +628,7 @@ export function AdminQuestionStudio({
       setShowPublishModal(false);
       setViewMode('published_success');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to publish test.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to publish test.'));
     } finally {
       setPublishing(false);
     }
@@ -603,7 +652,7 @@ export function AdminQuestionStudio({
         );
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to generate diagram with Gemini.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to generate diagram with Gemini.'));
     } finally {
       setGeneratingDiagram(false);
     }
@@ -623,7 +672,7 @@ export function AdminQuestionStudio({
         );
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to upload image.');
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to upload image.'));
     } finally {
       setUploadingTarget(null);
     }

@@ -214,7 +214,17 @@ export function AdminTestBuilder({
       };
       await onSaveAndContinue(test);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save test configuration.');
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      let clean = 'Failed to save test configuration.';
+      if (rawMsg.startsWith('{') && rawMsg.includes('"error"')) {
+        try {
+          const parsed = JSON.parse(rawMsg);
+          clean = parsed.error || clean;
+        } catch {}
+      } else if (!rawMsg.includes('authInfo') && !rawMsg.includes('{')) {
+        clean = rawMsg;
+      }
+      setError(clean);
     } finally {
       setSaving(false);
     }

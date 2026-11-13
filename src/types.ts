@@ -61,6 +61,10 @@ export interface SanitizedQuestion {
   questionImageUrl?: string;
   options: QuestionOption[];
   marks: number;
+  // UI compatibility aliases
+  stem?: string;
+  imageUrl?: string;
+  order?: number;
 }
 
 /**
@@ -71,6 +75,11 @@ export interface TestQuestion extends SanitizedQuestion {
   correctOptionId: OptionId;
   shortExplanation: string;
   stepByStepSolution: string[];
+  // UI compatibility aliases
+  solution?: {
+    shortExplanation?: string;
+    steps?: string[];
+  };
 }
 
 export type QuestionVersionSource =

@@ -183,25 +183,40 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): never {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo:
-        auth.currentUser?.providerData?.map((provider) => ({
-          providerId: provider.providerId,
-          email: provider.email,
-        })) || [],
-    },
+  const rawMsg = error instanceof Error ? error.message : String(error);
+
+  // Safe developer-only console logging with full context for debugging
+  console.error(`[Firestore Error - ${operationType}] at ${path || 'unknown'}:`, rawMsg, {
+    uid: auth.currentUser?.uid,
     operationType,
     path,
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  });
+
+  // Clean, human-friendly user message that NEVER leaks auth tokens, user IDs, emails, or internal database paths
+  let cleanMsg = 'A database operation could not be completed. Please try again.';
+
+  if (rawMsg.includes('permission-denied') || rawMsg.includes('Missing or insufficient permissions')) {
+    cleanMsg = 'Permission denied. You do not have permission to perform this operation.';
+  } else if (rawMsg.includes('unauthenticated')) {
+    cleanMsg = 'Your session has expired. Please sign in again.';
+  } else if (rawMsg.includes('unavailable') || rawMsg.includes('network') || rawMsg.includes('offline')) {
+    cleanMsg = 'Network connection issue. Please check your internet connection and try again.';
+  } else if (rawMsg.includes('not-found')) {
+    cleanMsg = 'The requested test or question was not found.';
+  } else if (rawMsg.includes('already-exists')) {
+    cleanMsg = 'This record already exists.';
+  } else if (rawMsg.startsWith('{') && rawMsg.includes('"error"')) {
+    try {
+      const parsed = JSON.parse(rawMsg);
+      cleanMsg = parsed.error || cleanMsg;
+    } catch {
+      // fallback to cleanMsg
+    }
+  } else if (rawMsg && !rawMsg.includes('authInfo') && !rawMsg.includes('providerInfo') && !rawMsg.includes('{')) {
+    cleanMsg = rawMsg;
+  }
+
+  throw new Error(cleanMsg);
 }
 
 export async function testFirestoreConnection(): Promise<boolean> {
