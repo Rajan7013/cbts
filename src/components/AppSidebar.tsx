@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   FileSpreadsheet,
   PlusCircle,
   BarChart3,
@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   GraduationCap,
+  ChevronDown,
 } from 'lucide-react';
 import type { UserProfile, AppScreen } from '../types';
 
@@ -255,14 +256,14 @@ export function AppSidebarLayout({
             {!isCompact ? (
               <>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                  <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
                     EP
                   </div>
                   <div className="min-w-0">
-                    <span className="font-display font-bold text-slate-900 text-sm tracking-tight truncate block">
-                      ExamPulse AI
+                    <span className="font-display font-bold text-slate-900 text-sm tracking-tight truncate block leading-tight">
+                      ExamPulse
                     </span>
-                    <span className="text-[10px] font-semibold text-blue-700 uppercase tracking-wider block">
+                    <span className="text-[9px] font-bold text-blue-600 uppercase tracking-wider block mt-0.5">
                       {isAdmin ? 'Assessment Studio' : 'Candidate Portal'}
                     </span>
                   </div>
@@ -272,7 +273,7 @@ export function AppSidebarLayout({
                   <button
                     type="button"
                     onClick={() => setCollapsed(true)}
-                    className="hidden md:flex p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                     aria-label="Collapse sidebar"
                   >
                     <PanelLeftClose className="h-4 w-4" />
@@ -318,17 +319,17 @@ export function AppSidebarLayout({
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1.5">
+          <nav className="p-3 space-y-1">
             {isAdmin ? (
               <>
                 {!isCompact && (
-                  <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Admin Studio
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Assessment Studio
                   </div>
                 )}
 
                 <SidebarNavItem
-                  icon={LayoutDashboard}
+                  icon={LayoutGrid}
                   label="Tests"
                   isActive={activeScreen === 'admin-dashboard'}
                   collapsed={collapsed}
@@ -342,7 +343,7 @@ export function AppSidebarLayout({
 
                 <SidebarNavItem
                   icon={PlusCircle}
-                  label="New Tests"
+                  label="New Test"
                   isActive={activeScreen === 'admin-test-builder'}
                   collapsed={collapsed}
                   mobileOpen={mobileOpen}
@@ -355,7 +356,7 @@ export function AppSidebarLayout({
 
                 <SidebarNavItem
                   icon={BarChart3}
-                  label="Results"
+                  label="Candidate Results"
                   isActive={activeScreen === 'admin-results'}
                   collapsed={collapsed}
                   mobileOpen={mobileOpen}
@@ -365,12 +366,6 @@ export function AppSidebarLayout({
                     setMobileOpen(false);
                   }}
                 />
-
-                {!isCompact && (
-                  <div className="px-3.5 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Switch Mode
-                  </div>
-                )}
 
                 <SidebarNavItem
                   icon={GraduationCap}
@@ -388,7 +383,7 @@ export function AppSidebarLayout({
             ) : (
               <>
                 {!isCompact && (
-                  <div className="px-3.5 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Examinations
                   </div>
                 )}
@@ -410,32 +405,44 @@ export function AppSidebarLayout({
           </nav>
         </div>
 
-        {/* User Profile & Sign Out Footer */}
-        <div className="p-3 border-t border-slate-100 space-y-2">
-          {/* User profile card */}
+        {/* User Profile & Dropdown Sign Out */}
+        <div className="p-3 border-t border-slate-100">
           <div className="relative group">
             <div
-              className={`flex items-center rounded-xl bg-slate-50 border border-slate-200/70 transition-all ${
-                isCompact ? 'justify-center p-2' : 'gap-3 px-3 py-2.5'
+              className={`flex items-center rounded-xl bg-slate-50/80 hover:bg-slate-100 border border-slate-200/60 p-2 transition-all cursor-pointer ${
+                isCompact ? 'justify-center' : 'justify-between gap-2'
               }`}
             >
-              {user.photoUrl ? (
-                <img
-                  src={user.photoUrl}
-                  alt={user.name}
-                  referrerPolicy="no-referrer"
-                  className="h-8 w-8 rounded-full object-cover shrink-0 border border-slate-200"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-blue-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                  {user.name[0]}
-                </div>
-              )}
+              <div className="flex items-center gap-2.5 min-w-0">
+                {user.photoUrl ? (
+                  <img
+                    src={user.photoUrl}
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    className="h-8 w-8 rounded-full object-cover shrink-0 border border-slate-200"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                    {user.name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'U'}
+                  </div>
+                )}
+                {!isCompact && (
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 truncate leading-tight">{user.name}</div>
+                    <div className="text-[10px] text-slate-500 font-sans truncate">{user.email}</div>
+                  </div>
+                )}
+              </div>
+
               {!isCompact && (
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-slate-900 truncate">{user.name}</div>
-                  <div className="text-[10px] text-slate-500 font-mono truncate">{user.email}</div>
-                </div>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  title="Sign Out"
+                  className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
               )}
             </div>
 
@@ -444,37 +451,15 @@ export function AppSidebarLayout({
               <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3.5 z-50 hidden group-hover:flex items-center">
                 <div className="relative rounded-lg bg-slate-900 px-3 py-2 text-xs text-white shadow-xl whitespace-nowrap">
                   <div className="font-bold text-slate-100">{user.name}</div>
-                  <div className="text-[10px] text-slate-400 font-mono">{user.email}</div>
-                  <div className="mt-1 text-[10px] text-blue-300 font-semibold uppercase">
-                    Role: {user.role}
-                  </div>
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Sign Out Button */}
-          <div className="relative group">
-            <button
-              type="button"
-              onClick={onSignOut}
-              aria-label="Sign Out"
-              className={`w-full flex items-center rounded-xl text-xs font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer ${
-                isCompact
-                  ? 'justify-center h-11 w-11 mx-auto'
-                  : 'gap-3 px-3.5 py-2.5'
-              }`}
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              {!isCompact && <span>Sign Out</span>}
-            </button>
-
-            {/* Sign out tooltip on collapsed */}
-            {isCompact && (
-              <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3.5 z-50 hidden group-hover:flex items-center">
-                <div className="relative rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-xl whitespace-nowrap">
-                  <span>Sign Out</span>
+                  <div className="text-[10px] text-slate-400">{user.email}</div>
+                  <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold cursor-pointer"
+                  >
+                    <LogOut className="h-3 w-3" />
+                    <span>Sign Out</span>
+                  </button>
                   <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
                 </div>
               </div>
