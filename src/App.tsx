@@ -38,6 +38,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AdminTestBuilder } from './components/AdminTestBuilder';
 import { AdminQuestionStudio } from './components/AdminQuestionStudio';
 import { AdminResultsView } from './components/AdminResultsView';
+import { AdminTestOverview } from './components/AdminTestOverview';
 import { QuestionPreviewModal } from './components/QuestionPreviewModal';
 import { CandidateDashboard } from './components/CandidateDashboard';
 import { ExamBriefingScreen } from './components/ExamBriefingScreen';
@@ -94,6 +95,7 @@ export default function App() {
     questions: TestQuestion[];
   } | null>(null);
   const [studioInitialQuestionId, setStudioInitialQuestionId] = useState<string | null>(null);
+  const [recentlyPublishedMessage, setRecentlyPublishedMessage] = useState<string | null>(null);
   const activeUidRef = useRef<string | null>(null);
 
   const resetWorkspaceSelections = useCallback(() => {
@@ -287,13 +289,15 @@ export default function App() {
 
   const handlePreviewTestFromDashboard = async (test: TestExam) => {
     if (!user || user.role !== 'admin') return;
+    setSelectedTest(test);
     setLoadingData(true);
     setGlobalError(null);
     try {
       const qs = await listQuestionsAdmin(user, test.testId);
-      setDashboardPreview({ test, questions: qs });
+      setAdminQuestions(qs);
+      setScreen('admin-test-overview');
     } catch (err) {
-      setGlobalError(err instanceof Error ? err.message : 'Failed to load questions for preview.');
+      setGlobalError(err instanceof Error ? err.message : 'Failed to load test details.');
     } finally {
       setLoadingData(false);
     }
@@ -305,8 +309,12 @@ export default function App() {
     setScreen('admin-results');
     setLoadingData(true);
     try {
-      const list = await listAllAttemptsForTest(user, test.testId);
+      const [list, qs] = await Promise.all([
+        listAllAttemptsForTest(user, test.testId),
+        listQuestionsAdmin(user, test.testId),
+      ]);
       setAdminTestAttempts(list);
+      setAdminQuestions(qs);
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : 'Failed to load candidate attempts.');
     } finally {
@@ -515,6 +523,8 @@ export default function App() {
         <AdminDashboard
           tests={tests}
           loading={loadingData}
+          publishedSuccessMessage={recentlyPublishedMessage}
+          onClearPublishedSuccess={() => setRecentlyPublishedMessage(null)}
           onCreateNew={() => {
             setSelectedTest(null);
             setScreen('admin-test-builder');
@@ -571,6 +581,7 @@ export default function App() {
             const published: TestExam = { ...selectedTest, status: 'published' };
             await saveTest(user, published);
             setSelectedTest(published);
+            setRecentlyPublishedMessage('Test published successfully');
             const updatedQs = await listQuestionsAdmin(user, selectedTest.testId);
             setAdminQuestions(updatedQs);
           }}
@@ -586,10 +597,26 @@ export default function App() {
         />
       )}
 
+      {user.role === 'admin' && screen === 'admin-test-overview' && selectedTest && (
+        <AdminTestOverview
+          test={selectedTest}
+          questions={adminQuestions}
+          onBack={() => setScreen('admin-dashboard')}
+          onEditSettings={() => setScreen('admin-test-builder')}
+          onManageQuestions={() => setScreen('admin-question-studio')}
+          onCandidatePreview={() => handleStartOrResumeBriefing(selectedTest)}
+          onEditQuestion={(q) => {
+            setStudioInitialQuestionId(q.questionId);
+            setScreen('admin-question-studio');
+          }}
+        />
+      )}
+
       {user.role === 'admin' && screen === 'admin-results' && (
         <AdminResultsView
           test={selectedTest}
           tests={tests}
+          questions={adminQuestions}
           attempts={adminTestAttempts}
           loading={loadingData}
           onSelectTest={(t) => handleViewAdminResults(t)}

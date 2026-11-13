@@ -143,6 +143,7 @@ export type AppScreen =
   | 'admin-dashboard'
   | 'admin-test-builder'
   | 'admin-question-studio'
+  | 'admin-test-overview'
   | 'admin-results'
   | 'candidate-dashboard'
   | 'exam-briefing'

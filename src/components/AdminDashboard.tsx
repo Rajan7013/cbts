@@ -2,27 +2,32 @@ import { useState } from 'react';
 import {
   Plus,
   Settings,
-  FileQuestion,
   BarChart3,
   Trash2,
-  Globe,
   Lock,
-  Database,
   Eye,
   Search,
   Calendar,
   Clock,
   Layers,
-  Play,
-  SquarePen,
+  FileText,
+  Radio,
   LayoutGrid,
   List,
+  Filter,
+  CheckCircle2,
+  X,
+  HelpCircle,
+  ArrowRight,
+  Database,
 } from 'lucide-react';
 import type { TestExam } from '../types';
 
 interface AdminDashboardProps {
   tests: TestExam[];
   loading: boolean;
+  publishedSuccessMessage?: string | null;
+  onClearPublishedSuccess?: () => void;
   onCreateNew: () => void;
   onSeedSample: () => void;
   onEditSettings: (test: TestExam) => void;
@@ -33,24 +38,24 @@ interface AdminDashboardProps {
   onDeleteTest: (test: TestExam) => void;
 }
 
-function getScheduleLabel(test: TestExam): string {
+function getScheduleStatus(test: TestExam): { label: string; isLive: boolean; isScheduled: boolean } {
   const now = Date.now();
   const start = new Date(test.startTime).getTime();
   const end = new Date(test.endTime).getTime();
-  if (test.status === 'draft') return 'Draft';
-  if (now < start) return 'Scheduled';
-  if (now > end) return 'Ended';
-  return 'Live Window';
+
+  if (test.status === 'draft') return { label: 'Draft', isLive: false, isScheduled: false };
+  if (now < start) return { label: 'Scheduled', isLive: false, isScheduled: true };
+  if (now > end) return { label: 'Ended', isLive: false, isScheduled: false };
+  return { label: 'Live', isLive: true, isScheduled: false };
 }
 
-function formatDate(iso: string): string {
+function formatDisplayDate(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    if (isNaN(d.getTime())) return iso;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   } catch {
     return iso;
   }
@@ -59,6 +64,8 @@ function formatDate(iso: string): string {
 export function AdminDashboard({
   tests,
   loading,
+  publishedSuccessMessage,
+  onClearPublishedSuccess,
   onCreateNew,
   onSeedSample,
   onEditSettings,
@@ -70,25 +77,26 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [showToast, setShowToast] = useState(true);
 
-  const liveCount = tests.filter((t) => getScheduleLabel(t) === 'Live Window').length;
+  const liveCount = tests.filter((t) => getScheduleStatus(t).isLive).length;
   const draftCount = tests.filter((t) => t.status === 'draft').length;
   const totalQConfigured = tests.reduce((acc, t) => acc + t.totalQuestions, 0);
 
   // Filter tests based on search query and status filter
   const filteredTests = tests.filter((t) => {
-    const sched = getScheduleLabel(t);
+    const sched = getScheduleStatus(t);
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.sections.some((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (!matchesSearch) return false;
     if (statusFilter === 'all') return true;
-    if (statusFilter === 'live') return sched === 'Live Window';
-    if (statusFilter === 'scheduled') return sched === 'Scheduled';
-    if (statusFilter === 'draft') return sched === 'Draft';
-    if (statusFilter === 'ended') return sched === 'Ended';
+    if (statusFilter === 'live') return sched.isLive;
+    if (statusFilter === 'scheduled') return sched.isScheduled;
+    if (statusFilter === 'draft') return t.status === 'draft';
+    if (statusFilter === 'ended') return sched.label === 'Ended';
     return true;
   });
 
@@ -101,11 +109,30 @@ export function AdminDashboard({
             Assessment Studio
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            Create, configure, and administer assessments for your candidates.
+            Create, schedule, and manage your assessments.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
+          {/* Green Published Success Banner if triggered */}
+          {publishedSuccessMessage && showToast && (
+            <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-xs animate-in fade-in duration-200">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>{publishedSuccessMessage}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowToast(false);
+                  onClearPublishedSuccess?.();
+                }}
+                className="ml-1 text-emerald-600 hover:text-emerald-900 cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           {tests.length === 0 && (
             <button
               type="button"
@@ -116,6 +143,7 @@ export function AdminDashboard({
               <span>Load Samples</span>
             </button>
           )}
+
           <button
             type="button"
             onClick={onCreateNew}
@@ -145,7 +173,7 @@ export function AdminDashboard({
         {/* Card 2: Active Live Windows */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <Play className="h-5 w-5 fill-emerald-600/20" />
+            <Radio className="h-6 w-6 text-emerald-600" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">Active Live Windows</div>
@@ -157,12 +185,12 @@ export function AdminDashboard({
 
         {/* Card 3: Draft Assessments */}
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <SquarePen className="h-5 w-5" />
+          <div className="h-12 w-12 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center shrink-0">
+            <FileText className="h-5 w-5 text-blue-600" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">Draft Assessments</div>
-            <div className="text-2xl font-bold text-amber-600 tabular-nums mt-0.5">
+            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {draftCount}
             </div>
           </div>
@@ -183,235 +211,328 @@ export function AdminDashboard({
       </div>
 
       {/* Main Container: All assessments */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-5">
-        {/* Title & View Toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900">
-            All assessments
-          </h2>
-
-          {/* Desktop View Switcher */}
-          <div className="hidden sm:flex items-center gap-1 rounded-xl border border-slate-200/80 bg-slate-50/80 p-1">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Table view"
-            >
-              <List className="h-4 w-4" />
-              <span>Table</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewMode === 'cards'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-              title="Cards grid view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              <span>Cards</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Search & Status Filters */}
+      <div className="space-y-4">
+        {/* Filters and View Switcher */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Search Input */}
           <div className="relative flex-1 max-w-md">
             <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search assessments by title or section..."
-              className="w-full rounded-xl border border-slate-200/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:bg-white transition-all"
+              placeholder="Search tests by name..."
+              className="w-full rounded-xl border border-slate-200/80 bg-white pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 shadow-xs transition-all"
             />
           </div>
 
-          <div className="shrink-0">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-auto rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-xs focus:outline-hidden focus:border-blue-500 cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="live">Live</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="draft">Draft</option>
-              <option value="ended">Ended</option>
-            </select>
+          <div className="flex items-center gap-3">
+            {/* Status Dropdown */}
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <Filter className="h-3.5 w-3.5" />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-xl border border-slate-200/80 bg-white pl-8 pr-8 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer"
+              >
+                <option value="all">Status: All Statuses</option>
+                <option value="live">Live Only</option>
+                <option value="scheduled">Scheduled Only</option>
+                <option value="draft">Drafts</option>
+                <option value="ended">Ended</option>
+              </select>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-xl border border-slate-200/80 bg-white p-1 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-blue-50 text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Card View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-blue-50 text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+                <span>List View</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Content based on View Mode */}
         {loading ? (
-          <div className="py-16 text-center text-sm text-slate-500">
-            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-            <p className="mt-2 text-xs">Loading assessments from Firestore…</p>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center text-xs text-slate-400">
+            Loading assessments...
           </div>
         ) : filteredTests.length === 0 ? (
-          /* Empty State */
-          <div className="rounded-xl border border-dashed border-slate-200 p-12 text-center">
-            <Layers className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-slate-700">No assessments found</p>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center">
+            <HelpCircle className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-800">No assessments found</p>
             <p className="mt-1 text-xs text-slate-500">
-              {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your search query or status filter.'
-                : 'Click "Create New Test" above to configure your first assessment.'}
+              {searchQuery ? 'Try clearing your search query or filters.' : 'Click "Create New Test" above to build your first test.'}
             </p>
           </div>
+        ) : viewMode === 'cards' ? (
+          /* Cards Grid View (Matching Image 1) */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredTests.map((test) => {
+              const sched = getScheduleStatus(test);
+              return (
+                <div
+                  key={test.testId}
+                  className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Header: Title and Status Badge */}
+                    <div className="flex items-start justify-between gap-3">
+                      <h3
+                        onClick={() => onPreviewQuestions(test)}
+                        className="font-display text-base sm:text-lg font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors"
+                      >
+                        {test.title}
+                      </h3>
+
+                      {sched.isScheduled ? (
+                        <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          <Calendar className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Scheduled</span>
+                        </span>
+                      ) : sched.isLive ? (
+                        <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          <Radio className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                          <span>Live</span>
+                        </span>
+                      ) : test.status === 'draft' ? (
+                        <span className="shrink-0 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                          <span>Draft</span>
+                        </span>
+                      ) : (
+                        <span className="shrink-0 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                          <span>{sched.label}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Schedule Date Range */}
+                    <div className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-800">
+                      <Calendar className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span>{formatDisplayDate(test.startTime)}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                      <span>{formatDisplayDate(test.endTime)}</span>
+                    </div>
+
+                    {/* Specs Divider */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-3 text-xs text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <HelpCircle className="h-3.5 w-3.5 text-blue-600" />
+                        <span className="font-semibold text-slate-800">{test.totalQuestions} Questions</span>
+                      </div>
+                      <span className="text-slate-300">|</span>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-blue-600" />
+                        <span className="font-semibold text-slate-800">{test.durationMins} Minutes</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Actions Row: 6 Equal Rounded Buttons (Matching Image 1) */}
+                  <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-6 gap-2">
+                    {/* 1. Preview */}
+                    <button
+                      type="button"
+                      onClick={() => onPreviewQuestions(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200/80 bg-white p-2 text-slate-700 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/40 transition-colors cursor-pointer shadow-2xs"
+                      title="Preview Test Overview"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="text-[10px] font-medium">Preview</span>
+                    </button>
+
+                    {/* 2. Questions */}
+                    <button
+                      type="button"
+                      onClick={() => onManageQuestions(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200/80 bg-white p-2 text-slate-700 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/40 transition-colors cursor-pointer shadow-2xs"
+                      title="Manage Questions in Studio"
+                    >
+                      <Layers className="h-4 w-4" />
+                      <span className="text-[10px] font-medium">Questions</span>
+                    </button>
+
+                    {/* 3. Settings */}
+                    <button
+                      type="button"
+                      onClick={() => onEditSettings(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200/80 bg-white p-2 text-slate-700 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/40 transition-colors cursor-pointer shadow-2xs"
+                      title="Edit Test Settings"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="text-[10px] font-medium">Settings</span>
+                    </button>
+
+                    {/* 4. Results */}
+                    <button
+                      type="button"
+                      onClick={() => onViewResults(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200/80 bg-white p-2 text-slate-700 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/40 transition-colors cursor-pointer shadow-2xs"
+                      title="View Candidate Results"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      <span className="text-[10px] font-medium">Results</span>
+                    </button>
+
+                    {/* 5. Lock/Unlock */}
+                    <button
+                      type="button"
+                      onClick={() => onTogglePublish(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200/80 bg-white p-2 text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+                      title={test.status === 'published' ? 'Lock as Draft' : 'Publish Test'}
+                    >
+                      <Lock className={`h-4 w-4 ${test.status === 'published' ? 'text-slate-600' : 'text-amber-600'}`} />
+                      <span className="text-[10px] font-medium">
+                        {test.status === 'published' ? 'Lock' : 'Publish'}
+                      </span>
+                    </button>
+
+                    {/* 6. Delete */}
+                    <button
+                      type="button"
+                      onClick={() => onDeleteTest(test)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-rose-200/80 bg-white p-2 text-rose-600 hover:bg-rose-50/80 hover:border-rose-300 transition-colors cursor-pointer shadow-2xs"
+                      title="Delete Assessment"
+                    >
+                      <Trash2 className="h-4 w-4 text-rose-600" />
+                      <span className="text-[10px] font-medium">Delete</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <>
-            {/* View 1: Desktop Table View (Matches Image 1) */}
-            <div className={`${viewMode === 'table' ? 'hidden md:block' : 'hidden'} overflow-x-auto`}>
-              <table className="w-full text-left text-xs border-collapse">
+          /* Table / List View */
+          <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-600 font-semibold">
-                    <th className="py-3 px-3">Test Title</th>
-                    <th className="py-3 px-3">Start Date</th>
-                    <th className="py-3 px-3">End Date</th>
-                    <th className="py-3 px-3">Duration</th>
-                    <th className="py-3 px-3">Questions</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-center">Actions</th>
+                  <tr className="border-b border-slate-200/80 bg-slate-50/70 text-slate-500 font-semibold">
+                    <th className="py-3.5 px-4">Test Title</th>
+                    <th className="py-3.5 px-4">Start Date</th>
+                    <th className="py-3.5 px-4">End Date</th>
+                    <th className="py-3.5 px-4">Duration</th>
+                    <th className="py-3.5 px-4">Questions</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTests.map((test) => {
-                    const sched = getScheduleLabel(test);
+                    const sched = getScheduleStatus(test);
                     return (
-                      <tr key={test.testId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-3 min-w-[200px]">
-                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                      <tr key={test.testId} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900 max-w-xs truncate">
+                          <button
+                            type="button"
+                            onClick={() => onPreviewQuestions(test)}
+                            className="hover:text-blue-600 transition-colors cursor-pointer text-left font-bold"
+                          >
                             {test.title}
-                          </div>
-                          {test.sections.length > 0 && (
-                            <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">
-                              {test.sections.map((s) => `${s.name} (${s.questionCount})`).join(' · ')}
-                            </div>
-                          )}
+                          </button>
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span>{formatDate(test.startTime)}</span>
-                          </div>
+                        <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                          {formatDisplayDate(test.startTime)}
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span>{formatDate(test.endTime)}</span>
-                          </div>
+                        <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                          {formatDisplayDate(test.endTime)}
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span>{test.durationMins} min</span>
-                          </div>
+                        <td className="py-3.5 px-4 text-slate-700 whitespace-nowrap">
+                          {test.durationMins} min
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap text-slate-600">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Layers className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span>{test.totalQuestions} Qs</span>
-                          </div>
+                        <td className="py-3.5 px-4 text-slate-700 tabular-nums">
+                          {test.totalQuestions} Qs
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap">
-                          {sched === 'Live Window' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                              Live
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {sched.isScheduled ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              <Calendar className="h-3 w-3" /> Scheduled
                             </span>
-                          ) : sched === 'Scheduled' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                              Upcoming
+                          ) : sched.isLive ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              <Radio className="h-3 w-3 animate-pulse" /> Live
                             </span>
-                          ) : sched === 'Ended' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                              Ended
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
+                          ) : test.status === 'draft' ? (
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
                               Draft
                             </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+                              {sched.label}
+                            </span>
                           )}
                         </td>
-
-                        <td className="py-3.5 px-3 whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {/* Preview */}
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="inline-flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => onPreviewQuestions(test)}
+                              className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer"
                               title="Preview"
-                              className="p-1.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Questions */}
                             <button
                               type="button"
                               onClick={() => onManageQuestions(test)}
-                              title="Question Builder & AI Studio"
-                              className="p-1.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer"
+                              title="Questions"
                             >
-                              <FileQuestion className="h-3.5 w-3.5" />
+                              <Layers className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Settings */}
                             <button
                               type="button"
                               onClick={() => onEditSettings(test)}
-                              title="Settings & Rules"
-                              className="p-1.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer"
+                              title="Settings"
                             >
                               <Settings className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Candidate Results */}
                             <button
                               type="button"
                               onClick={() => onViewResults(test)}
-                              title="Candidate Results"
-                              className="p-1.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer"
+                              title="Results"
                             >
                               <BarChart3 className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Publish / Unpublish */}
                             <button
                               type="button"
                               onClick={() => onTogglePublish(test)}
-                              title={test.status === 'published' ? 'Unpublish Test' : 'Publish Test'}
-                              className="p-1.5 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 cursor-pointer"
+                              title={test.status === 'published' ? 'Lock as Draft' : 'Publish'}
                             >
-                              {test.status === 'published' ? (
-                                <Lock className="h-3.5 w-3.5" />
-                              ) : (
-                                <Globe className="h-3.5 w-3.5" />
-                              )}
+                              <Lock className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Delete */}
                             <button
                               type="button"
                               onClick={() => onDeleteTest(test)}
-                              title="Delete Test"
-                              className="p-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-500 transition-colors cursor-pointer"
+                              className="h-7 w-7 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              title="Delete"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -423,164 +544,7 @@ export function AdminDashboard({
                 </tbody>
               </table>
             </div>
-
-            {/* View 2: Cards Grid View (Matches Image 2 & Mobile View) */}
-            <div
-              className={`${
-                viewMode === 'cards' ? 'grid' : 'grid md:hidden'
-              } grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5`}
-            >
-              {filteredTests.map((test) => {
-                const sched = getScheduleLabel(test);
-                return (
-                  <div
-                    key={test.testId}
-                    className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
-                  >
-                    {/* Card Top: Title & Status */}
-                    <div className="space-y-2">
-                      <div className="font-bold text-slate-900 text-sm leading-snug">
-                        {test.title}
-                      </div>
-                      <div>
-                        {sched === 'Live Window' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                            Live
-                          </span>
-                        ) : sched === 'Scheduled' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                            Upcoming
-                          </span>
-                        ) : sched === 'Ended' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            Ended
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-600" />
-                            Draft
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Card Details: Start Date, End Date, Duration, Questions */}
-                    <div className="space-y-2 py-2 border-t border-b border-slate-100 text-xs text-slate-600">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-slate-500">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Start Date</span>
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {formatDate(test.startTime)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-slate-500">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                          <span>End Date</span>
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {formatDate(test.endTime)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-slate-500">
-                          <Clock className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Duration</span>
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {test.durationMins} min
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-slate-500">
-                          <Layers className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Questions</span>
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {test.totalQuestions} Qs
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Card Action Buttons: Row of 6 Icon buttons */}
-                    <div className="flex items-center justify-between gap-1.5 pt-1">
-                      {/* Preview */}
-                      <button
-                        type="button"
-                        onClick={() => onPreviewQuestions(test)}
-                        title="Preview"
-                        className="p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-
-                      {/* Questions */}
-                      <button
-                        type="button"
-                        onClick={() => onManageQuestions(test)}
-                        title="Questions & AI Studio"
-                        className="p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        <FileQuestion className="h-4 w-4" />
-                      </button>
-
-                      {/* Settings */}
-                      <button
-                        type="button"
-                        onClick={() => onEditSettings(test)}
-                        title="Settings & Rules"
-                        className="p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </button>
-
-                      {/* Results */}
-                      <button
-                        type="button"
-                        onClick={() => onViewResults(test)}
-                        title="Candidate Results"
-                        className="p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                      </button>
-
-                      {/* Publish / Unpublish */}
-                      <button
-                        type="button"
-                        onClick={() => onTogglePublish(test)}
-                        title={test.status === 'published' ? 'Unpublish Test' : 'Publish Test'}
-                        className="p-2 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        {test.status === 'published' ? (
-                          <Lock className="h-4 w-4" />
-                        ) : (
-                          <Globe className="h-4 w-4" />
-                        )}
-                      </button>
-
-                      {/* Delete */}
-                      <button
-                        type="button"
-                        onClick={() => onDeleteTest(test)}
-                        title="Delete Test"
-                        className="p-2 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-500 transition-colors cursor-pointer flex-1 flex items-center justify-center"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+          </div>
         )}
       </div>
     </div>
