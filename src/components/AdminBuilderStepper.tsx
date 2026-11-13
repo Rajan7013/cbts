@@ -16,7 +16,8 @@ export function AdminBuilderStepper({
   onSelectStep,
 }: AdminBuilderStepperProps) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-h-[44px]">
+      {/* Left: Back to Tests button */}
       <button
         type="button"
         onClick={onBackToDashboard}
@@ -26,17 +27,18 @@ export function AdminBuilderStepper({
         <span>Back to Tests</span>
       </button>
 
+      {/* Center: Centered Step Navigation Pills */}
       <nav
         aria-label="Test creation steps"
-        className="flex items-center gap-2 overflow-x-auto"
+        className="sm:absolute sm:left-1/2 sm:-translate-x-1/2 flex items-center gap-1 rounded-xl bg-slate-100/90 p-1 border border-slate-200/70 shadow-xs"
       >
         <button
           type="button"
           onClick={() => onSelectStep(1)}
-          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+          className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
             activeStep === 1
-              ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
-              : 'border border-slate-200/80 bg-white text-slate-600 hover:text-slate-900 shadow-xs'
+              ? 'bg-white text-blue-700 font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Sliders className="h-3.5 w-3.5" />
@@ -50,16 +52,19 @@ export function AdminBuilderStepper({
               onSelectStep(2);
             }
           }}
-          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+          className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
             activeStep === 2
-              ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
-              : 'border border-slate-200/80 bg-white text-slate-600 hover:text-slate-900 shadow-xs'
+              ? 'bg-white text-blue-700 font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <FileQuestion className="h-3.5 w-3.5" />
           <span>2. Question Builder &amp; AI</span>
         </button>
       </nav>
+
+      {/* Right spacer to ensure exact center alignment */}
+      <div className="hidden sm:block w-[120px] shrink-0" />
     </div>
   );
 }
