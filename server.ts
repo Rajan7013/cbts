@@ -109,6 +109,36 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
   return null;
 }
 
+// Helper to seed 'jose' into require.cache so CJS 'jwks-rsa' inside 'firebase-admin/auth' can require('jose') without ERR_REQUIRE_ESM
+async function seedJoseForCommonJs() {
+  try {
+    const joseMod = await import('jose');
+    // Pre-populate require.cache for 'jose' across potential resolution paths
+    const possiblePaths = [
+      'jose',
+      'jose/dist/webapi/index.js',
+      'jose/dist/node/cjs/index.js',
+    ];
+    for (const p of possiblePaths) {
+      try {
+        const resolved = require.resolve(p);
+        if (!require.cache[resolved]) {
+          require.cache[resolved] = {
+            id: resolved,
+            filename: resolved,
+            loaded: true,
+            exports: joseMod,
+          } as any;
+        }
+      } catch {
+        // Try fallback cache entry
+      }
+    }
+  } catch (err) {
+    console.warn('Could not pre-seed jose module:', err);
+  }
+}
+
 // Helper to safely load firebase-admin modules without triggering Vercel ESM/CJS jose bundler conflicts
 let firebaseAdminApp: any = null;
 let firebaseAdminAuth: any = null;
@@ -118,6 +148,8 @@ let adminInitError: string | null = null;
 async function getAdminModules() {
   if (!firebaseAdminApp) {
     try {
+      await seedJoseForCommonJs();
+
       const [appMod, authMod, firestoreMod] = await Promise.all([
         import('firebase-admin/app'),
         import('firebase-admin/auth'),
