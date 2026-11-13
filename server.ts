@@ -42,6 +42,11 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
   let cleaned = raw.trim().replace(/^["']|["']$/g, '');
   if (!cleaned) return null;
 
+  // If the user accidentally pasted "FIREBASE_SERVICE_ACCOUNT_KEY=" inside the Vercel value field
+  if (cleaned.startsWith('FIREBASE_SERVICE_ACCOUNT_KEY=')) {
+    cleaned = cleaned.replace(/^FIREBASE_SERVICE_ACCOUNT_KEY=/, '').trim().replace(/^["']|["']$/g, '');
+  }
+
   const tryJson = (text: string): Record<string, unknown> | null => {
     try {
       const obj = JSON.parse(text) as Record<string, unknown>;
