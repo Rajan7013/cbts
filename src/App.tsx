@@ -579,6 +579,10 @@ export default function App() {
             const updatedQs = await listQuestionsAdmin(user, selectedTest.testId);
             setAdminQuestions(updatedQs);
           }}
+          onSwitchToCandidateView={() => {
+            setPortalMode('user');
+            setScreen('candidate-dashboard');
+          }}
         />
       )}
 

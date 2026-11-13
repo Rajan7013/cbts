@@ -5,33 +5,39 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  ImagePlus,
   Trash2,
   Plus,
   CheckCircle2,
-  Globe,
   X,
-  Loader2,
-  Wand2,
   FileJson,
   Upload,
   Download,
   Eye,
-  EyeOff,
-  History,
+  Sliders,
+  FileQuestion,
+  FileText,
+  Clock,
+  Layers,
+  HelpCircle,
+  AlertTriangle,
   RotateCcw,
-  ChevronDown,
-  ChevronUp,
+  Check,
+  Send,
+  GraduationCap,
+  Bold,
+  Italic,
+  Code,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Maximize2,
+  ImagePlus,
+  Radio,
+  ExternalLink,
 } from 'lucide-react';
-import { AdminBuilderStepper } from './AdminBuilderStepper';
 import { MathText } from './MathText';
-import { QuestionPreviewModal } from './QuestionPreviewModal';
-import {
-  configureGlobalKatexEngine,
-  GLOBAL_KATEX_DELIMITERS,
-  GLOBAL_KATEX_MACROS,
-  renderKatexInContainer,
-} from '../lib/katexConfig';
 import {
   generateQuestionsWithAI,
   generateSolutionWithAI,
@@ -65,6 +71,7 @@ interface AdminQuestionStudioProps {
   onDeleteQuestion: (questionId: string) => Promise<void>;
   onPublishTest: () => Promise<void>;
   onApplyDefaultMarksToAll?: (marks: number) => Promise<void>;
+  onSwitchToCandidateView?: () => void;
 }
 
 const OPTION_IDS: OptionId[] = ['A', 'B', 'C', 'D'];
@@ -78,71 +85,26 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-function formatDateShort(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-// Configure KaTeX globally for AdminQuestionStudio and all question-bank previews
-configureGlobalKatexEngine({
-  delimiters: GLOBAL_KATEX_DELIMITERS,
-  macros: GLOBAL_KATEX_MACROS,
-  throwOnError: false,
-  strict: false,
-  trust: false,
-});
-
-function hasRichFormatting(text: string): boolean {
-  return /(\$|\\\(|\\\[|\[(?:tex|latex)\]|\*\*|`|\*[^\s*]|\^[A-Za-z0-9({-]|[A-Za-z]{1,2}_[A-Za-z0-9{]|\\[A-Za-z]+|(?<![A-Za-z0-9])[mTvuFRqVIPnkxyrh][0-9](?![0-9.]))/.test(
-    text
-  );
-}
-
-function formatVersionTimestamp(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'Just now';
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function getVersionSourceBadge(source: QuestionVersionSource): {
-  label: string;
-  classes: string;
-} {
-  switch (source) {
-    case 'before_gemini_edit':
-      return {
-        label: 'Before Gemini',
-        classes: 'border-amber-200 bg-amber-50 text-amber-800',
-      };
-    case 'gemini_edit':
-      return {
-        label: 'Gemini Edit',
-        classes: 'border-blue-200 bg-blue-50 text-blue-800',
-      };
-    case 'revert':
-      return {
-        label: 'Reverted',
-        classes: 'border-purple-200 bg-purple-50 text-purple-800',
-      };
-    case 'initial':
-      return {
-        label: 'Initial',
-        classes: 'border-slate-200 bg-slate-100 text-slate-700',
-      };
-    case 'manual_save':
-    default:
-      return {
-        label: 'Saved Edit',
-        classes: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-      };
+function formatDateTimeDisplay(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return iso;
   }
 }
+
+type StudioViewMode =
+  | 'editor'
+  | 'json_import'
+  | 'json_review'
+  | 'gemini_generate'
+  | 'gemini_review'
+  | 'test_preview'
+  | 'published_success';
 
 export function AdminQuestionStudio({
   test,
@@ -151,11 +113,9 @@ export function AdminQuestionStudio({
   onBack,
   onEditTestDetails,
   onSaveQuestion,
-  onLoadQuestionVersions,
-  onRecordQuestionVersion,
   onDeleteQuestion,
   onPublishTest,
-  onApplyDefaultMarksToAll,
+  onSwitchToCandidateView,
 }: AdminQuestionStudioProps) {
   const defaultMarks = test.marksPerQuestion ?? 4;
 
@@ -164,6 +124,10 @@ export function AdminQuestionStudio({
   );
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Main view mode
+  const [viewMode, setViewMode] = useState<StudioViewMode>('editor');
+
+  // Form Fields
   const [questionText, setQuestionText] = useState('');
   const [questionImageUrl, setQuestionImageUrl] = useState('');
   const [options, setOptions] = useState<QuestionOption[]>(
@@ -173,226 +137,67 @@ export function AdminQuestionStudio({
   const [shortExplanation, setShortExplanation] = useState('');
   const [steps, setSteps] = useState<string[]>(['']);
   const [marks, setMarks] = useState<number>(defaultMarks);
+  const [showStepsAccordion, setShowStepsAccordion] = useState(false);
 
   const [savingQ, setSavingQ] = useState(false);
-  const [syncingMarks, setSyncingMarks] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<'question' | OptionId | null>(null);
-  const [completingAi, setCompletingAi] = useState(false);
-  const [writingSolution, setWritingSolution] = useState(false);
+  const [generatingWithAi, setGeneratingWithAi] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [showLivePreview, setShowLivePreview] = useState(true);
-  const [previewTargetId, setPreviewTargetId] = useState<string | null | undefined>(undefined);
 
-  // Version History state (Firestore-backed for saved questions + instant local snapshots for pre-Gemini edits)
-  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
-  const [loadingVersions, setLoadingVersions] = useState(false);
-  const [revertingVersionId, setRevertingVersionId] = useState<string | null>(null);
-  const [expandedVersionId, setExpandedVersionId] = useState<string | null>(null);
-  const [remoteVersionsByQ, setRemoteVersionsByQ] = useState<Record<string, QuestionVersion[]>>(
-    {}
-  );
-  const [localVersionsByQ, setLocalVersionsByQ] = useState<Record<string, QuestionVersion[]>>({});
-  const [lastAiEditLabel, setLastAiEditLabel] = useState<string | null>(null);
-  const [lastUndoVersion, setLastUndoVersion] = useState<QuestionVersion | null>(null);
-
-  // Gemini AI Bulk Generator state
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiNotes, setAiNotes] = useState('');
+  // Bulk Gemini AI state
+  const [aiTopic, setAiTopic] = useState('');
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('Medium');
-  const [aiImagePreview, setAiImagePreview] = useState<string | null>(null);
-  const [aiImageBase64, setAiImageBase64] = useState<string | undefined>(undefined);
-  const [aiImageMime, setAiImageMime] = useState<string | undefined>(undefined);
-  const [aiAttachImage, setAiAttachImage] = useState(true);
-  const [generatingAi, setGeneratingAi] = useState(false);
+  const [aiTargetSectionId, setAiTargetSectionId] = useState<string>(
+    test.sections[0]?.id || 'default'
+  );
   const [aiDrafts, setAiDrafts] = useState<GeneratedQuestionDraft[]>([]);
+  const [reviewedDraftIndexes, setReviewedDraftIndexes] = useState<Record<number, boolean>>({});
 
-  // JSON Import & Gemini Completion state
-  const [showJsonPanel, setShowJsonPanel] = useState(true);
-  const [showRawJsonEditor, setShowRawJsonEditor] = useState(false);
-  const [isDraggingJson, setIsDraggingJson] = useState(false);
-  const [autoGenerateOnUpload, setAutoGenerateOnUpload] = useState(true);
+  // JSON Import state
   const [jsonInputText, setJsonInputText] = useState('');
   const [jsonFileName, setJsonFileName] = useState<string | null>(null);
-  const [jsonTargetCount, setJsonTargetCount] = useState(5);
-  const [importingJsonMode, setImportingJsonMode] = useState<
-    'parse_only' | 'complete_with_gemini' | null
-  >(null);
-  const [jsonSummaryInfo, setJsonSummaryInfo] = useState<string | null>(null);
+  const [jsonUseGemini, setJsonUseGemini] = useState(false);
+  const [jsonTargetCount, setJsonTargetCount] = useState(6);
+  const [importingJson, setImportingJson] = useState(false);
+  const [jsonDrafts, setJsonDrafts] = useState<GeneratedQuestionDraft[]>([]);
+
+  // Preview Candidate-Style Test state
+  const [previewQuestionIndex, setPreviewQuestionIndex] = useState(0);
 
   const qImgInputRef = useRef<HTMLInputElement | null>(null);
-  const aiImgInputRef = useRef<HTMLInputElement | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
-  const draftsPreviewRef = useRef<HTMLDivElement | null>(null);
-  const studioContainerRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    configureGlobalKatexEngine({
-      delimiters: GLOBAL_KATEX_DELIMITERS,
-      macros: GLOBAL_KATEX_MACROS,
-      throwOnError: false,
-      strict: false,
-      trust: false,
-    });
-    renderKatexInContainer(studioContainerRef.current);
-  }, [questions, aiDrafts, activeSectionId, editingId, showLivePreview]);
-
-  useEffect(() => {
-    if (test.sections.length > 0 && !test.sections.some((s) => s.id === activeSectionId)) {
-      setActiveSectionId(test.sections[0].id);
-    }
-  }, [test.sections, activeSectionId]);
-
-  useEffect(() => {
-    if (!editingId) {
-      setMarks(defaultMarks);
-    }
-  }, [defaultMarks, editingId]);
-
-  useEffect(() => {
-    if (initialQuestionId) {
-      const target = questions.find((q) => q.questionId === initialQuestionId);
-      if (target) {
-        loadQuestionIntoEditor(target);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuestionId]);
-
-  const activeSection = test.sections.find((s) => s.id === activeSectionId) || test.sections[0];
+  // Active section's questions
   const sectionQuestions = questions.filter((q) => q.sectionId === activeSectionId);
-  const editingSectionIndex = editingId
-    ? sectionQuestions.findIndex((q) => q.questionId === editingId)
-    : -1;
+  const currentSection = test.sections.find((s) => s.id === activeSectionId) || test.sections[0];
+  const currentQuestionIndex = sectionQuestions.findIndex((q) => q.questionId === editingId);
 
-  const activeVersionKey = editingId || '__new__';
-
-  const fetchVersionsForQuestion = async (questionId: string) => {
-    if (!onLoadQuestionVersions) return;
-    setLoadingVersions(true);
-    try {
-      const list = await onLoadQuestionVersions(questionId);
-      setRemoteVersionsByQ((prev) => ({ ...prev, [questionId]: list }));
-    } catch {
-      // Non-blocking history fetch
-    } finally {
-      setLoadingVersions(false);
-    }
-  };
-
-  useEffect(() => {
-    if (editingId && onLoadQuestionVersions) {
-      fetchVersionsForQuestion(editingId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId]);
-
-  const activeVersions: QuestionVersion[] = (() => {
-    const combined = [
-      ...(localVersionsByQ[activeVersionKey] || []),
-      ...(editingId ? remoteVersionsByQ[editingId] || [] : []),
-    ];
-    const seen = new Set<string>();
-    return combined
-      .filter((v) => {
-        if (seen.has(v.versionId)) return false;
-        seen.add(v.versionId);
-        return true;
+  // Load existing question into form
+  const loadQuestionIntoEditor = (q: TestQuestion) => {
+    setEditingId(q.questionId);
+    setQuestionText(q.stem);
+    setQuestionImageUrl(q.imageUrl || '');
+    setOptions(
+      OPTION_IDS.map((id) => {
+        const found = q.options.find((o) => o.id === id);
+        return found ? { ...found } : { id, text: '', imageUrl: '' };
       })
-      .sort((a, b) => new Date(b.createdAtIso).getTime() - new Date(a.createdAtIso).getTime());
-  })();
-
-  const captureCurrentEditorSnapshot = (
-    source: QuestionVersionSource,
-    summary: string
-  ): QuestionVersion | null => {
-    const hasContent =
-      Boolean(questionText.trim()) ||
-      Boolean(questionImageUrl.trim()) ||
-      options.some((o) => Boolean(o.text.trim()) || Boolean(o.imageUrl?.trim())) ||
-      Boolean(shortExplanation.trim()) ||
-      steps.some((s) => Boolean(s.trim()));
-
-    if (!hasContent) return null;
-
-    const cleanOpts = OPTION_IDS.map((id) => {
-      const found = options.find((o) => o.id === id);
-      return {
-        id,
-        text: found?.text.trim() || (found?.imageUrl ? `Option ${id}` : ''),
-        ...(found?.imageUrl?.trim() ? { imageUrl: found.imageUrl.trim() } : {}),
-      };
-    });
-
-    const snapshot: QuestionVersion = {
-      versionId: generateId('ver_local'),
-      questionId: editingId || '__new__',
-      testId: test.testId,
-      sectionId: activeSectionId,
-      source,
-      summary,
-      questionText:
-        questionText.trim() ||
-        (questionImageUrl.trim() ? 'Refer to the diagram/image below.' : 'Question'),
-      ...(questionImageUrl.trim() ? { questionImageUrl: questionImageUrl.trim() } : {}),
-      options: cleanOpts,
-      correctOptionId,
-      shortExplanation: shortExplanation.trim(),
-      stepByStepSolution: steps.map((s) => s.trim()).filter(Boolean),
-      marks: Math.min(100, Math.max(0.25, Number(marks) || defaultMarks)),
-      createdAtIso: new Date().toISOString(),
-      isLocalOnly: !editingId,
-    };
-
-    const key = editingId || '__new__';
-    setLocalVersionsByQ((prev) => ({
-      ...prev,
-      [key]: [snapshot, ...(prev[key] || [])].slice(0, 25),
-    }));
-
-    if (editingId && onRecordQuestionVersion) {
-      const existingQ = questions.find((q) => q.questionId === editingId);
-      const qPayload: TestQuestion = {
-        questionId: editingId,
-        testId: test.testId,
-        testStatus: test.status,
-        sectionId: activeSectionId,
-        orderIndex: existingQ ? existingQ.orderIndex : questions.length,
-        questionText: snapshot.questionText,
-        ...(snapshot.questionImageUrl ? { questionImageUrl: snapshot.questionImageUrl } : {}),
-        options: OPTION_IDS.map((id) => {
-          const o = snapshot.options.find((item) => item.id === id);
-          return {
-            id,
-            text: o?.text || `Option ${id}`,
-            ...(o?.imageUrl ? { imageUrl: o.imageUrl } : {}),
-          };
-        }),
-        correctOptionId: snapshot.correctOptionId,
-        shortExplanation: snapshot.shortExplanation,
-        stepByStepSolution: snapshot.stepByStepSolution,
-        marks: snapshot.marks,
-      };
-      onRecordQuestionVersion(qPayload, source, summary)
-        .then((savedVer) => {
-          setRemoteVersionsByQ((prev) => ({
-            ...prev,
-            [editingId]: [savedVer, ...(prev[editingId] || [])],
-          }));
-          setLocalVersionsByQ((prev) => ({
-            ...prev,
-            [key]: (prev[key] || []).filter((item) => item.versionId !== snapshot.versionId),
-          }));
-        })
-        .catch(() => {});
-    }
-
-    return snapshot;
+    );
+    setCorrectOptionId(q.correctOptionId);
+    setShortExplanation(q.solution?.shortExplanation || '');
+    setSteps(q.solution?.steps?.length ? [...q.solution.steps] : ['']);
+    setMarks(q.marks ?? defaultMarks);
+    if (q.solution?.steps?.length) setShowStepsAccordion(true);
+    setViewMode('editor');
   };
 
-  const resetForm = () => {
+  // Reset form to blank new question
+  const resetFormToNewQuestion = (sectionId?: string) => {
     setEditingId(null);
     setQuestionText('');
     setQuestionImageUrl('');
@@ -401,268 +206,90 @@ export function AdminQuestionStudio({
     setShortExplanation('');
     setSteps(['']);
     setMarks(defaultMarks);
-    setLastAiEditLabel(null);
-    setLastUndoVersion(null);
-    setExpandedVersionId(null);
+    setShowStepsAccordion(false);
+    if (sectionId) setActiveSectionId(sectionId);
+    setViewMode('editor');
   };
 
-  const loadQuestionIntoEditor = (q: TestQuestion) => {
-    setActiveSectionId(q.sectionId);
-    setEditingId(q.questionId);
-    setQuestionText(q.questionText);
-    setQuestionImageUrl(q.questionImageUrl || '');
-    setOptions(
-      OPTION_IDS.map((id) => {
-        const found = q.options.find((o) => o.id === id);
-        return { id, text: found?.text || '', imageUrl: found?.imageUrl || '' };
-      })
-    );
-    setCorrectOptionId(q.correctOptionId);
-    setShortExplanation(q.shortExplanation || '');
-    setSteps(q.stepByStepSolution?.length ? q.stepByStepSolution : ['']);
-    setMarks(q.marks ?? defaultMarks);
+  // Initialize with initialQuestionId if provided
+  useEffect(() => {
+    if (initialQuestionId) {
+      const found = questions.find((q) => q.questionId === initialQuestionId);
+      if (found) {
+        if (found.sectionId) setActiveSectionId(found.sectionId);
+        loadQuestionIntoEditor(found);
+      }
+    } else if (questions.length > 0 && !editingId) {
+      // Default to first question
+      loadQuestionIntoEditor(questions[0]);
+    }
+  }, [initialQuestionId]);
+
+  // Insert markdown helper into textarea
+  const insertMarkdown = (prefix: string, suffix: string = '') => {
+    if (!textareaRef.current) return;
+    const el = textareaRef.current;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = el.value.slice(start, end);
+    const replacement = `${prefix}${selected || 'text'}${suffix}`;
+    const nextVal = el.value.slice(0, start) + replacement + el.value.slice(end);
+    setQuestionText(nextVal);
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, start + prefix.length + (selected.length || 4));
+    }, 0);
+  };
+
+  // Handle single question save
+  const handleSaveCurrentQuestion = async (advanceToNext: boolean = false) => {
     setErrorMsg(null);
-    setStatusMsg(null);
-    setLastAiEditLabel(null);
-    setLastUndoVersion(null);
-    setExpandedVersionId(null);
-  };
-
-  const handleRevertToVersion = async (v: QuestionVersion) => {
-    setErrorMsg(null);
-    setStatusMsg(null);
-    setRevertingVersionId(v.versionId);
-
-    try {
-      // Preserve current unsaved state locally before reverting so nothing is lost
-      if (
-        questionText.trim() !== v.questionText.trim() ||
-        shortExplanation.trim() !== v.shortExplanation.trim() ||
-        correctOptionId !== v.correctOptionId
-      ) {
-        captureCurrentEditorSnapshot(
-          lastAiEditLabel ? 'gemini_edit' : 'manual_save',
-          'Snapshot taken before reverting'
-        );
-      }
-
-      setActiveSectionId(v.sectionId || activeSectionId);
-      setQuestionText(v.questionText);
-      setQuestionImageUrl(v.questionImageUrl || '');
-      setOptions(
-        OPTION_IDS.map((id) => {
-          const found = v.options.find((o) => o.id === id);
-          return { id, text: found?.text || '', imageUrl: found?.imageUrl || '' };
-        })
-      );
-      setCorrectOptionId(OPTION_IDS.includes(v.correctOptionId) ? v.correctOptionId : 'A');
-      setShortExplanation(v.shortExplanation || '');
-      setSteps(v.stepByStepSolution?.length ? v.stepByStepSolution : ['']);
-      setMarks(v.marks ?? defaultMarks);
-      setLastAiEditLabel(null);
-      setLastUndoVersion(null);
-
-      if (editingId) {
-        const existingQ = questions.find((q) => q.questionId === editingId);
-        const revertedQ: TestQuestion = {
-          questionId: editingId,
-          testId: test.testId,
-          testStatus: test.status,
-          sectionId: v.sectionId || activeSectionId,
-          orderIndex: existingQ ? existingQ.orderIndex : questions.length,
-          questionText: v.questionText,
-          ...(v.questionImageUrl ? { questionImageUrl: v.questionImageUrl } : {}),
-          options: OPTION_IDS.map((id) => {
-            const found = v.options.find((o) => o.id === id);
-            return {
-              id,
-              text: found?.text || (found?.imageUrl ? `Option ${id}` : `Option ${id}`),
-              ...(found?.imageUrl ? { imageUrl: found.imageUrl } : {}),
-            };
-          }),
-          correctOptionId: OPTION_IDS.includes(v.correctOptionId) ? v.correctOptionId : 'A',
-          shortExplanation: v.shortExplanation || '',
-          stepByStepSolution: v.stepByStepSolution || [],
-          marks: Math.min(100, Math.max(0.25, Number(v.marks) || defaultMarks)),
-        };
-        const sourceBadge = getVersionSourceBadge(v.source).label;
-        await onSaveQuestion(revertedQ, {
-          versionSource: 'revert',
-          versionSummary: `Reverted to ${sourceBadge} (${formatVersionTimestamp(v.createdAtIso)})`,
-        });
-        await fetchVersionsForQuestion(editingId);
-        setStatusMsg(
-          `Reverted Q${editingSectionIndex + 1} to "${sourceBadge}" (${formatVersionTimestamp(v.createdAtIso)}) and saved.`
-        );
-      } else {
-        setStatusMsg(
-          `Restored draft question to "${getVersionSourceBadge(v.source).label}" (${formatVersionTimestamp(v.createdAtIso)}).`
-        );
-      }
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to revert to selected version.');
-    } finally {
-      setRevertingVersionId(null);
-    }
-  };
-
-  const handlePrevQuestion = () => {
-    if (sectionQuestions.length === 0) return;
-    if (editingSectionIndex === -1) {
-      loadQuestionIntoEditor(sectionQuestions[sectionQuestions.length - 1]);
-    } else if (editingSectionIndex > 0) {
-      loadQuestionIntoEditor(sectionQuestions[editingSectionIndex - 1]);
-    }
-  };
-
-  const handleNextQuestion = () => {
-    if (editingSectionIndex === -1) return;
-    if (editingSectionIndex < sectionQuestions.length - 1) {
-      loadQuestionIntoEditor(sectionQuestions[editingSectionIndex + 1]);
-    } else {
-      resetForm();
-      setStatusMsg('Ready to add a new question.');
-    }
-  };
-
-  const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
-    setUploadingTarget(target);
-    setErrorMsg(null);
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const uploadedUrl = await uploadImageDataUrl(dataUrl, file.name || `${target}.png`);
-      if (target === 'question') {
-        setQuestionImageUrl(uploadedUrl);
-      } else {
-        setOptions((prev) =>
-          prev.map((o) => (o.id === target ? { ...o, imageUrl: uploadedUrl } : o))
-        );
-      }
-      setStatusMsg(
-        target === 'question'
-          ? 'Question image uploaded.'
-          : `Option ${target} image uploaded.`
-      );
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Image upload failed.');
-    } finally {
-      setUploadingTarget(null);
-    }
-  };
-
-  const handlePasteImageEvent = (
-    e: React.ClipboardEvent,
-    target: 'question' | OptionId | 'ai_panel'
-  ) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i];
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          e.preventDefault();
-          if (target === 'ai_panel') {
-            handleAiImagePick(file);
-          } else {
-            handleUploadImage(file, target);
-          }
-          return;
-        }
-      }
-    }
-  };
-
-  const handleAiImagePick = async (file: File) => {
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        setAiImagePreview(dataUrl);
-        setAiImageMime(match[1]);
-        setAiImageBase64(match[2]);
-      }
-    } catch {
-      setErrorMsg('Could not read uploaded textbook/diagram image.');
-    }
-  };
-
-  const saveCurrentQuestionInternal = async (advanceToNext: boolean) => {
-    setErrorMsg(null);
-    setStatusMsg(null);
-
     if (!questionText.trim() && !questionImageUrl.trim()) {
-      setErrorMsg('Enter question text or upload a question image.');
+      setErrorMsg('Please enter a question stem or upload an image.');
       return;
     }
-
-    const cleanOptions = options.map((o) => ({
-      id: o.id,
-      text: o.text.trim() || (o.imageUrl ? `Option ${o.id}` : ''),
-      ...(o.imageUrl?.trim() ? { imageUrl: o.imageUrl.trim() } : {}),
-    }));
-
-    if (cleanOptions.some((o) => !o.text && !o.imageUrl)) {
-      setErrorMsg(
-        'All 4 options (A, B, C, D) need text or an image—or click "Generate Options, Answer & Solution with Gemini" to fill them automatically.'
-      );
+    const hasEmptyOption = options.some((o) => !o.text.trim() && !o.imageUrl?.trim());
+    if (hasEmptyOption) {
+      setErrorMsg('Please enter text or an image for all 4 options (A, B, C, D).');
       return;
     }
 
     setSavingQ(true);
     try {
-      const existingQ = editingId ? questions.find((q) => q.questionId === editingId) : null;
-      const resolvedStem =
-        questionText.trim() || 'Refer to the diagram/image below and choose the correct option.';
-      const newQ: TestQuestion = {
-        questionId: editingId || generateId('q'),
+      const qId = editingId || generateId('q');
+      const question: TestQuestion = {
+        questionId: qId,
         testId: test.testId,
-        testStatus: test.status,
         sectionId: activeSectionId,
-        orderIndex: existingQ ? existingQ.orderIndex : questions.length,
-        questionText: resolvedStem,
-        ...(questionImageUrl.trim() ? { questionImageUrl: questionImageUrl.trim() } : {}),
-        options: cleanOptions,
+        stem: questionText.trim(),
+        imageUrl: questionImageUrl.trim() || undefined,
+        options: options.map((o) => ({
+          id: o.id,
+          text: o.text.trim(),
+          imageUrl: o.imageUrl?.trim() || undefined,
+        })),
         correctOptionId,
-        shortExplanation: shortExplanation.trim(),
-        stepByStepSolution: steps.map((s) => s.trim()).filter(Boolean),
-        marks: Math.min(100, Math.max(0.25, Number(marks) || defaultMarks)),
+        solution: {
+          shortExplanation: shortExplanation.trim() || 'No explanation provided.',
+          steps: steps.map((s) => s.trim()).filter(Boolean),
+        },
+        marks,
+        order: questions.length + 1,
       };
-      await onSaveQuestion(
-        newQ,
-        lastAiEditLabel
-          ? {
-              versionSource: 'gemini_edit',
-              versionSummary: `Saved after Gemini (${lastAiEditLabel})`,
-            }
-          : {
-              versionSource: editingId ? 'manual_save' : 'initial',
-              versionSummary: editingId ? 'Saved manual update' : 'Initial saved version',
-            }
-      );
 
-      if (editingId) {
-        await fetchVersionsForQuestion(editingId);
-      } else {
-        // Clear local unsaved draft versions once promoted to a saved question
-        setLocalVersionsByQ((prev) => {
-          const next = { ...prev };
-          delete next.__new__;
-          return next;
-        });
-      }
+      await onSaveQuestion(question);
+      setEditingId(qId);
+      setStatusMsg('Question saved successfully.');
+      setTimeout(() => setStatusMsg(null), 3000);
 
-      if (editingId && advanceToNext) {
-        if (editingSectionIndex >= 0 && editingSectionIndex < sectionQuestions.length - 1) {
-          loadQuestionIntoEditor(sectionQuestions[editingSectionIndex + 1]);
-          setStatusMsg('Question updated. Loaded next question.');
+      if (advanceToNext) {
+        // Find next question in section or create blank
+        const currentIdx = sectionQuestions.findIndex((q) => q.questionId === qId);
+        if (currentIdx !== -1 && currentIdx < sectionQuestions.length - 1) {
+          loadQuestionIntoEditor(sectionQuestions[currentIdx + 1]);
         } else {
-          resetForm();
-          setStatusMsg('Question updated. Ready to add next question.');
+          resetFormToNewQuestion(activeSectionId);
         }
-      } else {
-        setStatusMsg(editingId ? 'Question updated.' : 'Question saved. Ready for next question.');
-        resetForm();
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to save question.');
@@ -671,352 +298,180 @@ export function AdminQuestionStudio({
     }
   };
 
-  const handleSaveCurrentQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await saveCurrentQuestionInternal(false);
-  };
-
-  /**
-   * Multimodal Gemini AI completion:
-   * Inspects questionText + questionImageUrl + option texts + option images (A/B/C/D)
-   * and returns/fills questionText (if empty), 4 options, correctOptionId, shortExplanation, & steps.
-   */
-  const handleCompleteWithGemini = async () => {
-    if (!questionText.trim() && !questionImageUrl.trim()) {
-      setErrorMsg(
-        'Enter a question or upload/paste a question image first so Gemini can generate options, correct answer, and solution.'
-      );
+  // Single Question AI Generator (Options, Answer & Solution)
+  const handleGenerateOptionsAndSolutionWithAi = async () => {
+    if (!questionText.trim() && !questionImageUrl) {
+      setErrorMsg('Please enter question stem or diagram first so Gemini can analyze it.');
       return;
     }
-    setCompletingAi(true);
     setErrorMsg(null);
-    setStatusMsg(null);
+    setGeneratingWithAi(true);
     try {
-      const preGeminiSnapshot = captureCurrentEditorSnapshot(
-        'before_gemini_edit',
-        'Before Gemini: Generate Options, Answer & Solution'
-      );
-
-      const result = await generateSolutionWithAI({
-        questionText: questionText.trim(),
-        questionImageUrl: questionImageUrl.trim() || undefined,
+      const res = await generateSolutionWithAI(test, {
+        stem: questionText.trim(),
+        imageUrl: questionImageUrl || undefined,
         options,
-        mode: 'complete_all',
       });
-      if (!questionText.trim() && result.questionText) {
-        setQuestionText(result.questionText);
-      }
-      setOptions((prev) =>
-        OPTION_IDS.map((id) => {
-          const prevOpt = prev.find((p) => p.id === id);
-          const aiOpt = result.options.find((o) => o.id === id);
-          return {
+
+      if (res.options?.length) {
+        setOptions(
+          OPTION_IDS.map((id, idx) => ({
             id,
-            text: prevOpt?.text.trim() ? prevOpt.text : aiOpt?.text || '',
-            imageUrl: prevOpt?.imageUrl || '',
-          };
-        })
-      );
-      setCorrectOptionId(result.correctOptionId);
-      setShortExplanation(result.shortExplanation);
-      setSteps(result.stepByStepSolution.length ? result.stepByStepSolution : ['']);
-      setLastAiEditLabel('Options, Answer & Solution');
-      setLastUndoVersion(preGeminiSnapshot);
-      setStatusMsg(
-        `Gemini analyzed the question${questionImageUrl ? ' & image' : ''} and filled options, Answer (${result.correctOptionId}), and step-by-step solution.`
-      );
+            text: res.options?.[idx]?.text || options[idx]?.text || '',
+            imageUrl: options[idx]?.imageUrl || '',
+          }))
+        );
+      }
+      if (res.correctOptionId) {
+        setCorrectOptionId(res.correctOptionId);
+      }
+      if (res.shortExplanation) {
+        setShortExplanation(res.shortExplanation);
+      }
+      if (res.steps?.length) {
+        setSteps(res.steps);
+        setShowStepsAccordion(true);
+      }
+      setStatusMsg('Gemini generated options, correct answer, and solution steps!');
+      setTimeout(() => setStatusMsg(null), 4000);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Gemini AI completion failed.');
+      setErrorMsg(err instanceof Error ? err.message : 'AI generation failed.');
     } finally {
-      setCompletingAi(false);
+      setGeneratingWithAi(false);
     }
   };
 
-  const handleAutoWriteSolutionOnly = async () => {
-    if (!questionText.trim() && !questionImageUrl.trim()) {
-      setErrorMsg('Enter question text or upload a question image first.');
+  // Bulk Gemini Generate
+  const handleBulkGenerateWithGemini = async () => {
+    if (!aiTopic.trim()) {
+      setErrorMsg('Please enter a topic or syllabus excerpt.');
       return;
     }
-    setWritingSolution(true);
     setErrorMsg(null);
+    setGeneratingWithAi(true);
     try {
-      const preGeminiSnapshot = captureCurrentEditorSnapshot(
-        'before_gemini_edit',
-        'Before Gemini: Write Solution Only'
-      );
-
-      const result = await generateSolutionWithAI({
-        questionText: questionText.trim(),
-        questionImageUrl: questionImageUrl.trim() || undefined,
-        options,
-        correctOptionId,
-        mode: 'solution_only',
-      });
-      setShortExplanation(result.shortExplanation);
-      setSteps(result.stepByStepSolution.length ? result.stepByStepSolution : ['']);
-      setLastAiEditLabel('Solution Only');
-      setLastUndoVersion(preGeminiSnapshot);
-      setStatusMsg('Short explanation & step-by-step solution generated by Gemini.');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Gemini solution generation failed.');
-    } finally {
-      setWritingSolution(false);
-    }
-  };
-
-  const handleGenerateAiQuestions = async () => {
-    setGeneratingAi(true);
-    setErrorMsg(null);
-    try {
-      const drafts = await generateQuestionsWithAI({
-        topicOrNotes: aiNotes,
-        sectionName: activeSection?.name || 'General',
+      const targetSec = test.sections.find((s) => s.id === aiTargetSectionId);
+      const drafts = await generateQuestionsWithAI(test, {
+        notes: aiTopic.trim(),
         count: aiCount,
+        sectionName: targetSec?.name,
         difficulty: aiDifficulty,
-        imageBase64: aiImageBase64,
-        imageMimeType: aiImageMime,
-        attachImageAsQuestion: Boolean(aiImageBase64 && aiAttachImage),
       });
       setAiDrafts(drafts);
-      if (drafts.length > 0) {
-        setTimeout(() => {
-          draftsPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-      }
+      setReviewedDraftIndexes({});
+      setViewMode('gemini_review');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to generate questions with Gemini.');
+      setErrorMsg(err instanceof Error ? err.message : 'Bulk AI generation failed.');
     } finally {
-      setGeneratingAi(false);
+      setGeneratingWithAi(false);
     }
   };
 
-  const handleRunJsonImport = async (
-    mode: 'parse_only' | 'complete_with_gemini',
-    overrideText?: string
-  ) => {
-    const payload = (overrideText ?? jsonInputText).trim();
-    if (!payload) {
-      setErrorMsg('Upload a .json file or paste JSON content first.');
-      return;
-    }
-
-    setImportingJsonMode(mode);
-    setErrorMsg(null);
-    setStatusMsg(null);
-    setJsonSummaryInfo(null);
-
-    try {
-      const result = await importQuestionsFromJson({
-        jsonTextOrData: payload,
-        sectionName: activeSection?.name || 'General',
-        mode,
-        count: jsonTargetCount,
-      });
-
-      setAiDrafts(result.questions);
-      if (result.questions.length > 0) {
-        setTimeout(() => {
-          draftsPreviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 80);
-      }
-
-      if (mode === 'parse_only') {
-        if (!result.parsedAsArray) {
-          setJsonSummaryInfo(
-            'Structured question array not found—click "Complete / Generate with Gemini" to generate full MCQs directly from this JSON.'
-          );
-        } else if (result.incompleteCount > 0) {
-          setJsonSummaryInfo(
-            `Loaded ${result.questions.length} item(s). ${result.incompleteCount} item(s) have missing fields (stem, options, answer, or solution)—click "Complete / Generate with Gemini" to finish them.`
-          );
-        } else {
-          setJsonSummaryInfo(
-            `Parsed ${result.questions.length} complete question(s) from JSON. Review below and add to ${activeSection?.name}.`
-          );
-        }
-      } else {
-        setJsonSummaryInfo(
-          `Gemini generated & completed ${result.questions.length} MCQ(s) with options, answers, and step-by-step solutions while preserving attached images.`
-        );
-        setStatusMsg(
-          `Prepared ${result.questions.length} complete question(s) from JSON via Gemini.`
-        );
-      }
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to process JSON questions.');
-    } finally {
-      setImportingJsonMode(null);
-    }
-  };
-
-  const handleJsonFileUpload = async (file: File) => {
-    setErrorMsg(null);
-    setStatusMsg(null);
-    try {
-      const text = await file.text();
-      // Validate & parse JSON immediately before sending to backend / Gemini
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch (parseErr) {
-        setJsonFileName(file.name);
-        setJsonInputText(text);
-        setShowRawJsonEditor(true);
-        setErrorMsg(
-          `Invalid JSON in "${file.name}": ${
-            parseErr instanceof Error ? parseErr.message : 'Syntax error'
-          }`
-        );
-        return;
-      }
-
-      const itemCount = Array.isArray(parsed)
-        ? parsed.length
-        : parsed &&
-          typeof parsed === 'object' &&
-          Array.isArray((parsed as Record<string, unknown>).questions)
-        ? ((parsed as Record<string, unknown>).questions as unknown[]).length
-        : null;
-
-      setJsonFileName(file.name);
-      setJsonInputText(text);
-      setJsonSummaryInfo(
-        itemCount !== null
-          ? `Parsed "${file.name}" (${itemCount} item${itemCount === 1 ? '' : 's'}). ${
-              autoGenerateOnUpload ? 'Sending to Gemini AI for completion & preview…' : ''
-            }`
-          : `Parsed "${file.name}" as structured JSON data. ${
-              autoGenerateOnUpload ? 'Sending to Gemini AI to generate MCQs…' : ''
-            }`
-      );
-
-      await handleRunJsonImport(
-        autoGenerateOnUpload ? 'complete_with_gemini' : 'parse_only',
-        text
-      );
-    } catch {
-      setErrorMsg('Could not read the selected JSON file.');
-    }
-  };
-
-  const handleDownloadSampleJson = () => {
-    const sample = {
-      questions: [
-        {
-          questionText:
-            'A convex lens has a focal length of 20 cm. At what distance from the lens should an object be placed to form a real, inverted image of the same size?',
-          questionImageUrl: '',
-          options: [
-            { id: 'A', text: '10 cm', imageUrl: '' },
-            { id: 'B', text: '20 cm', imageUrl: '' },
-            { id: 'C', text: '40 cm', imageUrl: '' },
-            { id: 'D', text: '80 cm', imageUrl: '' },
-          ],
-          correctOptionId: 'C',
-          shortExplanation:
-            'A convex lens forms a real, inverted image of identical size when the object is placed at 2F (40 cm).',
-          stepByStepSolution: [
-            'Given focal length f = +20 cm.',
-            'For magnification m = -1 (same size, real & inverted), object distance u = -2f.',
-            'Therefore u = -40 cm, meaning 40 cm in front of the lens.',
-          ],
-        },
-        {
-          question:
-            'What happens to the resistance of a copper wire if its length is doubled while keeping volume constant? (Leave options/solution blank for Gemini to complete)',
-        },
-      ],
-    };
-
-    const blob = new Blob([JSON.stringify(sample, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'exampulse_questions_template.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLoadDraftIntoEditor = (d: GeneratedQuestionDraft) => {
-    setEditingId(null);
-    setQuestionText(d.questionText || '');
-    setQuestionImageUrl(d.questionImageUrl || '');
-    setOptions(
-      OPTION_IDS.map((id, idx) => {
-        const matched = d.options.find((o) => o.id === id) || d.options[idx];
-        return {
-          id,
-          text: matched?.text || '',
-          imageUrl: matched?.imageUrl || '',
-        };
-      })
-    );
-    setCorrectOptionId(OPTION_IDS.includes(d.correctOptionId) ? d.correctOptionId : 'A');
-    setShortExplanation(d.shortExplanation || '');
-    setSteps(d.stepByStepSolution?.length ? d.stepByStepSolution : ['']);
-    setMarks(d.marks ?? defaultMarks);
-    setStatusMsg('Loaded draft into the Question Editor below so you can inspect or fine-tune it.');
-    setErrorMsg(null);
-  };
-
-  const handleAddDraftsToTest = async (draftsToAdd: GeneratedQuestionDraft[]) => {
+  // Add reviewed AI drafts to section
+  const handleAddReviewedAiDrafts = async () => {
     setSavingQ(true);
-    setErrorMsg(null);
     try {
-      let idx = questions.length;
-      for (const d of draftsToAdd) {
-        const cleanOptions: QuestionOption[] = OPTION_IDS.map((optId, optIdx) => {
-          const matched = d.options.find((o) => o.id === optId) || d.options[optIdx];
-          const optImg = matched?.imageUrl?.trim();
-          const optText = matched?.text?.trim() || `Option ${optId}`;
-          return {
-            id: optId,
-            text: optText,
-            ...(optImg ? { imageUrl: optImg } : {}),
-          };
-        });
-
-        const stem =
-          d.questionText.trim() ||
-          (d.questionImageUrl
-            ? 'Refer to the diagram/image below and choose the correct option.'
-            : 'Question');
-
-        const q: TestQuestion = {
+      for (let i = 0; i < aiDrafts.length; i++) {
+        const draft = aiDrafts[i];
+        const newQ: TestQuestion = {
           questionId: generateId('q'),
           testId: test.testId,
-          testStatus: test.status,
-          sectionId: activeSectionId,
-          orderIndex: idx++,
-          questionText: stem,
-          ...(d.questionImageUrl ? { questionImageUrl: d.questionImageUrl } : {}),
-          options: cleanOptions,
-          correctOptionId: OPTION_IDS.includes(d.correctOptionId) ? d.correctOptionId : 'A',
-          shortExplanation: d.shortExplanation || '',
-          stepByStepSolution: Array.isArray(d.stepByStepSolution) ? d.stepByStepSolution : [],
-          marks: d.marks ?? defaultMarks,
+          sectionId: aiTargetSectionId,
+          stem: draft.stem,
+          options: draft.options.map((o) => ({
+            id: o.id,
+            text: o.text,
+            imageUrl: o.imageUrl,
+          })),
+          correctOptionId: draft.correctOptionId,
+          solution: {
+            shortExplanation: draft.solution?.shortExplanation || '',
+            steps: draft.solution?.steps || [],
+          },
+          marks: defaultMarks,
+          order: questions.length + i + 1,
         };
-        await onSaveQuestion(q);
+        await onSaveQuestion(newQ);
       }
-      setAiDrafts((prev) => prev.filter((item) => !draftsToAdd.includes(item)));
-      setStatusMsg(
-        `Added ${draftsToAdd.length} question(s) to ${activeSection?.name}.`
-      );
+      setActiveSectionId(aiTargetSectionId);
+      setViewMode('editor');
+      setStatusMsg(`Successfully added ${aiDrafts.length} questions from Gemini!`);
+      setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to save drafted questions.');
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to save generated questions.');
     } finally {
       setSavingQ(false);
     }
   };
 
-  const handlePublish = async () => {
-    setPublishing(true);
+  // JSON Generate Preview
+  const handleGenerateJsonPreview = async () => {
+    if (!jsonInputText.trim()) {
+      setErrorMsg('Please drop a .json file or paste JSON content.');
+      return;
+    }
     setErrorMsg(null);
+    setImportingJson(true);
+    try {
+      const targetSec = test.sections.find((s) => s.id === activeSectionId);
+      const parsed = await importQuestionsFromJson(test, {
+        rawJson: jsonInputText.trim(),
+        completeWithAI: jsonUseGemini,
+        targetCount: jsonTargetCount,
+        targetSectionName: targetSec?.name,
+      });
+      setJsonDrafts(parsed);
+      setViewMode('json_review');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to parse JSON.');
+    } finally {
+      setImportingJson(false);
+    }
+  };
+
+  // Add reviewed JSON drafts to section
+  const handleAddReviewedJsonDrafts = async () => {
+    setSavingQ(true);
+    try {
+      for (let i = 0; i < jsonDrafts.length; i++) {
+        const draft = jsonDrafts[i];
+        const newQ: TestQuestion = {
+          questionId: generateId('q'),
+          testId: test.testId,
+          sectionId: activeSectionId,
+          stem: draft.stem,
+          options: draft.options.map((o) => ({
+            id: o.id,
+            text: o.text,
+            imageUrl: o.imageUrl,
+          })),
+          correctOptionId: draft.correctOptionId,
+          solution: {
+            shortExplanation: draft.solution?.shortExplanation || '',
+            steps: draft.solution?.steps || [],
+          },
+          marks: defaultMarks,
+          order: questions.length + i + 1,
+        };
+        await onSaveQuestion(newQ);
+      }
+      setViewMode('editor');
+      setStatusMsg(`Successfully added ${jsonDrafts.length} questions from JSON!`);
+      setTimeout(() => setStatusMsg(null), 3000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to save imported questions.');
+    } finally {
+      setSavingQ(false);
+    }
+  };
+
+  // Handle Publish Test
+  const handleConfirmPublish = async () => {
+    setPublishing(true);
     try {
       await onPublishTest();
-      setStatusMsg('Test published and visible to candidates.');
+      setShowPublishModal(false);
+      setViewMode('published_success');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to publish test.');
     } finally {
@@ -1024,1630 +479,1333 @@ export function AdminQuestionStudio({
     }
   };
 
-  return (
-    <div ref={studioContainerRef} className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
-      <AdminBuilderStepper
-        activeStep={2}
-        testTitle={test.title}
-        canSwitchToStep2={true}
-        onBackToDashboard={onBack}
-        onSelectStep={(step) => {
-          if (step === 1) onEditTestDetails();
-        }}
-      />
+  // Image Upload helper
+  const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
+    setUploadingTarget(target);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const uploaded = await uploadImageDataUrl(dataUrl);
+      if (target === 'question') {
+        setQuestionImageUrl(uploaded);
+      } else {
+        setOptions((prev) =>
+          prev.map((o) => (o.id === target ? { ...o, imageUrl: uploaded } : o))
+        );
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to upload image.');
+    } finally {
+      setUploadingTarget(null);
+    }
+  };
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
-            Step 2: Question Builder &amp; Gemini AI Studio
+  const isAllSectionsComplete =
+    test.sections.every((s) => {
+      const count = questions.filter((q) => q.sectionId === s.id).length;
+      return count >= s.questionCount;
+    }) && questions.length >= test.totalQuestions;
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      {/* 1. Top Stepper Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-h-[44px]">
+        <button
+          type="button"
+          onClick={onEditTestDetails}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to Test Details</span>
+        </button>
+
+        {/* Center: Title and Subtitle */}
+        <div className="text-center sm:absolute sm:left-1/2 sm:-translate-x-1/2 min-w-0">
+          <h1 className="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+            Question Builder &amp; AI
           </h1>
-          <p className="mt-1 text-xs text-slate-500">
-            {test.title} · Questions: {questions.length} / {test.totalQuestions} · Window:{' '}
-            {formatDateShort(test.startTime)}–{formatDateShort(test.endTime)} · Duration:{' '}
-            {test.durationMins} min · Marking: +{defaultMarks} /{' '}
-            {test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} · Max Strikes:{' '}
-            {test.maxStrikes}
+          <p className="text-[11px] text-slate-500 hidden sm:block">
+            Create, generate and manage questions with AI assistance.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Right: Step Navigation Pills */}
+        <nav aria-label="Creation steps" className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={onEditTestDetails}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shadow-xs"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Back: Edit Details &amp; Dates</span>
+            <Sliders className="h-3.5 w-3.5" />
+            <span>1. Test Details &amp; Rules</span>
           </button>
+          <div className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-bold text-blue-700 shadow-xs">
+            <FileQuestion className="h-3.5 w-3.5" />
+            <span>2. Question Builder &amp; AI</span>
+          </div>
+        </nav>
+      </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowJsonPanel((v) => !v);
-              setShowAiPanel(false);
-            }}
-            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              showJsonPanel
-                ? 'border-indigo-300 bg-indigo-100 text-indigo-900'
-                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <FileJson className="h-4 w-4 text-indigo-700" />
-            <span>{showJsonPanel ? 'Hide JSON Importer' : 'Import JSON'}</span>
-          </button>
+      {/* 2. Test Info Metadata Strip */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white px-5 py-3 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div className="flex items-center gap-2 font-bold text-slate-900 min-w-0">
+          <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="truncate">Test: {test.title}</span>
+        </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowAiPanel((v) => !v);
-              setShowJsonPanel(false);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <Sparkles className="h-4 w-4 text-blue-700" />
-            <span>{showAiPanel ? 'Hide Bulk AI Generator' : 'Bulk Generate with Gemini'}</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={
-              questions.length === 0 && !questionText.trim() && !questionImageUrl.trim()
-            }
-            onClick={() =>
-              setPreviewTargetId(
-                editingId ||
-                  (questionText.trim() || questionImageUrl.trim()
-                    ? '__editor_draft__'
-                    : questions[0]?.questionId || null)
-              )
-            }
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <Eye className="h-4 w-4 text-blue-700" />
-            <span>Preview Questions</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={publishing || questions.length === 0}
-            onClick={handlePublish}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <Globe className="h-4 w-4" />
-            <span>
-              {publishing
-                ? 'Publishing…'
-                : test.status === 'published'
-                ? 'Published (Live)'
-                : 'Publish Test'}
-            </span>
-          </button>
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-600 font-medium">
+          <span className="flex items-center gap-1.5">
+            <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+            <span>{test.totalQuestions} Questions</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+            <span>{test.durationMins} Minutes</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5 text-slate-400" />
+            <span>+{defaultMarks} Marks per Correct</span>
+          </span>
         </div>
       </div>
 
-      {/* Section Tabs */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        {test.sections.map((sec) => {
-          const countInSec = questions.filter((q) => q.sectionId === sec.id).length;
-          const isActive = sec.id === activeSectionId;
-          return (
-            <button
-              key={sec.id}
-              type="button"
-              onClick={() => {
-                setActiveSectionId(sec.id);
-                resetForm();
-              }}
-              className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                isActive
-                  ? 'bg-slate-900 text-white'
-                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {sec.name} ({countInSec}/{sec.questionCount})
-            </button>
-          );
-        })}
-      </div>
-
-      {errorMsg && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {errorMsg}
-        </div>
-      )}
-      {statusMsg && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{statusMsg}</span>
-          </div>
-          {lastUndoVersion && (
-            <div className="flex items-center gap-2">
+      {/* 3. Section Selector & Global Action Strip */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Left: Section Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          {test.sections.map((sec) => {
+            const count = questions.filter((q) => q.sectionId === sec.id).length;
+            const isActive = activeSectionId === sec.id;
+            return (
               <button
-                type="button"
-                disabled={revertingVersionId !== null}
-                onClick={() => handleRevertToVersion(lastUndoVersion)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>Undo Gemini Edit</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowHistoryPanel(true)}
-                className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 cursor-pointer"
-              >
-                <History className="h-3.5 w-3.5" />
-                <span>History ({activeVersions.length})</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Gemini AI Bulk Question & Solution Synthesizer Panel */}
-      {showAiPanel && (
-        <div
-          onPaste={(e) => handlePasteImageEvent(e, 'ai_panel')}
-          className="mt-6 rounded-xl border border-blue-200 bg-white p-4 sm:p-6"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-base font-semibold text-slate-900 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-700" />
-                <span>Gemini AI Bulk Question, Options &amp; Solution Synthesizer</span>
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Enter notes or upload/paste a textbook diagram or question sheet image to generate complete MCQs for{' '}
-                <strong>{activeSection?.name}</strong>.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAiPanel(false)}
-              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-            <div className="lg:col-span-8 space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">
-                Topic, Syllabus Notes, or Raw Problem Text (you can also paste an image here with Ctrl+V)
-              </label>
-              <textarea
-                rows={4}
-                value={aiNotes}
-                onChange={(e) => setAiNotes(e.target.value)}
-                placeholder="e.g., Snell's law refraction through prisms, critical angle, or paste a diagram/question image..."
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
-              />
-            </div>
-
-            <div className="lg:col-span-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Questions</label>
-                  <select
-                    value={aiCount}
-                    onChange={(e) => setAiCount(Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white"
-                  >
-                    {[1, 2, 3, 4, 5, 6].map((n) => (
-                      <option key={n} value={n}>
-                        {n} MCQs
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Difficulty</label>
-                  <select
-                    value={aiDifficulty}
-                    onChange={(e) => setAiDifficulty(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white"
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <input
-                  ref={aiImgInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleAiImagePick(file);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => aiImgInputRef.current?.click()}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                >
-                  <ImagePlus className="h-4 w-4 text-blue-700" />
-                  <span>{aiImagePreview ? 'Change Uploaded Image' : 'Upload Diagram / Question Image'}</span>
-                </button>
-                {aiImagePreview && (
-                  <div className="mt-2 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2">
-                    <div className="flex items-center justify-between">
-                      <img
-                        src={aiImagePreview}
-                        alt="Uploaded reference notes"
-                        referrerPolicy="no-referrer"
-                        className="h-12 w-20 rounded object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAiImagePreview(null);
-                          setAiImageBase64(undefined);
-                          setAiImageMime(undefined);
-                        }}
-                        className="text-xs text-red-600 hover:underline px-2 cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={aiAttachImage}
-                        onChange={(e) => setAiAttachImage(e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-blue-700"
-                      />
-                      <span>Attach this image on generated question(s)</span>
-                    </label>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                disabled={generatingAi}
-                onClick={handleGenerateAiQuestions}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-60 cursor-pointer"
-              >
-                {generatingAi ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                <span>{generatingAi ? 'Generating MCQs…' : 'Generate Questions & Solutions'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* JSON Question Importer & Gemini Generator Panel */}
-      {showJsonPanel && (
-        <div className="mt-6 rounded-xl border border-indigo-200 bg-white p-4 sm:p-6 space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-base font-semibold text-slate-900 flex items-center gap-2">
-                <FileJson className="h-4 w-4 text-indigo-700" />
-                <span>Upload JSON File &amp; Generate Preview with Gemini</span>
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadSampleJson}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap cursor-pointer"
-              >
-                <Download className="h-3.5 w-3.5 text-slate-500" />
-                <span>Sample JSON</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowJsonPanel(false)}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-                title="Hide JSON Upload Area"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <input
-            ref={jsonFileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleJsonFileUpload(file);
-              e.target.value = '';
-            }}
-          />
-
-          {/* Drag-and-Drop JSON File Upload Area */}
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              if (importingJsonMode === null) jsonFileInputRef.current?.click();
-            }}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && importingJsonMode === null) {
-                e.preventDefault();
-                jsonFileInputRef.current?.click();
-              }
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDraggingJson(true);
-            }}
-            onDragLeave={() => setIsDraggingJson(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDraggingJson(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file) handleJsonFileUpload(file);
-            }}
-            className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors cursor-pointer ${
-              isDraggingJson
-                ? 'border-indigo-500 bg-indigo-50/70'
-                : 'border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/30'
-            }`}
-          >
-            <div className="mx-auto flex max-w-xl flex-col items-center gap-2">
-              {importingJsonMode !== null ? (
-                <Loader2 className="h-7 w-7 animate-spin text-indigo-700" />
-              ) : (
-                <Upload className="h-7 w-7 text-indigo-700" />
-              )}
-              <div className="text-sm font-semibold text-slate-900">
-                {importingJsonMode === 'complete_with_gemini'
-                  ? 'Sending parsed JSON to Gemini AI…'
-                  : importingJsonMode === 'parse_only'
-                  ? 'Parsing JSON questions…'
-                  : jsonFileName
-                  ? `Uploaded: ${jsonFileName} (click or drop another .json file to replace)`
-                  : 'Drop a .json file here, or click to browse'}
-              </div>
-              <p className="text-xs text-slate-500">
-                Supports structured question arrays, embedded base64 or /uploads/ images, partial items, or raw topic/syllabus JSON.
-              </p>
-            </div>
-          </div>
-
-          {/* Upload Behavior & Raw JSON Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs">
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="inline-flex items-center gap-2 text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoGenerateOnUpload}
-                  onChange={(e) => setAutoGenerateOnUpload(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-700"
-                />
-                <span>Auto-send uploaded JSON to Gemini AI for completion &amp; generation</span>
-              </label>
-
-              <div className="flex items-center gap-2 text-slate-600">
-                <span>Raw notes count:</span>
-                <select
-                  value={jsonTargetCount}
-                  onChange={(e) => setJsonTargetCount(Number(e.target.value))}
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-900"
-                >
-                  {[3, 5, 8, 10, 12, 15].map((n) => (
-                    <option key={n} value={n}>
-                      {n} MCQs
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowRawJsonEditor((v) => !v)}
-              className="font-semibold text-indigo-700 hover:underline cursor-pointer"
-            >
-              {showRawJsonEditor ? 'Hide Raw JSON Editor' : 'Paste / Edit Raw JSON'}
-            </button>
-          </div>
-
-          {showRawJsonEditor && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                JSON Content (supports arrays, &#123;&quot;questions&quot;: [...]&#125;, URLs or base64 data:image/* on question &amp; options, or raw topic JSON)
-              </label>
-              <textarea
-                rows={7}
-                value={jsonInputText}
-                onChange={(e) => setJsonInputText(e.target.value)}
-                placeholder={`{\n  "questions": [\n    {\n      "questionText": "...",\n      "questionImageUrl": "/uploads/... or data:image/png;base64,...",\n      "options": [{"id": "A", "text": "..."}, ...],\n      "correctOptionId": "A",\n      "shortExplanation": "...",\n      "stepByStepSolution": ["..."]\n    }\n  ]\n}`}
-                className="w-full rounded-lg border border-slate-300 bg-slate-50/40 px-3.5 py-2.5 font-mono text-xs text-slate-900 focus:border-indigo-600 focus:bg-white focus:outline-none"
-              />
-            </div>
-          )}
-
-          {jsonSummaryInfo && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-4 py-2.5 text-xs text-indigo-950">
-              {jsonSummaryInfo}
-            </div>
-          )}
-
-          {jsonInputText.trim().length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <button
+                key={sec.id}
                 type="button"
                 onClick={() => {
-                  setJsonInputText('');
-                  setJsonFileName(null);
-                  setJsonSummaryInfo(null);
+                  setActiveSectionId(sec.id);
+                  const firstQ = questions.find((q) => q.sectionId === sec.id);
+                  if (firstQ) loadQuestionIntoEditor(firstQ);
+                  else resetFormToNewQuestion(sec.id);
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200/70 font-bold shadow-xs'
+                    : 'bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                Clear JSON
+                {sec.name} <span className="ml-1 opacity-75 font-mono">{count}/{sec.questionCount}</span>
               </button>
+            );
+          })}
+        </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  disabled={importingJsonMode !== null}
-                  onClick={() => handleRunJsonImport('parse_only')}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                >
-                  {importingJsonMode === 'parse_only' ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <FileJson className="h-3.5 w-3.5 text-indigo-700" />
-                  )}
-                  <span>
-                    {importingJsonMode === 'parse_only' ? 'Parsing JSON…' : 'Preview JSON Only'}
-                  </span>
-                </button>
+        {/* Right: Global Actions (Import JSON, Bulk Gemini, Preview, Publish) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode('json_import')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer shadow-xs ${
+              viewMode === 'json_import' || viewMode === 'json_review'
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Upload className="h-3.5 w-3.5 text-slate-500" />
+            <span>Import JSON</span>
+          </button>
 
-                <button
-                  type="button"
-                  disabled={importingJsonMode !== null}
-                  onClick={() => handleRunJsonImport('complete_with_gemini')}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                >
-                  {importingJsonMode === 'complete_with_gemini' ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  <span>
-                    {importingJsonMode === 'complete_with_gemini'
-                      ? 'Generating with Gemini…'
-                      : 'Generate / Complete with Gemini'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setViewMode('gemini_generate')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer shadow-xs ${
+              viewMode === 'gemini_generate' || viewMode === 'gemini_review'
+                ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold'
+                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+            <span>Bulk Generate with Gemini</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setPreviewQuestionIndex(0);
+              setViewMode('test_preview');
+            }}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer shadow-xs ${
+              viewMode === 'test_preview'
+                ? 'bg-slate-900 border-slate-900 text-white font-bold'
+                : 'bg-white border-slate-200/80 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Eye className="h-3.5 w-3.5 text-slate-500" />
+            <span>Preview</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowPublishModal(true)}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs ${
+              isAllSectionsComplete
+                ? 'bg-blue-600 hover:bg-blue-700 text-white font-bold'
+                : 'bg-slate-100 text-slate-400 border border-slate-200'
+            }`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Publish Test</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Status & Error Alerts */}
+      {statusMsg && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800 flex items-center justify-between">
+          <span>{statusMsg}</span>
+          <button type="button" onClick={() => setStatusMsg(null)}><X className="h-3.5 w-3.5" /></button>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-800 flex items-center justify-between">
+          <span>{errorMsg}</span>
+          <button type="button" onClick={() => setErrorMsg(null)}><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
 
-      {/* Shared Imported / Gemini-Generated Drafts Preview Grid */}
-      {aiDrafts.length > 0 && (
-        <div
-          ref={draftsPreviewRef}
-          className="mt-6 rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="text-sm font-semibold text-slate-900">
-                Draft Questions Preview ({aiDrafts.length})
-              </span>
-              <p className="text-xs text-slate-500">
-                Inspect questions, diagrams, option images, explanations, and step-by-step solutions before adding to{' '}
-                <strong>{activeSection?.name}</strong>.
-              </p>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setAiDrafts([])}
-                className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap cursor-pointer"
-              >
-                Clear Drafts
-              </button>
-              <button
-                type="button"
-                disabled={savingQ}
-                onClick={() => handleAddDraftsToTest(aiDrafts)}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 whitespace-nowrap cursor-pointer"
-              >
-                Add All to {activeSection?.name}
-              </button>
-            </div>
-          </div>
+      {/* ======================================================== */}
+      {/* VIEW MODE 1: Manual Question Editor (Images 1, 2, 3)     */}
+      {/* ======================================================== */}
+      {viewMode === 'editor' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column (8 cols): Question Editor Form */}
+          <div className="lg:col-span-8 space-y-5">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+              {/* Question Card Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-500" />
+                  <span className="font-bold text-sm text-slate-900">
+                    Question {currentQuestionIndex !== -1 ? currentQuestionIndex + 1 : sectionQuestions.length + 1}
+                  </span>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {aiDrafts.map((d, idx) => {
-              const isIncomplete =
-                !d.questionText.trim() ||
-                d.options.some((o) => !o.text.trim() && !o.imageUrl) ||
-                !d.shortExplanation.trim() ||
-                !d.stepByStepSolution?.length;
+                  {/* Previous / Next Stepper */}
+                  <div className="flex items-center gap-1 ml-2">
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex <= 0}
+                      onClick={() => loadQuestionIntoEditor(sectionQuestions[currentQuestionIndex - 1])}
+                      className="p-1 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 cursor-pointer"
+                      title="Previous Question"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex === -1 || currentQuestionIndex >= sectionQuestions.length - 1}
+                      onClick={() => loadQuestionIntoEditor(sectionQuestions[currentQuestionIndex + 1])}
+                      className="p-1 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 cursor-pointer"
+                      title="Next Question"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-              return (
-                <div
-                  key={idx}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs space-y-3 flex flex-col justify-between"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
-                      <span>
-                        Draft #{idx + 1} · Answer: {d.correctOptionId} · {d.marks ?? defaultMarks}m ·{' '}
-                        {d.stepByStepSolution?.length || 0} steps ·{' '}
-                        <span className={isIncomplete ? 'text-amber-700 font-semibold' : 'text-emerald-700 font-semibold'}>
-                          {isIncomplete ? 'Partial' : 'Complete'}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAiDrafts((prev) => prev.filter((_, itemIdx) => itemIdx !== idx))
+                <div className="flex items-center gap-2">
+                  <select
+                    value="mcq_single"
+                    disabled
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700"
+                  >
+                    <option value="mcq_single">Multiple Choice (Single Correct)</option>
+                  </select>
+
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Delete this question?')) {
+                          onDeleteQuestion(editingId);
+                          resetFormToNewQuestion(activeSectionId);
                         }
-                        className="text-slate-400 hover:text-red-600 cursor-pointer"
-                        title="Discard Draft"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    {d.questionImageUrl && (
-                      <img
-                        src={d.questionImageUrl}
-                        alt={`Draft ${idx + 1} diagram`}
-                        referrerPolicy="no-referrer"
-                        className="max-h-40 rounded border border-slate-200 bg-white object-contain p-1"
-                      />
-                    )}
-
-                    <div className="text-slate-900 text-sm leading-relaxed">
-                      {d.questionText ? (
-                        <MathText text={d.questionText} />
-                      ) : (
-                        <span className="text-amber-700 italic">Missing question stem</span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-700">
-                      {d.options.map((o) => (
-                        <div
-                          key={o.id}
-                          className={`rounded px-2.5 py-2 space-y-1 leading-relaxed ${
-                            o.id === d.correctOptionId
-                              ? 'bg-emerald-100 font-semibold text-emerald-900'
-                              : 'bg-white border border-slate-200'
-                          }`}
-                        >
-                          <div className="flex items-start gap-1.5">
-                            <span className="font-mono shrink-0">{o.id})</span>
-                            {o.text ? (
-                              <MathText text={o.text} inline className="min-w-0" />
-                            ) : (
-                              <span className="italic text-amber-700">[Blank option]</span>
-                            )}
-                          </div>
-                          {o.imageUrl && (
-                            <img
-                              src={o.imageUrl}
-                              alt={`Draft ${idx + 1} option ${o.id}`}
-                              referrerPolicy="no-referrer"
-                              className="h-14 rounded border border-slate-200 bg-white object-contain p-0.5"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="rounded-md border border-slate-200 bg-white p-3 space-y-2 text-slate-700 leading-relaxed">
-                      <div>
-                        <strong className="text-slate-900">Short Explanation:</strong>{' '}
-                        {d.shortExplanation ? (
-                          <MathText text={d.shortExplanation} inline />
-                        ) : (
-                          <span className="italic text-amber-700">Not provided yet</span>
-                        )}
-                      </div>
-
-                      {d.stepByStepSolution && d.stepByStepSolution.length > 0 && (
-                        <div className="border-t border-slate-100 pt-2">
-                          <strong className="text-slate-900">Step-by-Step Solution:</strong>
-                          <ol className="mt-1 list-decimal list-inside space-y-1 text-slate-600">
-                            {d.stepByStepSolution.map((step, sIdx) => (
-                              <li key={sIdx}>
-                                <MathText text={step} inline />
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadDraftIntoEditor(d)}
-                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Delete Question"
                     >
-                      Edit in Form
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      disabled={savingQ}
-                      onClick={() => handleAddDraftsToTest([d])}
-                      className="rounded-md bg-blue-700 px-3 py-1.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60 cursor-pointer"
-                    >
-                      Add Question
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Main Editor + Question Sidebar */}
-      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <form onSubmit={handleSaveCurrentQuestion} className="lg:col-span-8 space-y-5 min-w-0">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="font-display text-base font-semibold text-slate-900">
-                  {editingId
-                    ? `Editing Q${editingSectionIndex + 1} · ${activeSection?.name}`
-                    : `New Question #${sectionQuestions.length + 1} · ${activeSection?.name}`}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Add text or images for the question and options, then let Gemini solve &amp; generate missing options or steps.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={
-                    questions.length === 0 && !questionText.trim() && !questionImageUrl.trim()
-                  }
-                  onClick={() =>
-                    setPreviewTargetId(
-                      editingId ||
-                        (questionText.trim() || questionImageUrl.trim()
-                          ? '__editor_draft__'
-                          : questions[0]?.questionId || null)
-                    )
-                  }
-                  title="Open Full Candidate Question Preview"
-                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-40 whitespace-nowrap cursor-pointer"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Preview</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !showHistoryPanel;
-                    setShowHistoryPanel(next);
-                    if (next && editingId) {
-                      fetchVersionsForQuestion(editingId);
-                    }
-                  }}
-                  title="View Version History & Revert Gemini Edits"
-                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                    showHistoryPanel
-                      ? 'border-amber-300 bg-amber-50 text-amber-900'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <History className="h-3.5 w-3.5" />
-                  <span>History ({activeVersions.length})</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    sectionQuestions.length === 0 ||
-                    (editingSectionIndex === 0)
-                  }
-                  onClick={handlePrevQuestion}
-                  title="Previous Question"
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 whitespace-nowrap cursor-pointer"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Prev Q</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={!editingId}
-                  onClick={handleNextQuestion}
-                  title="Next Question"
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 whitespace-nowrap cursor-pointer"
-                >
-                  <span>Next Q</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 whitespace-nowrap cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>New Q</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Version History & Revert Panel */}
-            {showHistoryPanel && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
-                      <History className="h-3.5 w-3.5 text-amber-700" />
-                      <span>
-                        Question Version History (
-                        {editingId
-                          ? `Q${editingSectionIndex + 1}`
-                          : 'Unsaved Draft'}
-                        )
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-0.5">
-                      Pre-Gemini snapshots and saved revisions are tracked automatically so you can inspect and revert any Gemini AI or manual edit.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowHistoryPanel(false)}
-                    className="rounded p-1 text-slate-400 hover:bg-amber-100 hover:text-slate-700 cursor-pointer"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                {loadingVersions ? (
-                  <div className="flex items-center gap-2 py-3 text-xs text-slate-500">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Loading version history…</span>
-                  </div>
-                ) : activeVersions.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-amber-200 bg-white px-4 py-3 text-xs text-slate-500">
-                    No previous versions recorded for this question yet. Snapshots are created automatically whenever you run Gemini AI or save edits.
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {activeVersions.map((v, vIdx) => {
-                      const badge = getVersionSourceBadge(v.source);
-                      const isExpanded = expandedVersionId === v.versionId;
-                      return (
-                        <div
-                          key={v.versionId}
-                          className="rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-2"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="space-y-1 min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span
-                                  className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${badge.classes}`}
-                                >
-                                  {badge.label}
-                                </span>
-                                <span className="font-mono text-[11px] text-slate-500">
-                                  {formatVersionTimestamp(v.createdAtIso)}
-                                </span>
-                                {vIdx === 0 && (
-                                  <span className="text-[10px] font-mono text-slate-400">
-                                    · Latest
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] font-medium text-slate-700">
-                                {v.summary} · Answer: {v.correctOptionId} · +{v.marks}m ·{' '}
-                                {v.stepByStepSolution.length} steps
-                              </div>
-                              <div className="text-slate-600 line-clamp-2">
-                                <MathText text={v.questionText} inline />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedVersionId(isExpanded ? null : v.versionId)
-                                }
-                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronUp className="h-3 w-3" />
-                                    <span>Hide</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="h-3 w-3" />
-                                    <span>Inspect</span>
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={revertingVersionId !== null}
-                                onClick={() => handleRevertToVersion(v)}
-                                className="inline-flex items-center gap-1 rounded-md bg-amber-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
-                              >
-                                {revertingVersionId === v.versionId ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <RotateCcw className="h-3 w-3" />
-                                )}
-                                <span>
-                                  {revertingVersionId === v.versionId
-                                    ? 'Reverting…'
-                                    : editingId
-                                    ? 'Revert & Save'
-                                    : 'Restore'}
-                                </span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="border-t border-slate-100 pt-2.5 space-y-2 text-slate-700">
-                              <div className="text-xs leading-relaxed text-slate-900">
-                                <MathText text={v.questionText} />
-                              </div>
-                              {v.questionImageUrl && (
-                                <img
-                                  src={v.questionImageUrl}
-                                  alt="Historical question diagram"
-                                  referrerPolicy="no-referrer"
-                                  className="max-h-32 rounded border border-slate-200 object-contain p-1"
-                                />
-                              )}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                {v.options.map((opt) => (
-                                  <div
-                                    key={opt.id}
-                                    className={`rounded border px-2 py-1.5 ${
-                                      opt.id === v.correctOptionId
-                                        ? 'border-emerald-300 bg-emerald-50 font-semibold text-emerald-900'
-                                        : 'border-slate-200 bg-slate-50'
-                                    }`}
-                                  >
-                                    <span className="font-mono mr-1">{opt.id})</span>
-                                    <MathText text={opt.text} inline />
-                                  </div>
-                                ))}
-                              </div>
-                              {v.shortExplanation && (
-                                <div className="rounded border border-slate-200 bg-slate-50 p-2 text-[11px]">
-                                  <strong className="text-slate-900">Explanation: </strong>
-                                  <MathText text={v.shortExplanation} inline />
-                                </div>
-                              )}
-                              {v.stepByStepSolution.length > 0 && (
-                                <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-slate-600 pl-1">
-                                  {v.stepByStepSolution.map((st, stIdx) => (
-                                    <li key={stIdx}>
-                                      <MathText text={st} inline />
-                                    </li>
-                                  ))}
-                                </ol>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Question Text & Paste-to-Upload */}
-            <div onPaste={(e) => handlePasteImageEvent(e, 'question')}>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Question Stem (or upload / paste a question image below)
-                </label>
-                <span className="text-[11px] text-slate-400">
-                  Supports Ctrl+V image paste
-                </span>
-              </div>
-              <textarea
-                rows={3}
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                placeholder="Type the question here (supports Markdown **bold**, *italic*, `code` and LaTeX $E = mc^2$, $$...$$, \(...\), \[...\]), OR upload/paste an image..."
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
-              />
-              {questionText.trim().length > 0 && (
-                <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-800">
-                  <div className="text-[11px] font-semibold text-slate-500 mb-1">
-                    Stem Real-Time Preview (Markdown &amp; KaTeX)
-                  </div>
-                  <MathText text={questionText} className="text-sm leading-relaxed" />
-                </div>
-              )}
-            </div>
-
-            {/* Question Image Upload & URL */}
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  ref={qImgInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleUploadImage(file, 'question');
-                    e.target.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={uploadingTarget !== null}
-                  onClick={() => qImgInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap cursor-pointer"
-                >
-                  {uploadingTarget === 'question' ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-700" />
-                  ) : (
-                    <ImagePlus className="h-4 w-4 text-blue-700" />
                   )}
-                  <span>
-                    {uploadingTarget === 'question'
-                      ? 'Uploading…'
-                      : questionImageUrl
-                      ? 'Replace Question Image'
-                      : 'Upload Question Diagram / Image'}
-                  </span>
-                </button>
-                <input
-                  type="text"
-                  value={questionImageUrl}
-                  onChange={(e) => setQuestionImageUrl(e.target.value)}
-                  placeholder="Or paste image URL (/uploads/...)"
-                  className="flex-1 min-w-[160px] w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700"
+                </div>
+              </div>
+
+              {/* Question Stem & Toolbar */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Question Stem <span className="text-red-500">*</span>
+                </label>
+
+                {/* Markdown Formatting Toolbar */}
+                <div className="rounded-t-xl border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 flex flex-wrap items-center gap-1 text-slate-600 text-xs">
+                  <span className="font-semibold text-[11px] text-slate-500 mr-1">Markdown ▾</span>
+                  <div className="h-3.5 w-px bg-slate-200 mx-1" />
+                  <button type="button" onClick={() => insertMarkdown('**', '**')} className="p-1 hover:bg-slate-200 rounded" title="Bold"><Bold className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => insertMarkdown('*', '*')} className="p-1 hover:bg-slate-200 rounded" title="Italic"><Italic className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => insertMarkdown('`', '`')} className="p-1 hover:bg-slate-200 rounded" title="Code"><Code className="h-3 w-3" /></button>
+                  <div className="h-3.5 w-px bg-slate-200 mx-1" />
+                  <button type="button" onClick={() => insertMarkdown('# ')} className="p-1 hover:bg-slate-200 rounded text-[11px] font-bold" title="H1">H1</button>
+                  <button type="button" onClick={() => insertMarkdown('## ')} className="p-1 hover:bg-slate-200 rounded text-[11px] font-bold" title="H2">H2</button>
+                  <button type="button" onClick={() => insertMarkdown('### ')} className="p-1 hover:bg-slate-200 rounded text-[11px] font-bold" title="H3">H3</button>
+                  <div className="h-3.5 w-px bg-slate-200 mx-1" />
+                  <button type="button" onClick={() => insertMarkdown('- ')} className="p-1 hover:bg-slate-200 rounded" title="Bullet List"><List className="h-3 w-3" /></button>
+                  <button type="button" onClick={() => insertMarkdown('1. ')} className="p-1 hover:bg-slate-200 rounded" title="Numbered List"><ListOrdered className="h-3 w-3" /></button>
+                  <div className="h-3.5 w-px bg-slate-200 mx-1" />
+                  <button type="button" onClick={() => insertMarkdown('$', '$')} className="px-1.5 py-0.5 hover:bg-slate-200 rounded text-[11px] font-mono font-bold" title="LaTeX Equation">
+                    <span className="text-blue-600 italic">f(x)</span> LaTeX
+                  </button>
+                </div>
+
+                <textarea
+                  ref={textareaRef}
+                  rows={4}
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  placeholder="Enter the question here... (Markdown and LaTeX supported)&#10;&#10;e.g., What is the equivalent resistance? $R_{eq} = \frac{R_1 R_2}{R_1 + R_2}$"
+                  className="w-full rounded-b-xl border border-t-0 border-slate-200/80 bg-white p-3.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 font-mono"
                 />
-                {questionImageUrl && (
+                <div className="text-right text-[10px] text-slate-400 mt-1">
+                  {questionText.length} / 5000
+                </div>
+              </div>
+
+              {/* Upload Image & Gemini Assistant Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={qImgInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadImage(file, 'question');
+                    }}
+                  />
                   <button
                     type="button"
-                    onClick={() => setQuestionImageUrl('')}
-                    className="text-xs font-semibold text-red-600 hover:underline cursor-pointer"
+                    onClick={() => qImgInputRef.current?.click()}
+                    disabled={uploadingTarget === 'question'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
                   >
-                    Remove Image
+                    <ImagePlus className="h-3.5 w-3.5 text-slate-500" />
+                    <span>{uploadingTarget === 'question' ? 'Uploading…' : 'Upload Image'}</span>
                   </button>
-                )}
+
+                  {questionImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setQuestionImageUrl('')}
+                      className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                    >
+                      Remove Diagram
+                    </button>
+                  )}
+                </div>
+
+                {/* Gemini AI Complete Option Button */}
+                <button
+                  type="button"
+                  disabled={generatingWithAi}
+                  onClick={handleGenerateOptionsAndSolutionWithAi}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer shadow-xs"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                  <span>{generatingWithAi ? 'Gemini generating…' : 'Generate Options, Answer & Solution with Gemini'}</span>
+                </button>
               </div>
 
+              {/* Diagram Preview if attached */}
               {questionImageUrl && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <img
-                    src={questionImageUrl}
-                    alt="Question diagram preview"
-                    referrerPolicy="no-referrer"
-                    className="max-h-56 rounded object-contain mx-auto"
-                  />
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 max-w-sm">
+                  <img src={questionImageUrl} alt="Question diagram" className="max-h-40 rounded-lg object-contain" />
                 </div>
               )}
-            </div>
 
-            {/* Multimodal Gemini AI Complete Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50/70 px-4 py-3">
-              <div className="text-xs text-blue-950">
-                <div className="font-semibold">Gemini Multimodal Question Assistant</div>
-                <div className="text-blue-800/80 mt-0.5">
-                  Reads your question text, question diagram, and any option text/images to generate missing options, pick the correct answer, and write the full solution.
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={completingAi || (!questionText.trim() && !questionImageUrl.trim())}
-                onClick={handleCompleteWithGemini}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50 whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                {completingAi ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="h-4 w-4" />
-                )}
-                <span>
-                  {completingAi
-                    ? 'Solving with Gemini…'
-                    : 'Generate Options, Answer & Solution'}
-                </span>
-              </button>
-            </div>
+              {/* Answer Options */}
+              <div className="space-y-2.5 pt-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Answer Options <span className="text-red-500">*</span>
+                </label>
 
-            {/* 4 Options with text + optional option images */}
-            <div className="space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">
-                Options
-              </label>
-
-              {options.map((opt) => (
-                <div
-                  key={opt.id}
-                  onPaste={(e) => handlePasteImageEvent(e, opt.id)}
-                  className={`rounded-lg border p-3 transition-colors ${
-                    correctOptionId === opt.id
-                      ? 'border-emerald-300 bg-emerald-50/40'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
-                    <input
-                      type="radio"
-                      name="correctOption"
-                      checked={correctOptionId === opt.id}
-                      onChange={() => setCorrectOptionId(opt.id)}
-                      className="h-4 w-4 text-emerald-700 cursor-pointer shrink-0"
-                    />
-                    <span className="font-mono text-xs font-semibold text-slate-600 w-4 shrink-0">
+                {options.map((opt) => (
+                  <div key={opt.id} className="flex items-center gap-2">
+                    <span className="h-8 w-8 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
                       {opt.id}
                     </span>
+
                     <input
                       type="text"
                       value={opt.text}
-                      onChange={(e) =>
-                        setOptions((prev) =>
-                          prev.map((o) =>
-                            o.id === opt.id ? { ...o, text: e.target.value } : o
-                          )
-                        )
-                      }
-                      placeholder={`Option ${opt.id} text (or upload/paste option image)...`}
-                      className="flex-1 min-w-[180px] rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: val } : o)));
+                      }}
+                      placeholder={`Enter option ${opt.id}...`}
+                      className="flex-1 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2 text-xs text-slate-900 focus:outline-hidden focus:border-blue-500 font-mono"
                     />
-                    <label className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer shrink-0 ml-auto sm:ml-0">
-                      {uploadingTarget === opt.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-700" />
-                      ) : (
-                        <ImagePlus className="h-3.5 w-3.5" />
-                      )}
-                      <span>{opt.imageUrl ? 'Change Img' : 'Img'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUploadImage(file, opt.id);
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
-                  </div>
-                  {hasRichFormatting(opt.text) && (
-                    <div className="mt-2 ml-0 sm:ml-8 flex items-baseline gap-2 rounded border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs text-slate-800">
-                      <span className="text-[11px] font-semibold text-slate-400 shrink-0">
-                        Preview:
-                      </span>
-                      <MathText text={opt.text} inline className="min-w-0 leading-relaxed" />
-                    </div>
-                  )}
-                  {opt.imageUrl && (
-                    <div className="mt-2 ml-0 sm:ml-8 flex items-center gap-3">
-                      <img
-                        src={opt.imageUrl}
-                        alt={`Option ${opt.id} preview`}
-                        referrerPolicy="no-referrer"
-                        className="h-20 rounded border border-slate-200 object-contain bg-white p-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOptions((prev) =>
-                            prev.map((o) => (o.id === opt.id ? { ...o, imageUrl: '' } : o))
-                          )
-                        }
-                        className="text-xs text-red-600 hover:underline cursor-pointer"
-                      >
-                        Remove image
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
 
-            {/* Short Explanation & Step-by-Step Solution */}
-            <div className="border-t border-slate-200 pt-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="text-xs font-semibold text-slate-700">
-                  Short Explanation &amp; Step-by-Step Solution
-                </label>
-                <button
-                  type="button"
-                  disabled={writingSolution || completingAi}
-                  onClick={handleAutoWriteSolutionOnly}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 whitespace-nowrap cursor-pointer"
-                >
-                  {writingSolution ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  <span>{writingSolution ? 'Writing…' : 'Write Solution Only with Gemini'}</span>
-                </button>
-              </div>
-
-              <div>
-                <input
-                  type="text"
-                  value={shortExplanation}
-                  onChange={(e) => setShortExplanation(e.target.value)}
-                  placeholder="1–2 sentence concise explanation shown immediately in review..."
-                  className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
-                />
-                {hasRichFormatting(shortExplanation) && (
-                  <div className="mt-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">
-                    <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Preview:</span>
-                    <MathText text={shortExplanation} inline />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-500">
-                    Step-by-Step Solution (Optional numbered steps)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSteps((prev) => [...prev, ''])}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add Step</span>
-                  </button>
-                </div>
-
-                {steps.map((step, idx) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 text-xs font-mono text-slate-400 tabular-nums">
-                        {idx + 1}.
-                      </span>
-                      <input
-                        type="text"
-                        value={step}
-                        onChange={(e) =>
-                          setSteps((prev) => prev.map((s, i) => (i === idx ? e.target.value : s)))
-                        }
-                        placeholder={`Step ${idx + 1} explanation...`}
-                        className="flex-1 min-w-0 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-900"
-                      />
-                      <button
-                        type="button"
-                        disabled={steps.length <= 1}
-                        onClick={() => setSteps((prev) => prev.filter((_, i) => i !== idx))}
-                        className="p-1.5 text-slate-400 hover:text-red-600 disabled:opacity-30 cursor-pointer shrink-0"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    {hasRichFormatting(step) && (
-                      <div className="ml-0 sm:ml-8 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">
-                        <span className="text-[11px] font-semibold text-slate-400 mr-1.5">
-                          Step {idx + 1}:
-                        </span>
-                        <MathText text={step} inline />
+                    {/* Radio select for correct answer */}
+                    <button
+                      type="button"
+                      onClick={() => setCorrectOptionId(opt.id)}
+                      className="p-1 cursor-pointer"
+                      title={`Mark ${opt.id} as correct`}
+                    >
+                      <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        correctOptionId === opt.id
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-300 hover:border-slate-400'
+                      }`}>
+                        {correctOptionId === opt.id && <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
                       </div>
-                    )}
+                    </button>
                   </div>
                 ))}
               </div>
-            </div>
 
-            {/* Real-Time Complete Question Entry Preview (Markdown & KaTeX) */}
-            <div className="border-t border-slate-200 pt-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-blue-700" />
-                  <span className="text-xs font-semibold text-slate-900">
-                    Real-Time Candidate Preview (Markdown &amp; KaTeX)
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowLivePreview((v) => !v)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              {/* Correct Answer Dropdown */}
+              <div className="flex items-center gap-2 pt-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  Correct Answer <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={correctOptionId}
+                  onChange={(e) => setCorrectOptionId(e.target.value as OptionId)}
+                  className="rounded-xl border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-hidden cursor-pointer"
                 >
-                  {showLivePreview ? (
-                    <>
-                      <EyeOff className="h-3.5 w-3.5" />
-                      <span>Hide Full Preview</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Show Full Preview</span>
-                    </>
-                  )}
-                </button>
+                  {OPTION_IDS.map((id) => (
+                    <option key={id} value={id}>Option {id}</option>
+                  ))}
+                </select>
               </div>
 
-              {showLivePreview && (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 sm:p-5 space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5 text-xs font-mono text-slate-500">
-                    <span>
-                      {editingId
-                        ? `Question ${editingSectionIndex + 1} · ${activeSection?.name}`
-                        : `New Question #${sectionQuestions.length + 1} · ${activeSection?.name}`}
-                      {' · '}+{marks} Marks
-                      {test.negativeMarking ? ` / -${test.negativeMarkValue} Negative` : ''}
-                    </span>
-                    <span className="text-emerald-700 font-semibold">
-                      Correct Answer: {correctOptionId}
-                    </span>
-                  </div>
+              {/* Explanation Textarea */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Explanation (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={shortExplanation}
+                  onChange={(e) => setShortExplanation(e.target.value)}
+                  placeholder="Brief explanation for the correct answer (shown after the test)..."
+                  className="w-full rounded-xl border border-slate-200/80 bg-white p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
+                />
+              </div>
 
-                  {questionText.trim() || questionImageUrl.trim() ? (
-                    <>
-                      {questionText.trim() ? (
-                        <MathText
-                          text={questionText}
-                          className="text-[15.5px] leading-[1.75] text-slate-900"
-                        />
-                      ) : (
-                        <p className="text-sm italic text-slate-500">
-                          Refer to the diagram/image below and choose the correct option.
-                        </p>
-                      )}
-
-                      {questionImageUrl.trim() && (
-                        <div className="rounded-lg border border-slate-200 bg-white p-3">
-                          <img
-                            src={questionImageUrl}
-                            alt="Question diagram live preview"
-                            referrerPolicy="no-referrer"
-                            className="max-h-56 mx-auto object-contain"
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs italic text-slate-400">
-                      Start typing a question, options, or solution above to verify Markdown and KaTeX formulas in real time.
-                    </p>
-                  )}
-
-                  {options.some((o) => o.text.trim() || o.imageUrl?.trim()) && (
-                    <div
-                      className={
-                        options.every(
-                          (o) =>
-                            !o.imageUrl?.trim() &&
-                            o.text.trim().length <= 55 &&
-                            !/\$\$|\\\[|\\\\\[|\\begin\{|\n/.test(o.text)
-                        )
-                          ? 'grid grid-cols-1 gap-2.5 sm:grid-cols-2'
-                          : 'space-y-2.5'
-                      }
-                    >
-                      {options.map((opt) => {
-                        const isCorrect = opt.id === correctOptionId;
-                        return (
-                          <div
-                            key={opt.id}
-                            className={`flex items-start gap-3 rounded-lg border px-3.5 py-2.5 text-sm ${
-                              isCorrect
-                                ? 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
-                                : 'border-slate-200 bg-white text-slate-800'
-                            }`}
-                          >
-                            <span
-                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-xs font-mono font-bold ${
-                                isCorrect
-                                  ? 'border-emerald-600 bg-emerald-600 text-white'
-                                  : 'border-slate-300 text-slate-600'
-                              }`}
-                            >
-                              {opt.id}
-                            </span>
-                            <div className="flex-1 min-w-0 space-y-1.5">
-                              {opt.text.trim() ? (
-                                <MathText
-                                  text={opt.text}
-                                  inline
-                                  className="block leading-relaxed"
-                                />
-                              ) : opt.imageUrl ? (
-                                <span className="text-xs italic text-slate-400">
-                                  Option {opt.id} (image)
-                                </span>
-                              ) : (
-                                <span className="text-xs italic text-slate-400">Empty option</span>
-                              )}
-                              {opt.imageUrl?.trim() && (
-                                <img
-                                  src={opt.imageUrl}
-                                  alt={`Option ${opt.id} live preview`}
-                                  referrerPolicy="no-referrer"
-                                  className="max-h-24 rounded border border-slate-200 bg-white object-contain p-1"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {(shortExplanation.trim() || steps.some((s) => s.trim())) && (
-                    <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs space-y-2 text-slate-700 leading-relaxed">
-                      {shortExplanation.trim() && (
-                        <div>
-                          <span className="font-semibold text-slate-900">Short Explanation: </span>
-                          <MathText text={shortExplanation} inline />
-                        </div>
-                      )}
-                      {steps.some((s) => s.trim()) && (
-                        <div
-                          className={
-                            shortExplanation.trim() ? 'border-t border-slate-100 pt-2' : ''
-                          }
-                        >
-                          <div className="font-semibold text-slate-900 mb-1">
-                            Step-by-Step Solution:
-                          </div>
-                          <ol className="list-decimal list-inside space-y-1 text-slate-700">
-                            {steps
-                              .map((s) => s.trim())
-                              .filter(Boolean)
-                              .map((step, idx) => (
-                                <li key={idx}>
-                                  <MathText text={step} inline />
-                                </li>
-                              ))}
-                          </ol>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Clear / Reset Form
-              </button>
-
-              <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-                {editingId && (
+              {/* Solution Steps Accordion */}
+              <div className="border border-slate-200/80 rounded-xl p-3 bg-slate-50/50">
+                <div className="flex items-center justify-between">
                   <button
                     type="button"
-                    disabled={savingQ}
-                    onClick={() => saveCurrentQuestionInternal(true)}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-semibold text-blue-800 hover:bg-blue-100 disabled:opacity-60 whitespace-nowrap cursor-pointer flex-1 sm:flex-initial"
+                    onClick={() => setShowStepsAccordion(!showStepsAccordion)}
+                    className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer"
                   >
-                    <span>{savingQ ? 'Saving…' : 'Update & Next Q'}</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    <span className="font-mono text-blue-600 font-bold">f(x)</span>
+                    <span>Add Solution Step (Optional)</span>
                   </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={savingQ}
-                  className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60 whitespace-nowrap cursor-pointer flex-1 sm:flex-initial text-center"
-                >
-                  {savingQ ? 'Saving…' : editingId ? 'Update Question' : 'Save & Add Next'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
-
-        {/* Sidebar Question List */}
-        <aside className="lg:col-span-4 space-y-4 min-w-0">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-display text-sm font-semibold text-slate-900">
-                {activeSection?.name} Questions ({sectionQuestions.length})
-              </h3>
-              {onApplyDefaultMarksToAll &&
-                questions.some((q) => q.marks !== defaultMarks) && (
                   <button
                     type="button"
-                    disabled={syncingMarks}
-                    onClick={async () => {
-                      setSyncingMarks(true);
-                      setErrorMsg(null);
-                      try {
-                        await onApplyDefaultMarksToAll(defaultMarks);
-                        setMarks(defaultMarks);
-                        setStatusMsg(`Updated all questions to +${defaultMarks} marks.`);
-                      } catch (err) {
-                        setErrorMsg(
-                          err instanceof Error ? err.message : 'Failed to sync marks across questions.'
-                        );
-                      } finally {
-                        setSyncingMarks(false);
-                      }
+                    onClick={() => {
+                      setShowStepsAccordion(true);
+                      setSteps([...steps, '']);
                     }}
-                    className="text-xs font-semibold text-blue-700 hover:underline disabled:opacity-50 cursor-pointer"
+                    className="text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
                   >
-                    {syncingMarks ? 'Syncing…' : `Sync all to +${defaultMarks}m`}
+                    + Add Step
                   </button>
-                )}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Click any item to edit or inspect diagrams and solutions.
-            </p>
+                </div>
 
-            {sectionQuestions.length === 0 ? (
-              <div className="mt-4 rounded-lg border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
-                No questions in this section yet. Add manually, paste an image, or generate with Gemini AI.
-              </div>
-            ) : (
-              <div className="mt-4 space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                {sectionQuestions.map((q, idx) => {
-                  const optImgCount = q.options.filter((o) => Boolean(o.imageUrl)).length;
-                  return (
-                    <div
-                      key={q.questionId}
-                      className={`rounded-lg border p-3 transition-colors ${
-                        editingId === q.questionId
-                          ? 'border-blue-500 bg-blue-50/50'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => loadQuestionIntoEditor(q)}
-                          className="text-left flex-1 cursor-pointer"
-                        >
-                          <div className="text-xs font-mono font-semibold text-slate-500">
-                            Q{idx + 1} · Answer: {q.correctOptionId} · {q.marks}m
-                            {q.questionImageUrl ? ' · Q Img' : ''}
-                            {optImgCount > 0 ? ` · ${optImgCount} Opt Img` : ''}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-800 line-clamp-2">
-                            <MathText text={q.questionText} inline />
-                          </div>
-                        </button>
-                        <div className="flex items-center gap-1 shrink-0">
+                {showStepsAccordion && (
+                  <div className="mt-3 space-y-2">
+                    {steps.map((st, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-400 w-5">{i + 1}.</span>
+                        <input
+                          type="text"
+                          value={st}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSteps(steps.map((s, idx) => (idx === i ? val : s)));
+                          }}
+                          placeholder={`Step ${i + 1} derivation (LaTeX supported)...`}
+                          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono text-slate-900 focus:outline-hidden focus:border-blue-500"
+                        />
+                        {steps.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => setPreviewTargetId(q.questionId)}
-                            title="Preview Question"
-                            className="p-1 text-slate-400 hover:text-blue-700 cursor-pointer"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (editingId === q.questionId) resetForm();
-                              onDeleteQuestion(q.questionId);
-                            }}
-                            title="Delete Question"
-                            className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+                            onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
+                            className="p-1 text-slate-400 hover:text-red-600"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
-                        </div>
+                        )}
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Actions Row */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={onEditTestDetails}
+                  className="rounded-xl border border-slate-200/90 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
+                >
+                  Back to Test Details
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={savingQ}
+                    onClick={() => handleSaveCurrentQuestion(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer shadow-xs"
+                  >
+                    Save Draft
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingQ}
+                    onClick={() => handleSaveCurrentQuestion(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-xs"
+                  >
+                    <span>{savingQ ? 'Saving…' : 'Save & Add Next'}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column (4 cols): Questions in Section & Candidate Live Preview */}
+          <div className="lg:col-span-4 space-y-5 sticky top-6">
+            {/* Card 1: Questions in Section */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-900">Questions in Section</h3>
+                    <p className="text-[10px] text-slate-400">{currentSection?.name}</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-slate-700">
+                  {sectionQuestions.length} / {currentSection?.questionCount}
+                </span>
+              </div>
+
+              {/* Slot list */}
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {sectionQuestions.map((q, idx) => (
+                  <div
+                    key={q.questionId}
+                    onClick={() => loadQuestionIntoEditor(q)}
+                    className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
+                      editingId === q.questionId
+                        ? 'bg-blue-50/80 border-blue-200 text-blue-800 font-semibold'
+                        : 'bg-slate-50/60 border-slate-200/70 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="font-bold shrink-0">Q{idx + 1}</span>
+                      <span className="truncate">{q.stem || 'Untitled Question'}</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 shrink-0">
+                      Draft
+                    </span>
+                  </div>
+                ))}
+
+                {sectionQuestions.length < (currentSection?.questionCount || 0) && (
+                  <button
+                    type="button"
+                    onClick={() => resetFormToNewQuestion(activeSectionId)}
+                    className="w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-300 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Question {sectionQuestions.length + 1}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Candidate Preview */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-900">Candidate Preview</h3>
+                    <p className="text-[10px] text-slate-400">How this question will look to candidates.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="space-y-3 text-xs">
+                <div className="font-bold text-slate-900">
+                  Q{currentQuestionIndex !== -1 ? currentQuestionIndex + 1 : 1}.
+                </div>
+
+                <div className="text-slate-800 break-words">
+                  {questionText ? (
+                    <MathText text={questionText} />
+                  ) : (
+                    <span className="text-slate-400 italic">Enter question stem to preview...</span>
+                  )}
+                </div>
+
+                {questionImageUrl && (
+                  <img src={questionImageUrl} alt="preview" className="max-h-32 rounded-lg object-contain border" />
+                )}
+
+                {/* Radio options preview */}
+                <div className="space-y-2 pt-1">
+                  {options.map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="flex items-center gap-2 p-2 rounded-lg border border-slate-200/80 bg-slate-50/50"
+                    >
+                      <div className="h-4 w-4 rounded-full border border-slate-300 flex items-center justify-center shrink-0" />
+                      <span className="font-bold text-slate-700">{opt.id}.</span>
+                      <span className="text-slate-800 truncate">
+                        {opt.text ? <MathText text={opt.text} /> : <span className="text-slate-400">—</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 2: JSON Import (Image 4)                       */}
+      {/* ======================================================== */}
+      {viewMode === 'json_import' && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
+          <button
+            type="button"
+            onClick={() => setViewMode('editor')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Manual Editor</span>
+          </button>
+
+          <div>
+            <h2 className="font-display text-xl font-bold text-slate-900">Import questions from JSON</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Upload a .json file or paste JSON to create questions. We'll parse the content and show a preview for your review before adding to this section.
+            </p>
+          </div>
+
+          {/* 2-Column Drop & Paste */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Drag & Drop File */}
+            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+              <Upload className="h-8 w-8 text-blue-600 mb-2" />
+              <p className="text-xs font-bold text-slate-800">Drag and drop your .json file here</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">or choose a file from your computer</p>
+
+              <input
+                ref={jsonFileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setJsonFileName(file.name);
+                    const txt = await file.text();
+                    setJsonInputText(txt);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => jsonFileInputRef.current?.click()}
+                className="mt-3 px-4 py-2 rounded-xl bg-white border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 shadow-xs cursor-pointer"
+              >
+                Browse files
+              </button>
+              <span className="text-[10px] text-slate-400 mt-2">Only .json files are supported.</span>
+            </div>
+
+            {/* Paste JSON */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700">Paste / Edit JSON</label>
+              <textarea
+                rows={8}
+                value={jsonInputText}
+                onChange={(e) => setJsonInputText(e.target.value)}
+                placeholder="Paste your JSON here..."
+                className="w-full rounded-2xl border border-slate-200/80 bg-white p-3.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Options: Gemini toggle & target count */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-slate-100">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={jsonUseGemini}
+                onChange={(e) => setJsonUseGemini(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-xs font-semibold text-slate-800 block">
+                  Use Gemini to complete missing content (optional)
+                </span>
+                <span className="text-[11px] text-slate-500 block">
+                  Fills in gaps (e.g., options, explanations) using Gemini, based on your JSON.
+                </span>
+              </div>
+            </label>
+
+            <button
+              type="button"
+              disabled={importingJson}
+              onClick={handleGenerateJsonPreview}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-xs"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>{importingJson ? 'Parsing JSON…' : 'Generate preview'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 3: JSON Review (Image 5)                       */}
+      {/* ======================================================== */}
+      {viewMode === 'json_review' && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
+          <button
+            type="button"
+            onClick={() => setViewMode('json_import')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to import</span>
+          </button>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-slate-900">Review imported questions</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review, edit, and confirm the imported questions before adding them to this section.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 text-xs font-semibold">
+              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                ✔ {jsonDrafts.length} ready
+              </span>
+            </div>
+          </div>
+
+          {/* List of imported questions */}
+          <div className="space-y-4">
+            {jsonDrafts.map((draft, idx) => (
+              <div key={idx} className="rounded-xl border border-slate-200/80 p-4 space-y-3 bg-slate-50/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-slate-900">Q{idx + 1}.</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                      Ready
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-slate-800">
+                  <MathText text={draft.stem} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {draft.options.map((o) => (
+                    <div key={o.id} className="flex items-center gap-1.5 text-slate-700">
+                      <span className="font-bold">{o.id}.</span>
+                      <span><MathText text={o.text} /></span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-xs font-semibold text-emerald-700 pt-1">
+                  Correct answer: <span className="font-bold font-mono">{draft.correctOptionId}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setViewMode('json_import')}
+              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              Back to import
+            </button>
+
+            <button
+              type="button"
+              disabled={savingQ}
+              onClick={handleAddReviewedJsonDrafts}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs sm:text-sm hover:bg-blue-700 cursor-pointer shadow-xs"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>{savingQ ? 'Saving…' : 'Add reviewed questions to section'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 4: Gemini AI Bulk Generator (Image 6)          */}
+      {/* ======================================================== */}
+      {viewMode === 'gemini_generate' && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
+          <button
+            type="button"
+            onClick={() => setViewMode('editor')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to question editor</span>
+          </button>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              <h2 className="font-display text-xl font-bold text-slate-900">Generate questions with Gemini</h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Use Google Gemini to create multiple high-quality questions for this test.
+            </p>
+          </div>
+
+          {/* Fields */}
+          <div className="space-y-4 max-w-2xl">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Topic or syllabus <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+                placeholder="Describe the topic(s), learning objectives, or paste a syllabus excerpt for question generation.&#10;&#10;e.g., Newton's laws of motion, friction, force and acceleration. Include conceptual and numerical questions."
+                className="w-full rounded-2xl border border-slate-200/80 bg-white p-3.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Target section</label>
+                <select
+                  value={aiTargetSectionId}
+                  onChange={(e) => setAiTargetSectionId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-xs font-semibold text-slate-800"
+                >
+                  {test.sections.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Number of questions</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiCount(Math.max(1, aiCount - 1))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white font-bold text-slate-600"
+                  >
+                    -
+                  </button>
+                  <span className="font-mono font-bold text-xs w-8 text-center">{aiCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAiCount(Math.min(10, aiCount + 1))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white font-bold text-slate-600"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Difficulty</label>
+                <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+                  {['Easy', 'Medium', 'Hard'].map((diff) => (
+                    <button
+                      key={diff}
+                      type="button"
+                      onClick={() => setAiDifficulty(diff)}
+                      className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                        aiDifficulty === diff
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {diff}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={generatingWithAi}
+              onClick={handleBulkGenerateWithGemini}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-xs mt-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>{generatingWithAi ? 'Gemini generating questions…' : 'Generate Questions'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 5: Gemini AI Review (Image 7)                  */}
+      {/* ======================================================== */}
+      {viewMode === 'gemini_review' && (
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
+          <button
+            type="button"
+            onClick={() => setViewMode('gemini_generate')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to generation</span>
+          </button>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-slate-900">Review Gemini-generated questions</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review, edit and confirm the AI-generated questions for this section before saving.
+              </p>
+            </div>
+            <div className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              {aiDrafts.length} generated
+            </div>
+          </div>
+
+          {/* List of drafts */}
+          <div className="space-y-4">
+            {aiDrafts.map((draft, idx) => (
+              <div key={idx} className="rounded-xl border border-slate-200/80 p-5 space-y-3 bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-slate-900">Q{idx + 1}.</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
+                      <Sparkles className="h-2.5 w-2.5 text-blue-600" />
+                      Generated by Gemini
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiDrafts(aiDrafts.filter((_, i) => i !== idx))}
+                    className="text-xs text-red-600 hover:underline cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-900 font-medium">
+                  <MathText text={draft.stem} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                  {draft.options.map((o) => (
+                    <div key={o.id} className="flex items-center gap-2 text-slate-700">
+                      <div className="h-4 w-4 rounded-full border border-slate-300 flex items-center justify-center text-[10px]">
+                        {o.id}
+                      </div>
+                      <span><MathText text={o.text} /></span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs text-emerald-800">
+                  <span className="font-bold">Suggested correct answer:</span> Option {draft.correctOptionId}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setViewMode('gemini_generate')}
+              className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+            >
+              Back to generation
+            </button>
+
+            <button
+              type="button"
+              disabled={savingQ}
+              onClick={handleAddReviewedAiDrafts}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs sm:text-sm hover:bg-blue-700 cursor-pointer shadow-xs"
+            >
+              <Check className="h-4 w-4" />
+              <span>{savingQ ? 'Saving…' : 'Add reviewed questions to section'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 6: Candidate Test Preview (Image 8)            */}
+      {/* ======================================================== */}
+      {viewMode === 'test_preview' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setViewMode('editor')}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to question builder</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPublishModal(true)}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs sm:text-sm hover:bg-blue-700 cursor-pointer shadow-xs"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Publish Test</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Column (8 cols): Question Preview */}
+            <div className="lg:col-span-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-blue-600" />
+                  <h3 className="font-bold text-sm text-slate-900">Test Preview</h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                    {test.status}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  Candidate-style view of the test
+                </span>
+              </div>
+
+              {questions.length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-500">No questions added yet.</div>
+              ) : (
+                (() => {
+                  const q = questions[previewQuestionIndex] || questions[0];
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-slate-900">
+                          Question {previewQuestionIndex + 1} of {questions.length}
+                        </span>
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
+                          Section: {test.sections.find((s) => s.id === q.sectionId)?.name || 'Default'}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-slate-900 font-medium">
+                        <MathText text={q.stem} />
+                      </div>
+
+                      {q.imageUrl && (
+                        <img src={q.imageUrl} alt="diagram" className="max-h-56 rounded-xl object-contain border" />
+                      )}
+
+                      <div className="space-y-2 pt-2">
+                        {q.options.map((opt) => (
+                          <div
+                            key={opt.id}
+                            className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 cursor-pointer"
+                          >
+                            <div className="h-4 w-4 rounded-full border border-slate-300" />
+                            <span className="font-bold text-xs text-slate-700">{opt.id}.</span>
+                            <span className="text-xs text-slate-900"><MathText text={opt.text} /></span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Stepper buttons */}
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                        <button
+                          type="button"
+                          disabled={previewQuestionIndex <= 0}
+                          onClick={() => setPreviewQuestionIndex((i) => Math.max(0, i - 1))}
+                          className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
+                        >
+                          ← Previous
+                        </button>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {previewQuestionIndex + 1} of {questions.length}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={previewQuestionIndex >= questions.length - 1}
+                          onClick={() => setPreviewQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
+                          className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-40 cursor-pointer shadow-xs"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* Right Column (4 cols): Test Overview & Question Navigator */}
+            <div className="lg:col-span-4 space-y-5 sticky top-6">
+              {/* Test Overview */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3 text-xs">
+                <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-2">Test Overview</h4>
+                <div className="flex justify-between text-slate-600">
+                  <span>Duration:</span>
+                  <span className="font-semibold text-slate-800">{test.durationMins} Minutes</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Total Questions:</span>
+                  <span className="font-semibold text-slate-800">{test.totalQuestions}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Marks per Correct:</span>
+                  <span className="font-semibold text-slate-800">+{defaultMarks}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Negative Marking:</span>
+                  <span className="font-semibold text-slate-800">{test.negativeMarking ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+
+              {/* Question Navigator */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+                <h4 className="font-bold text-xs text-slate-900">Question Navigator</h4>
+                <div className="grid grid-cols-6 gap-2">
+                  {questions.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPreviewQuestionIndex(i)}
+                      className={`h-9 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                        previewQuestionIndex === i
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Completion Checklist */}
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3 text-xs">
+                <h4 className="font-bold text-slate-900">Admin Completion Checklist</h4>
+                {test.sections.map((sec) => {
+                  const count = questions.filter((q) => q.sectionId === sec.id).length;
+                  const isDone = count >= sec.questionCount;
+                  return (
+                    <div key={sec.id} className="flex items-center gap-2">
+                      <CheckCircle2 className={`h-4 w-4 ${isDone ? 'text-emerald-600' : 'text-slate-300'}`} />
+                      <span className={isDone ? 'text-slate-800 font-semibold' : 'text-slate-500'}>
+                        {sec.name}: {count}/{sec.questionCount} questions added
+                      </span>
                     </div>
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VIEW MODE 7: Test Published Success Screen (Image 10)    */}
+      {/* ======================================================== */}
+      {viewMode === 'published_success' && (
+        <div className="max-w-2xl mx-auto py-12 text-center space-y-6">
+          <div className="h-16 w-16 mx-auto rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
+            <Check className="h-8 w-8 stroke-[3]" />
+          </div>
+
+          <div>
+            <h2 className="font-display text-3xl font-bold text-slate-900">Test published successfully</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Your assessment is now live and candidate attempts will be proctored during the scheduled window.
+            </p>
+          </div>
+
+          {/* Test Card */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs text-left space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-base text-slate-900">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <span>{test.title}</span>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
+                Scheduled
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-600 pt-2 border-t border-slate-100">
+              <div>
+                <span className="text-slate-400 block text-[10px]">Questions</span>
+                <span className="font-bold text-slate-900">{test.totalQuestions} Questions</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Duration</span>
+                <span className="font-bold text-slate-900">{test.durationMins} Minutes</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Marking</span>
+                <span className="font-bold text-slate-900">+{defaultMarks} Correct</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px]">Negative</span>
+                <span className="font-bold text-slate-900">{test.negativeMarking ? 'Yes' : 'No'}</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 flex items-center justify-between">
+              <span className="text-slate-500 font-semibold">Assessment Window:</span>
+              <span className="font-mono font-bold text-slate-800">
+                {formatDateTimeDisplay(test.startTime)} → {formatDateTimeDisplay(test.endTime)}
+              </span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewQuestionIndex(0);
+                setViewMode('test_preview');
+              }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer shadow-xs"
+            >
+              <Eye className="h-4 w-4" />
+              <span>View test</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer shadow-xs"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Tests</span>
+            </button>
+
+            {onSwitchToCandidateView && (
+              <button
+                type="button"
+                onClick={onSwitchToCandidateView}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs sm:text-sm hover:bg-blue-700 cursor-pointer shadow-xs"
+              >
+                <GraduationCap className="h-4 w-4" />
+                <span>Candidate View</span>
+              </button>
             )}
           </div>
-        </aside>
-      </div>
-
-      {/* Bottom Wizard Navigation Bar */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 sm:px-5 py-4">
-        <button
-          type="button"
-          onClick={onEditTestDetails}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap cursor-pointer w-full sm:w-auto"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back: Edit Test Name, Dates &amp; Rules</span>
-        </button>
-
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex-1 sm:flex-initial rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 whitespace-nowrap cursor-pointer text-center"
-          >
-            Save &amp; Exit to Admin Studio
-          </button>
-          <button
-            type="button"
-            disabled={publishing || questions.length === 0}
-            onClick={handlePublish}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50 whitespace-nowrap cursor-pointer"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            <span>{test.status === 'published' ? 'Published (Live)' : 'Publish & Go Live'}</span>
-          </button>
         </div>
-      </div>
+      )}
 
-      {previewTargetId !== undefined && (() => {
-        const hasLiveDraft = Boolean(
-          questionText.trim() ||
-            questionImageUrl.trim() ||
-            options.some((o) => o.text.trim() || o.imageUrl?.trim())
-        );
-        const liveDraftQ: TestQuestion | null = hasLiveDraft
-          ? {
-              questionId: editingId || '__editor_draft__',
-              testId: test.testId,
-              testStatus: test.status,
-              sectionId: activeSectionId,
-              orderIndex:
-                editingId
-                  ? questions.find((item) => item.questionId === editingId)?.orderIndex ??
-                    questions.length
-                  : questions.length,
-              questionText:
-                questionText.trim() ||
-                (questionImageUrl.trim()
-                  ? 'Refer to the diagram/image below and choose the correct option.'
-                  : 'Question'),
-              ...(questionImageUrl.trim() ? { questionImageUrl: questionImageUrl.trim() } : {}),
-              options: OPTION_IDS.map((id) => {
-                const found = options.find((o) => o.id === id);
-                return {
-                  id,
-                  text: found?.text.trim() || (found?.imageUrl ? `Option ${id}` : `Option ${id}`),
-                  ...(found?.imageUrl?.trim() ? { imageUrl: found.imageUrl.trim() } : {}),
-                };
-              }),
-              correctOptionId,
-              shortExplanation: shortExplanation.trim(),
-              stepByStepSolution: steps.map((s) => s.trim()).filter(Boolean),
-              marks: Math.min(100, Math.max(0.25, Number(marks) || defaultMarks)),
-            }
-          : null;
+      {/* ======================================================== */}
+      {/* PUBLISH CONFIRMATION MODAL (Image 9)                     */}
+      {/* ======================================================== */}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-slate-950/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between">
+              <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                <Send className="h-5 w-5" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-        const previewQuestions: TestQuestion[] = editingId
-          ? questions.map((item) =>
-              item.questionId === editingId && liveDraftQ ? liveDraftQ : item
-            )
-          : liveDraftQ
-          ? [...questions, liveDraftQ]
-          : questions;
+            <div>
+              <h3 className="font-display text-lg font-bold text-slate-900">Publish this test?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                You're about to publish this test and make it available to candidates during the scheduled window below. Please review the details and confirm.
+              </p>
+            </div>
 
-        return (
-          <QuestionPreviewModal
-            test={test}
-            questions={previewQuestions}
-            initialQuestionId={previewTargetId}
-            onClose={() => setPreviewTargetId(undefined)}
-            onEditQuestion={(q) => {
-              if (q.questionId !== '__editor_draft__') {
-                loadQuestionIntoEditor(q);
-              }
-            }}
-          />
-        );
-      })()}
+            {/* Test Summary Card inside Modal */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between font-bold text-slate-900">
+                <span>{test.title}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Draft</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-slate-600 text-[11px]">
+                <span>{test.totalQuestions} Questions</span>
+                <span>{test.durationMins} Minutes</span>
+                <span>+{defaultMarks} per Correct</span>
+                <span>{test.negativeMarking ? 'Negative Marking' : 'No Negative Marking'}</span>
+              </div>
+
+              <div className="text-[11px] text-slate-600 border-t border-slate-200 pt-2">
+                <span className="font-semibold text-slate-700">Scheduled Window:</span>
+                <div className="font-mono mt-0.5 font-bold text-slate-800">
+                  {formatDateTimeDisplay(test.startTime)} → {formatDateTimeDisplay(test.endTime)}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-2.5 text-[11px] text-blue-800">
+              The test will be available during its scheduled window.
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={publishing}
+                onClick={handleConfirmPublish}
+                className="inline-flex items-center gap-2 px-6 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs sm:text-sm hover:bg-blue-700 disabled:opacity-60 cursor-pointer shadow-xs"
+              >
+                <Check className="h-4 w-4" />
+                <span>{publishing ? 'Publishing…' : 'Confirm & Publish'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
