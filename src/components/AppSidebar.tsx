@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -95,6 +95,11 @@ function SidebarNavItem({
   );
 }
 
+const DEFAULT_SIDEBAR_WIDTH = 256;
+const MIN_SIDEBAR_WIDTH = 190;
+const MAX_SIDEBAR_WIDTH = 460;
+const COMPACT_SIDEBAR_WIDTH = 76;
+
 export function AppSidebarLayout({
   user,
   activeScreen,
@@ -106,9 +111,62 @@ export function AppSidebarLayout({
 }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
+    const saved = localStorage.getItem('exampulse_sidebar_width');
+    const parsed = saved ? parseInt(saved, 10) : DEFAULT_SIDEBAR_WIDTH;
+    return isNaN(parsed)
+      ? DEFAULT_SIDEBAR_WIDTH
+      : Math.min(Math.max(parsed, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH);
+  });
 
   const isAdmin = user.role === 'admin';
   const isCompact = collapsed && !mobileOpen;
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      const nextWidth = Math.min(
+        Math.max(e.clientX, MIN_SIDEBAR_WIDTH),
+        MAX_SIDEBAR_WIDTH
+      );
+      setSidebarWidth(nextWidth);
+    };
+
+    const handlePointerUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isResizing]);
+
+  // Persist sidebar width to localStorage
+  useEffect(() => {
+    if (!isResizing) {
+      try {
+        localStorage.setItem('exampulse_sidebar_width', sidebarWidth.toString());
+      } catch {
+        // ignore
+      }
+    }
+  }, [sidebarWidth, isResizing]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row overflow-x-hidden">
@@ -158,10 +216,38 @@ export function AppSidebarLayout({
 
       {/* Sidebar: Desktop Persistent & Mobile Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 transition-[width,transform] duration-300 ease-in-out md:static ${
+        style={
+          !mobileOpen
+            ? {
+                width: isCompact ? `${COMPACT_SIDEBAR_WIDTH}px` : `${sidebarWidth}px`,
+              }
+            : undefined
+        }
+        className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 md:static ${
           mobileOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'
-        } ${isCompact ? 'md:w-[76px]' : 'md:w-64'}`}
+        } ${
+          isResizing
+            ? 'transition-none select-none'
+            : 'transition-[width,transform] duration-200 ease-out'
+        }`}
       >
+        {/* Desktop Drag-to-Resize Handle */}
+        {!isCompact && (
+          <div
+            onPointerDown={handlePointerDown}
+            onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+            title="Drag left or right to resize sidebar (double-click to reset)"
+            className={`hidden md:block absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-20 group hover:w-2 transition-all ${
+              isResizing ? 'w-2 bg-blue-600' : 'hover:bg-blue-400/40'
+            }`}
+          >
+            <div
+              className={`w-0.5 h-10 mx-auto my-auto absolute inset-y-0 right-0.5 rounded-full ${
+                isResizing ? 'bg-white' : 'group-hover:bg-blue-600'
+              }`}
+            />
+          </div>
+        )}
         {/* Top Header & Collapse/Expand Toggle */}
         <div>
           <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-100">
