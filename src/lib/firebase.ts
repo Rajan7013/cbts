@@ -7,19 +7,17 @@ import {
   setPersistence,
 } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
-import firebaseConfigJson from '../../firebase-applet-config.json';
-
-// Support Vite client-side environment variable overrides (with fallback to firebase-applet-config.json)
+// Support Vite client-side environment variables with safe defaults
 const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
 
 const firebaseConfig = {
-  projectId: env.VITE_FIREBASE_PROJECT_ID || firebaseConfigJson.projectId,
-  appId: env.VITE_FIREBASE_APP_ID || firebaseConfigJson.appId,
-  apiKey: env.VITE_FIREBASE_API_KEY || firebaseConfigJson.apiKey,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigJson.authDomain,
-  firestoreDatabaseId: env.VITE_FIREBASE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigJson.storageBucket,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigJson.messagingSenderId,
+  projectId: env.VITE_FIREBASE_PROJECT_ID || 'amazing-centaur-462112-n5',
+  appId: env.VITE_FIREBASE_APP_ID || '1:468903270383:web:76ae2f5f6e85fe9796c81a',
+  apiKey: env.VITE_FIREBASE_API_KEY || 'AIzaSyBW5PVdidbuD-fWmQtXZmo6YXsEfp-7ku4',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || 'amazing-centaur-462112-n5.firebaseapp.com',
+  firestoreDatabaseId: env.VITE_FIREBASE_DATABASE_ID || 'ai-studio-821afd27-84e2-43ab-b5af-651da3cbc0da',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || 'amazing-centaur-462112-n5.firebasestorage.app',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '468903270383',
 };
 
 const app = initializeApp(firebaseConfig);

@@ -28,11 +28,28 @@ interface FirebaseConfigFile {
 }
 
 function getFirebaseConfig(): FirebaseConfigFile {
+  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIRESTORE_DATABASE_ID;
+
+  if (envProjectId && envDbId) {
+    return {
+      projectId: envProjectId,
+      firestoreDatabaseId: envDbId,
+    };
+  }
+
   try {
-    return require('./firebase-applet-config.json') as FirebaseConfigFile;
-  } catch {
     const raw = fs.readFileSync(path.resolve(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    return JSON.parse(raw) as FirebaseConfigFile;
+    const parsed = JSON.parse(raw);
+    return {
+      projectId: envProjectId || parsed.projectId || 'amazing-centaur-462112-n5',
+      firestoreDatabaseId: envDbId || parsed.firestoreDatabaseId || '(default)',
+    };
+  } catch {
+    return {
+      projectId: envProjectId || 'amazing-centaur-462112-n5',
+      firestoreDatabaseId: envDbId || '(default)',
+    };
   }
 }
 
