@@ -938,32 +938,8 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
   }
 
   app.get('/api/health', async (_req: Request, res: Response) => {
-    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
-    let debugInfo: string = 'none';
-    let parsedCred: Record<string, unknown> | null = null;
-    try {
-      if (saRaw) {
-        debugInfo = `starts:${saRaw.slice(0, 15)}...ends:${saRaw.slice(-15)}`;
-        parsedCred = parseServiceAccountCredential(saRaw);
-      }
-    } catch (e: any) {
-      debugInfo = `err:${e?.message}`;
-    }
-    const { db, error } = await getAdminModules();
-
     res.json({
-      ok: true,
-      mainAdmin: MAIN_ADMIN_EMAIL,
-      serverAdminFirestore: Boolean(db),
-      adminInitError: error || null,
-      envStatus: {
-        hasServiceAccountEnv: Boolean(saRaw),
-        parsedKeyLength: saRaw?.length || 0,
-        debugSnippet: debugInfo,
-        parsedProjectId: parsedCred?.project_id || null,
-        parsedClientEmail: parsedCred?.client_email || null,
-        hasGeminiApiKey: Boolean(process.env.GEMINI_API_KEY),
-      },
+      status: 'healthy',
       timestamp: new Date().toISOString(),
     });
   });
