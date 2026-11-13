@@ -30,7 +30,16 @@ interface FirebaseConfigFile {
   firestoreDatabaseId: string;
 }
 
-const firebaseConfig = require('./firebase-applet-config.json') as FirebaseConfigFile;
+function getFirebaseConfig(): FirebaseConfigFile {
+  try {
+    return require('./firebase-applet-config.json') as FirebaseConfigFile;
+  } catch {
+    const raw = fs.readFileSync(path.resolve(process.cwd(), 'firebase-applet-config.json'), 'utf8');
+    return JSON.parse(raw) as FirebaseConfigFile;
+  }
+}
+
+const firebaseConfig = getFirebaseConfig();
 
 function parseServiceAccountCredential(raw: string): Record<string, unknown> | null {
   const cleaned = raw.trim().replace(/^["']|["']$/g, '');
@@ -78,35 +87,47 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
   return null;
 }
 
-// Initialize firebase-admin strictly on the server
-let hasServiceAccount = false;
-if (getApps().length === 0) {
-  const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
-  const saJson = saRaw ? parseServiceAccountCredential(saRaw) : null;
-  if (saJson) {
-    try {
-      initializeApp({
-        credential: cert(saJson),
-        projectId: firebaseConfig.projectId,
-      });
-      hasServiceAccount = true;
-    } catch {
+function initFirebaseAdmin() {
+  if (getApps().length === 0) {
+    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
+    const saJson = saRaw ? parseServiceAccountCredential(saRaw) : null;
+    if (saJson) {
+      try {
+        initializeApp({
+          credential: cert(saJson),
+          projectId: firebaseConfig.projectId,
+        });
+        hasServiceAccount = true;
+      } catch (e) {
+        console.warn('Failed to init with service account credential:', e);
+        initializeApp({ projectId: firebaseConfig.projectId });
+      }
+    } else {
+      if (saRaw) {
+        console.log(
+          'FIREBASE_SERVICE_ACCOUNT_KEY is not a service-account JSON payload; running in Firebase ID token verification mode.'
+        );
+      }
       initializeApp({ projectId: firebaseConfig.projectId });
     }
-  } else {
-    if (saRaw) {
-      console.log(
-        'FIREBASE_SERVICE_ACCOUNT_KEY is not a service-account JSON payload; running in Firebase ID token verification mode.'
-      );
-    }
-    initializeApp({ projectId: firebaseConfig.projectId });
   }
 }
 
+try {
+  initFirebaseAdmin();
+} catch (e) {
+  console.warn('Warning during firebase-admin initialization:', e);
+}
+
 const adminAuth = getAuth();
-const adminDb = hasServiceAccount
-  ? getAdminFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
-  : null;
+let adminDb: ReturnType<typeof getAdminFirestore> | null = null;
+try {
+  adminDb = hasServiceAccount
+    ? getAdminFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
+    : null;
+} catch (e) {
+  console.warn('Warning getting Firestore instance:', e);
+}
 
 type OptionId = 'A' | 'B' | 'C' | 'D';
 
