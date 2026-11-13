@@ -288,8 +288,7 @@ export function AdminDashboard({
                     <th className="px-4 py-3.5">Window</th>
                     <th className="px-4 py-3.5 text-right">Duration</th>
                     <th className="px-4 py-3.5 text-right">Questions</th>
-                    <th className="px-4 py-3.5 text-right">Max Strikes</th>
-                    <th className="px-4 py-3.5">State</th>
+                    <th className="px-4 py-3.5">Status</th>
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -323,18 +322,24 @@ export function AdminDashboard({
                             ? `${test.questionCountAdded} / ${test.totalQuestions}`
                             : `${test.totalQuestions} Qs`}
                         </td>
-                        <td className="px-4 py-4 text-right font-mono text-xs text-slate-700 tabular-nums whitespace-nowrap">
-                          {test.maxStrikes === 0 ? 'Off' : test.maxStrikes}
-                        </td>
                         <td className="px-4 py-4 whitespace-nowrap text-xs font-semibold">
                           {sched === 'Live Window' ? (
-                            <span className="text-emerald-700">Published · Live</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Live
+                            </span>
                           ) : sched === 'Scheduled' ? (
-                            <span className="text-blue-700">Published · Upcoming</span>
+                            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 border border-blue-200">
+                              Upcoming
+                            </span>
                           ) : sched === 'Ended' ? (
-                            <span className="text-slate-500">Published · Ended</span>
+                            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                              Ended
+                            </span>
                           ) : (
-                            <span className="text-amber-700">Draft</span>
+                            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                              Draft
+                            </span>
                           )}
                         </td>
                         <td className="px-5 py-4 text-right">
