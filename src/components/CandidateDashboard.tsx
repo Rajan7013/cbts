@@ -131,33 +131,36 @@ export function CandidateDashboard({
             {filteredTests.map((test) => {
               const userAttemptsForTest = attempts.filter((a) => a.testId === test.testId);
               const activeAttempt = userAttemptsForTest.find((a) => a.status === 'in_progress');
-              const finishedAttempt = userAttemptsForTest.find(
+              const finishedAttempts = userAttemptsForTest.filter(
                 (a) => a.status !== 'in_progress'
               );
+              const latestFinishedAttempt = finishedAttempts[0];
+              const maxAllowed = test.maxAttempts ?? 1;
+              const attemptsCount = finishedAttempts.length + (activeAttempt ? 1 : 0);
+              const canAttemptAgain = attemptsCount < maxAllowed;
               const isUpcoming = now < new Date(test.startTime).getTime();
               const isEnded = now > new Date(test.endTime).getTime();
 
               return (
                 <article
                   key={test.testId}
-                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
+                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 sm:p-6 overflow-hidden"
                 >
                   <div>
-                    <div className="text-xs text-slate-500 leading-relaxed">
+                    <div className="text-xs text-slate-500 leading-relaxed flex flex-wrap items-center gap-1.5">
                       <span>{test.durationMins} min</span>
                       <span aria-hidden="true"> · </span>
                       <span>{test.totalQuestions} questions</span>
                       <span aria-hidden="true"> · </span>
-                      <span>
-                        +{test.marksPerQuestion ?? 4}
-                        {test.negativeMarking ? ` / -${test.negativeMarkValue}` : ''} marks
+                      <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        Attempts: {finishedAttempts.length} / {maxAllowed}
                       </span>
-                      <span aria-hidden="true"> · </span>
-                      <span>
-                        {test.maxStrikes === 0
-                          ? 'No strike limit'
-                          : `Max ${test.maxStrikes} strikes`}
-                      </span>
+                      {test.maxStrikes > 0 && (
+                        <>
+                          <span aria-hidden="true"> · </span>
+                          <span className="text-amber-800 font-medium">Max {test.maxStrikes} strikes</span>
+                        </>
+                      )}
                       {test.proctoringAIEnabled && (
                         <>
                           <span aria-hidden="true"> · </span>
@@ -166,16 +169,46 @@ export function CandidateDashboard({
                       )}
                     </div>
 
-                    <h2 className="mt-2 font-display text-base sm:text-lg font-bold text-slate-900">
+                    <h2 className="mt-2 font-display text-base sm:text-lg font-bold text-slate-900 break-words">
                       {test.title}
                     </h2>
                     <p className="mt-1.5 text-xs sm:text-sm text-slate-600 line-clamp-2">
                       {test.description || 'Timed sectioned assessment with instant solution review.'}
                     </p>
 
-                    <div className="mt-4 text-xs text-slate-500">
+                    <div className="mt-4 text-xs text-slate-500 break-words">
                       Sections: {test.sections.map((s) => `${s.name} (${s.questionCount})`).join(' · ')}
                     </div>
+
+                    {/* Attempt History List */}
+                    {finishedAttempts.length > 0 && (
+                      <div className="mt-4 rounded-lg bg-slate-50 p-2.5 border border-slate-200/70 space-y-1.5">
+                        <div className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                          Attempt Reports ({finishedAttempts.length}):
+                        </div>
+                        <div className="space-y-1">
+                          {finishedAttempts.map((att, attIdx) => (
+                            <div
+                              key={att.attemptId}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs py-1.5 px-2 rounded bg-white border border-slate-200"
+                            >
+                              <span className="font-medium text-slate-800">
+                                Attempt #{finishedAttempts.length - attIdx} · Score:{' '}
+                                <strong className="text-blue-700 font-mono">{att.score}</strong> / {att.maxScore} (
+                                {att.accuracy}%)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => onViewResult(test, att)}
+                                className="text-blue-700 hover:underline font-semibold cursor-pointer text-left sm:text-right"
+                              >
+                                View Report &rarr;
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-4">
@@ -189,39 +222,40 @@ export function CandidateDashboard({
                       )}
                     </div>
 
-                    {activeAttempt ? (
-                      <button
-                        type="button"
-                        onClick={() => onStartOrResumeTest(test, activeAttempt)}
-                        className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-4 py-2.5 sm:py-2 text-xs font-semibold text-white hover:bg-amber-800 cursor-pointer whitespace-nowrap shrink-0"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        <span>Resume Test</span>
-                      </button>
-                    ) : finishedAttempt ? (
-                      <button
-                        type="button"
-                        onClick={() => onViewResult(test, finishedAttempt)}
-                        className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 sm:py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer whitespace-nowrap shrink-0"
-                      >
-                        {finishedAttempt.status === 'auto_submitted_strike' ? (
-                          <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
-                        ) : (
+                    <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                      {activeAttempt ? (
+                        <button
+                          type="button"
+                          onClick={() => onStartOrResumeTest(test, activeAttempt)}
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-4 py-2.5 sm:py-2 text-xs font-semibold text-white hover:bg-amber-800 cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Resume Test</span>
+                        </button>
+                      ) : canAttemptAgain && !isUpcoming && !isEnded ? (
+                        <button
+                          type="button"
+                          onClick={() => onStartOrResumeTest(test)}
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2.5 sm:py-2 text-xs font-semibold text-white hover:bg-blue-800 cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          <span>{finishedAttempts.length > 0 ? 'Retake Exam' : 'Start Test'}</span>
+                        </button>
+                      ) : latestFinishedAttempt ? (
+                        <button
+                          type="button"
+                          onClick={() => onViewResult(test, latestFinishedAttempt)}
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 sm:py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer whitespace-nowrap shrink-0"
+                        >
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
-                        )}
-                        <span>View Result &amp; Solutions</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isUpcoming || isEnded}
-                        onClick={() => onStartOrResumeTest(test)}
-                        className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2.5 sm:py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
-                      >
-                        <Play className="h-3.5 w-3.5" />
-                        <span>{isUpcoming ? 'Not Started' : isEnded ? 'Closed' : 'Start Test'}</span>
-                      </button>
-                    )}
+                          <span>Latest Result</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400">
+                          {isUpcoming ? 'Not Started' : 'Window Closed'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </article>
               );

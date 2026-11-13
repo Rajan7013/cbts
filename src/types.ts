@@ -30,6 +30,7 @@ export interface TestExam {
   negativeMarking: boolean;
   negativeMarkValue: number;
   maxStrikes: number;
+  maxAttempts?: number; // Maximum allowed attempts per candidate (1..n, undefined = unlimited)
   enforceFullscreen: boolean;
   detectTabSwitch: boolean;
   proctoringAIEnabled: boolean;

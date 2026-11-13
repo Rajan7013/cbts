@@ -48,6 +48,7 @@ export function AdminTestBuilder({
     String(initialTest?.negativeMarking ? initialTest?.negativeMarkValue ?? 1 : 1)
   );
   const [maxStrikes, setMaxStrikes] = useState(initialTest?.maxStrikes ?? 3);
+  const [maxAttempts, setMaxAttempts] = useState<number>(initialTest?.maxAttempts ?? 1);
   const [enforceFullscreen, setEnforceFullscreen] = useState(
     initialTest?.enforceFullscreen ?? true
   );
@@ -139,6 +140,7 @@ export function AdminTestBuilder({
         negativeMarking,
         negativeMarkValue: negativeMarking ? Math.round(effectiveNegativeMark * 100) / 100 : 0,
         maxStrikes: Math.max(0, Number(maxStrikes)),
+        maxAttempts: Math.max(1, Number(maxAttempts) || 1),
         enforceFullscreen,
         detectTabSwitch,
         proctoringAIEnabled,
@@ -559,6 +561,27 @@ export function AdminTestBuilder({
                 </div>
               </div>
             </label>
+
+            <div className="rounded-lg border border-slate-200 p-3.5">
+              <label className="block text-sm font-semibold text-slate-900">
+                Max Attempts Allowed Per Candidate
+              </label>
+              <div className="mt-1.5 flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={maxAttempts}
+                  onChange={(e) => setMaxAttempts(Math.max(1, Number(e.target.value)))}
+                  className="w-24 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-mono text-slate-900"
+                />
+                <span className="text-xs text-slate-500">
+                  {maxAttempts === 1
+                    ? 'Single attempt only (strict exam mode)'
+                    : `Candidates can re-attempt up to ${maxAttempts} times`}
+                </span>
+              </div>
+            </div>
 
             <div className="rounded-lg border border-slate-200 p-3.5">
               <label className="block text-sm font-semibold text-slate-900">

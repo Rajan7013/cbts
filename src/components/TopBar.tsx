@@ -92,6 +92,9 @@ export function TopBar({
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
           {!user ? (
             <>
+              <a href="#overview" onClick={() => onNavigate('landing')} className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0">
+                Overview
+              </a>
               <a href="#capabilities" className="hover:text-slate-900 transition-colors whitespace-nowrap shrink-0">
                 Capabilities
               </a>
@@ -107,45 +110,49 @@ export function TopBar({
             </>
           ) : (
             <>
-              {user.role === 'admin' && (
+              {user.role === 'admin' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitchPortal('admin');
+                      onNavigate('admin-dashboard');
+                    }}
+                    className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                      portalMode === 'admin' && activeScreen.startsWith('admin')
+                        ? 'text-blue-700 font-semibold'
+                        : 'hover:text-slate-900'
+                    }`}
+                  >
+                    Admin Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitchPortal('user');
+                      onNavigate('candidate-dashboard');
+                    }}
+                    className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                      portalMode === 'user' || activeScreen === 'candidate-dashboard'
+                        ? 'text-blue-700 font-semibold'
+                        : 'hover:text-slate-900'
+                    }`}
+                  >
+                    Candidate Tests
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   onClick={() => {
-                    onSwitchPortal('admin');
-                    onNavigate('admin-dashboard');
+                    onSwitchPortal('user');
+                    onNavigate('candidate-dashboard');
                   }}
-                  className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                    portalMode === 'admin' && activeScreen.startsWith('admin')
-                      ? 'text-blue-700 font-semibold'
-                      : 'hover:text-slate-900'
-                  }`}
+                  className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer text-blue-700 font-semibold`}
                 >
-                  Admin Studio
+                  My Tests &amp; Reports
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  onSwitchPortal('user');
-                  onNavigate('candidate-dashboard');
-                }}
-                className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                  portalMode === 'user' || activeScreen === 'candidate-dashboard'
-                    ? 'text-blue-700 font-semibold'
-                    : 'hover:text-slate-900'
-                }`}
-              >
-                Candidate Tests
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigate('landing')}
-                className={`hover:text-slate-900 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeScreen === 'landing' ? 'text-blue-700 font-semibold' : ''
-                }`}
-              >
-                Overview
-              </button>
             </>
           )}
         </nav>
