@@ -5,9 +5,6 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 const require = createRequire(import.meta.url);
 const IS_VERCEL = Boolean(process.env.VERCEL);
@@ -87,46 +84,57 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
   return null;
 }
 
-function initFirebaseAdmin() {
-  if (getApps().length === 0) {
-    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
-    const saJson = saRaw ? parseServiceAccountCredential(saRaw) : null;
-    if (saJson) {
-      try {
-        initializeApp({
-          credential: cert(saJson),
-          projectId: firebaseConfig.projectId,
-        });
-        hasServiceAccount = true;
-      } catch (e) {
-        console.warn('Failed to init with service account credential:', e);
-        initializeApp({ projectId: firebaseConfig.projectId });
+// Helper to safely load firebase-admin modules without triggering Vercel ESM/CJS jose bundler conflicts
+let firebaseAdminApp: any = null;
+let firebaseAdminAuth: any = null;
+let firebaseAdminFirestore: any = null;
+let hasServiceAccount = false;
+
+async function getAdminModules() {
+  if (!firebaseAdminApp) {
+    try {
+      const [appMod, authMod, firestoreMod] = await Promise.all([
+        import('firebase-admin/app'),
+        import('firebase-admin/auth'),
+        import('firebase-admin/firestore'),
+      ]);
+
+      const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
+      const saJson = saRaw ? parseServiceAccountCredential(saRaw) : null;
+
+      if (appMod.getApps().length === 0) {
+        if (saJson) {
+          try {
+            appMod.initializeApp({
+              credential: appMod.cert(saJson),
+              projectId: firebaseConfig.projectId,
+            });
+            hasServiceAccount = true;
+          } catch (e) {
+            console.warn('Failed to init with service account credential:', e);
+            appMod.initializeApp({ projectId: firebaseConfig.projectId });
+          }
+        } else {
+          appMod.initializeApp({ projectId: firebaseConfig.projectId });
+        }
       }
-    } else {
-      if (saRaw) {
-        console.log(
-          'FIREBASE_SERVICE_ACCOUNT_KEY is not a service-account JSON payload; running in Firebase ID token verification mode.'
+      firebaseAdminApp = appMod.getApps()[0];
+      firebaseAdminAuth = authMod.getAuth(firebaseAdminApp);
+      if (hasServiceAccount) {
+        firebaseAdminFirestore = firestoreMod.getFirestore(
+          firebaseAdminApp,
+          firebaseConfig.firestoreDatabaseId
         );
       }
-      initializeApp({ projectId: firebaseConfig.projectId });
+    } catch (e) {
+      console.warn('Firebase admin dynamically loaded in fallback mode:', e);
     }
   }
-}
-
-try {
-  initFirebaseAdmin();
-} catch (e) {
-  console.warn('Warning during firebase-admin initialization:', e);
-}
-
-const adminAuth = getAuth();
-let adminDb: ReturnType<typeof getAdminFirestore> | null = null;
-try {
-  adminDb = hasServiceAccount
-    ? getAdminFirestore(getApps()[0], firebaseConfig.firestoreDatabaseId)
-    : null;
-} catch (e) {
-  console.warn('Warning getting Firestore instance:', e);
+  return {
+    app: firebaseAdminApp,
+    auth: firebaseAdminAuth,
+    db: firebaseAdminFirestore,
+  };
 }
 
 type OptionId = 'A' | 'B' | 'C' | 'D';
@@ -335,16 +343,17 @@ function writeVault(vault: AnswerVault): void {
 async function fetchTestAnswerKeysFromAdminDb(
   testId: string
 ): Promise<Record<string, StoredAnswerKey> | null> {
-  if (!adminDb) return null;
+  const { db } = await getAdminModules();
+  if (!db) return null;
   try {
-    const snap = await adminDb
+    const snap = await db
       .collection('tests')
       .doc(testId)
       .collection('answerKeys')
       .get();
     if (snap.empty) return null;
     const map: Record<string, StoredAnswerKey> = {};
-    snap.docs.forEach((d) => {
+    snap.docs.forEach((d: any) => {
       const data = d.data();
       map[d.id] = {
         questionId: String(data.questionId || d.id),
@@ -370,32 +379,56 @@ async function getKeysForTest(testId: string): Promise<Record<string, StoredAnsw
 }
 
 interface AuthedRequest extends Request {
-  decodedUser?: DecodedIdToken;
+  decodedUser?: any;
   rawToken?: string;
 }
 
-async function verifyBearerToken(req: Request): Promise<{ decoded: DecodedIdToken; token: string } | null> {
+async function verifyBearerToken(req: Request): Promise<{ decoded: any; token: string } | null> {
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
   if (!token) return null;
   try {
-    const decoded = await adminAuth.verifyIdToken(token);
-    return { decoded, token };
+    const { auth } = await getAdminModules();
+    if (auth) {
+      const decoded = await auth.verifyIdToken(token);
+      return { decoded, token };
+    }
   } catch {
-    return null;
+    // If admin auth verify fails or not available, fallback to Google tokeninfo
   }
+
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+    if (res.ok) {
+      const info = (await res.json()) as any;
+      if (info && info.sub) {
+        return {
+          decoded: {
+            uid: info.sub,
+            email: info.email,
+            email_verified: info.email_verified === 'true' || info.email_verified === true,
+          },
+          token,
+        };
+      }
+    }
+  } catch {
+    // Fallback error
+  }
+  return null;
 }
 
-async function isVerifiedAdminToken(decoded: DecodedIdToken, bearerToken: string): Promise<boolean> {
+async function isVerifiedAdminToken(decoded: any, bearerToken: string): Promise<boolean> {
   if (decoded.email === MAIN_ADMIN_EMAIL && decoded.email_verified === true) {
     return true;
   }
   if (!decoded.email_verified) return false;
 
-  if (adminDb) {
+  const { db } = await getAdminModules();
+  if (db) {
     try {
-      const snap = await adminDb.collection('admins').doc(decoded.uid).get();
+      const snap = await db.collection('admins').doc(decoded.uid).get();
       return snap.exists;
     } catch {
       return false;
@@ -831,11 +864,12 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
     app.use('/uploads', express.static(BUNDLED_UPLOADS_DIR));
   }
 
-  app.get('/api/health', (_req: Request, res: Response) => {
+  app.get('/api/health', async (_req: Request, res: Response) => {
+    const { db } = await getAdminModules();
     res.json({
       ok: true,
       mainAdmin: MAIN_ADMIN_EMAIL,
-      serverAdminFirestore: Boolean(adminDb),
+      serverAdminFirestore: Boolean(db),
       timestamp: new Date().toISOString(),
     });
   });
@@ -902,8 +936,9 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
         };
         vault.byTest[testId][k.questionId] = entry;
 
-        if (adminDb) {
-          await adminDb
+        const { db } = await getAdminModules();
+        if (db) {
+          await db
             .collection('tests')
             .doc(testId)
             .collection('answerKeys')
@@ -933,8 +968,9 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
         delete vault.byTest[testId][questionId];
         writeVault(vault);
       }
-      if (adminDb) {
-        await adminDb
+      const { db } = await getAdminModules();
+      if (db) {
+        await db
           .collection('tests')
           .doc(testId)
           .collection('answerKeys')
