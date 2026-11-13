@@ -282,7 +282,7 @@ export function AdminDashboard({
                 <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600">
                   <tr>
                     <th className="px-5 py-3.5">Test Title &amp; Sections</th>
-                    <th className="px-4 py-3.5">Window</th>
+                    <th className="px-4 py-3.5">Date</th>
                     <th className="px-4 py-3.5 text-right">Duration</th>
                     <th className="px-4 py-3.5 text-right">Questions</th>
                     <th className="px-4 py-3.5 text-center">Status</th>
@@ -306,9 +306,11 @@ export function AdminDashboard({
                           </div>
                         </td>
                         <td className="px-4 py-4 text-xs text-slate-600 whitespace-nowrap">
-                          <div>{new Date(test.startTime).toLocaleDateString()}</div>
-                          <div className="text-slate-400">
-                            to {new Date(test.endTime).toLocaleDateString()}
+                          <div className="font-medium text-slate-800">
+                            Start: {new Date(test.startTime).toLocaleDateString()}
+                          </div>
+                          <div className="text-slate-500 mt-0.5">
+                            End: {new Date(test.endTime).toLocaleDateString()}
                           </div>
                         </td>
                         <td className="px-4 py-4 text-right font-mono text-xs text-slate-700 tabular-nums whitespace-nowrap">
