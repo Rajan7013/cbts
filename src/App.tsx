@@ -477,6 +477,16 @@ export default function App() {
       portalMode={portalMode}
       onNavigate={(next) => {
         if (next.startsWith('admin') && user.role !== 'admin') return;
+        if (next === 'admin-results') {
+          const target = selectedTest || tests[0] || null;
+          if (target) {
+            handleViewAdminResults(target);
+            return;
+          }
+        }
+        if (next === 'admin-test-builder') {
+          setSelectedTest(null);
+        }
         setScreen(next);
       }}
       onSwitchPortal={(mode) => {
@@ -572,11 +582,13 @@ export default function App() {
         />
       )}
 
-      {user.role === 'admin' && screen === 'admin-results' && selectedTest && (
+      {user.role === 'admin' && screen === 'admin-results' && (
         <AdminResultsView
           test={selectedTest}
+          tests={tests}
           attempts={adminTestAttempts}
           loading={loadingData}
+          onSelectTest={(t) => handleViewAdminResults(t)}
           onBack={() => setScreen('admin-dashboard')}
         />
       )}

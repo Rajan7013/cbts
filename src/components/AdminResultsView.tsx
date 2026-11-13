@@ -3,9 +3,11 @@ import { ArrowLeft, AlertTriangle, ShieldAlert, CheckCircle2, Clock, X } from 'l
 import type { TestAttempt, TestExam } from '../types';
 
 interface AdminResultsViewProps {
-  test: TestExam;
+  test: TestExam | null;
+  tests?: TestExam[];
   attempts: TestAttempt[];
   loading: boolean;
+  onSelectTest?: (test: TestExam) => void;
   onBack: () => void;
 }
 
@@ -17,8 +19,10 @@ function formatDuration(seconds: number): string {
 
 export function AdminResultsView({
   test,
+  tests = [],
   attempts,
   loading,
+  onSelectTest,
   onBack,
 }: AdminResultsViewProps) {
   const [selectedAttempt, setSelectedAttempt] = useState<TestAttempt | null>(null);
@@ -40,14 +44,49 @@ export function AdminResultsView({
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        <span>Back to Admin Studio</span>
+        <span>Back to Tests</span>
       </button>
 
-      <div className="mt-3 border-b border-slate-200 pb-5">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
-          Results &amp; Proctoring Logs — {test.title}
-        </h1>
+      <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
+            Results &amp; Proctoring Logs {test ? `— ${test.title}` : ''}
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Review candidate performance, live progress, and timestamped anti-cheat strike telemetry.
+          </p>
+        </div>
+
+        {tests.length > 0 && onSelectTest && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="test-select" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+              Test:
+            </label>
+            <select
+              id="test-select"
+              value={test?.testId || ''}
+              onChange={(e) => {
+                const found = tests.find((t) => t.testId === e.target.value);
+                if (found) onSelectTest(found);
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:border-blue-600 focus:outline-hidden"
+            >
+              {tests.map((t) => (
+                <option key={t.testId} value={t.testId}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      {!test && (
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-12 text-center">
+          <p className="text-sm font-semibold text-slate-800">No Assessment Tests Found</p>
+          <p className="mt-1 text-xs text-slate-500">Create an assessment test first to view candidate results.</p>
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-4 border-b border-slate-200 pb-6">
         <div>

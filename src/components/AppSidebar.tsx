@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   FileSpreadsheet,
   PlusCircle,
+  BarChart3,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -328,7 +329,7 @@ export function AppSidebarLayout({
 
                 <SidebarNavItem
                   icon={LayoutDashboard}
-                  label="Assessment Tests"
+                  label="Tests"
                   isActive={activeScreen === 'admin-dashboard'}
                   collapsed={collapsed}
                   mobileOpen={mobileOpen}
@@ -341,13 +342,26 @@ export function AppSidebarLayout({
 
                 <SidebarNavItem
                   icon={PlusCircle}
-                  label="Create New Test"
+                  label="New Tests"
                   isActive={activeScreen === 'admin-test-builder'}
                   collapsed={collapsed}
                   mobileOpen={mobileOpen}
                   onClick={() => {
                     onSwitchPortal('admin');
                     onNavigate('admin-test-builder');
+                    setMobileOpen(false);
+                  }}
+                />
+
+                <SidebarNavItem
+                  icon={BarChart3}
+                  label="Results"
+                  isActive={activeScreen === 'admin-results'}
+                  collapsed={collapsed}
+                  mobileOpen={mobileOpen}
+                  onClick={() => {
+                    onSwitchPortal('admin');
+                    onNavigate('admin-results');
                     setMobileOpen(false);
                   }}
                 />
