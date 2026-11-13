@@ -74,27 +74,16 @@ export function LandingScreen({
 
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 {user ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={onContinueToPortal}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer"
-                    >
-                      <span>
-                        Continue as {user.name.split(' ')[0]} ({user.role === 'admin' ? 'Admin' : 'Candidate'})
-                      </span>
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={authLoading}
-                      onClick={() => onSignInGoogle()}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60 transition-colors whitespace-nowrap cursor-pointer"
-                    >
-                      <RefreshCw className="h-4 w-4 text-blue-700" />
-                      <span>{authLoading ? 'Opening Picker…' : 'Switch Gmail Account'}</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={onContinueToPortal}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer shadow-sm"
+                  >
+                    <span>
+                      Go to {user.role === 'admin' ? 'Admin Studio' : 'Candidate Portal'}
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
                 ) : (
                   <>
                     <button
@@ -121,7 +110,7 @@ export function LandingScreen({
                 )}
               </div>
 
-              {recentAccounts.length > 0 && (
+              {!user && recentAccounts.length > 0 && (
                 <div className="mt-5 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-slate-800">
