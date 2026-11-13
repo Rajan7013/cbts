@@ -113,7 +113,7 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
 let firebaseAdminApp: any = null;
 let firebaseAdminAuth: any = null;
 let firebaseAdminFirestore: any = null;
-let hasServiceAccount = false;
+let adminInitError: string | null = null;
 
 async function getAdminModules() {
   if (!firebaseAdminApp) {
@@ -127,31 +127,46 @@ async function getAdminModules() {
       const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
       const saJson = saRaw ? parseServiceAccountCredential(saRaw) : null;
 
-      if (appMod.getApps().length === 0) {
+      let app = appMod.getApps().length > 0 ? appMod.getApps()[0] : null;
+
+      if (!app) {
         if (saJson) {
           try {
-            appMod.initializeApp({
-              credential: appMod.cert(saJson),
-              projectId: firebaseConfig.projectId,
+            app = appMod.initializeApp({
+              credential: appMod.cert(saJson as any),
+              projectId: (saJson.project_id as string) || firebaseConfig.projectId,
             });
-            hasServiceAccount = true;
-          } catch (e) {
-            console.warn('Failed to init with service account credential:', e);
-            appMod.initializeApp({ projectId: firebaseConfig.projectId });
+          } catch (initErr: any) {
+            adminInitError = `initializeApp error: ${initErr?.message}`;
+            app = appMod.initializeApp({ projectId: firebaseConfig.projectId });
           }
         } else {
-          appMod.initializeApp({ projectId: firebaseConfig.projectId });
+          app = appMod.initializeApp({ projectId: firebaseConfig.projectId });
         }
       }
-      firebaseAdminApp = appMod.getApps()[0];
-      firebaseAdminAuth = authMod.getAuth(firebaseAdminApp);
-      if (hasServiceAccount) {
-        firebaseAdminFirestore = firestoreMod.getFirestore(
-          firebaseAdminApp,
-          firebaseConfig.firestoreDatabaseId
-        );
+
+      firebaseAdminApp = app;
+      firebaseAdminAuth = authMod.getAuth(app);
+
+      if (saJson) {
+        try {
+          // Initialize firestore with database ID if configured, or default database
+          const dbId = firebaseConfig.firestoreDatabaseId;
+          firebaseAdminFirestore = dbId && dbId !== '(default)'
+            ? firestoreMod.getFirestore(app, dbId)
+            : firestoreMod.getFirestore(app);
+        } catch (fsErr: any) {
+          adminInitError = `getFirestore error: ${fsErr?.message}`;
+          // Fallback to default firestore
+          try {
+            firebaseAdminFirestore = firestoreMod.getFirestore(app);
+          } catch (defErr: any) {
+            adminInitError += ` | fallback default error: ${defErr?.message}`;
+          }
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
+      adminInitError = `dynamic import error: ${e?.message}`;
       console.warn('Firebase admin dynamically loaded in fallback mode:', e);
     }
   }
@@ -159,6 +174,7 @@ async function getAdminModules() {
     app: firebaseAdminApp,
     auth: firebaseAdminAuth,
     db: firebaseAdminFirestore,
+    error: adminInitError,
   };
 }
 
@@ -901,12 +917,13 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
     } catch (e: any) {
       debugInfo = `err:${e?.message}`;
     }
-    const { db } = await getAdminModules();
+    const { db, error } = await getAdminModules();
 
     res.json({
       ok: true,
       mainAdmin: MAIN_ADMIN_EMAIL,
       serverAdminFirestore: Boolean(db),
+      adminInitError: error || null,
       envStatus: {
         hasServiceAccountEnv: Boolean(saRaw),
         parsedKeyLength: saRaw?.length || 0,
