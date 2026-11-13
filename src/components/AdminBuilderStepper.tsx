@@ -1,4 +1,4 @@
-import { ArrowLeft, Settings2, FileQuestion } from 'lucide-react';
+import { ArrowLeft, Sliders, FileQuestion } from 'lucide-react';
 
 interface AdminBuilderStepperProps {
   activeStep: 1 | 2;
@@ -16,37 +16,41 @@ export function AdminBuilderStepper({
   onSelectStep,
 }: AdminBuilderStepperProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 rounded-xl border border-slate-200 bg-white px-3.5 sm:px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-xs">
+      <div className="flex items-center gap-4 min-w-0">
         <button
           type="button"
           onClick={onBackToDashboard}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 whitespace-nowrap shrink-0 cursor-pointer"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-xs"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Admin Studio</span>
+          <span>Back to Tests</span>
         </button>
-        {testTitle && (
-          <span className="text-xs text-slate-500 truncate">
-            {testTitle}
-          </span>
-        )}
+
+        <div className="min-w-0">
+          <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 truncate">
+            {testTitle ? `Edit: ${testTitle}` : 'Create a new test'}
+          </h2>
+          <p className="text-xs text-slate-500 truncate hidden sm:block">
+            Set up test details, schedule, marking, sections, and proctoring rules.
+          </p>
+        </div>
       </div>
 
       <nav
         aria-label="Test creation steps"
-        className="w-full sm:w-auto flex items-center gap-1.5 overflow-x-auto rounded-lg bg-slate-100 p-1"
+        className="flex items-center gap-2 overflow-x-auto"
       >
         <button
           type="button"
           onClick={() => onSelectStep(1)}
-          className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-md px-3 sm:px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeStep === 1
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 border border-transparent'
           }`}
         >
-          <Settings2 className="h-3.5 w-3.5" />
+          <Sliders className="h-3.5 w-3.5" />
           <span>1. Test Details &amp; Rules</span>
         </button>
 
@@ -57,10 +61,10 @@ export function AdminBuilderStepper({
               onSelectStep(2);
             }
           }}
-          className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-md px-3 sm:px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeStep === 2
-              ? 'bg-white text-blue-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'border border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 border border-transparent'
           }`}
         >
           <FileQuestion className="h-3.5 w-3.5" />

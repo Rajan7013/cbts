@@ -324,7 +324,7 @@ export function AppSidebarLayout({
               <>
                 {!isCompact && (
                   <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Assessment Studio
+                    ADMIN STUDIO
                   </div>
                 )}
 
@@ -367,6 +367,12 @@ export function AppSidebarLayout({
                   }}
                 />
 
+                {!isCompact && (
+                  <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    SWITCH MODE
+                  </div>
+                )}
+
                 <SidebarNavItem
                   icon={GraduationCap}
                   label="Candidate View"
@@ -384,7 +390,7 @@ export function AppSidebarLayout({
               <>
                 {!isCompact && (
                   <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Examinations
+                    EXAMINATIONS
                   </div>
                 )}
 
@@ -405,7 +411,7 @@ export function AppSidebarLayout({
           </nav>
         </div>
 
-        {/* User Profile & Dropdown Sign Out */}
+        {/* User Profile & Sign Out Footer */}
         <div className="p-3 border-t border-slate-100">
           <div className="relative group">
             <div
@@ -435,14 +441,7 @@ export function AppSidebarLayout({
               </div>
 
               {!isCompact && (
-                <button
-                  type="button"
-                  onClick={onSignOut}
-                  title="Sign Out"
-                  className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
+                <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
               )}
             </div>
 
@@ -452,19 +451,40 @@ export function AppSidebarLayout({
                 <div className="relative rounded-lg bg-slate-900 px-3 py-2 text-xs text-white shadow-xl whitespace-nowrap">
                   <div className="font-bold text-slate-100">{user.name}</div>
                   <div className="text-[10px] text-slate-400">{user.email}</div>
-                  <button
-                    type="button"
-                    onClick={onSignOut}
-                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold cursor-pointer"
-                  >
-                    <LogOut className="h-3 w-3" />
-                    <span>Sign Out</span>
-                  </button>
                   <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
                 </div>
               </div>
             )}
           </div>
+
+          {/* Visible Sign Out button below profile card */}
+          {!isCompact ? (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="mt-2.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" />
+              <span>Sign Out</span>
+            </button>
+          ) : (
+            <div className="relative group mt-2">
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full flex items-center justify-center h-10 w-10 mx-auto rounded-xl text-slate-600 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                aria-label="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+              <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3.5 z-50 hidden group-hover:flex items-center">
+                <div className="relative rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-xl whitespace-nowrap">
+                  <span>Sign Out</span>
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-slate-900" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
