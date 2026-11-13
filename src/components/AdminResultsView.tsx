@@ -47,9 +47,6 @@ export function AdminResultsView({
         <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
           Results &amp; Proctoring Logs — {test.title}
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Review candidate performance, live progress, and timestamped anti-cheat strike telemetry.
-        </p>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-4 border-b border-slate-200 pb-6">

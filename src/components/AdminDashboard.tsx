@@ -47,9 +47,6 @@ export function AdminDashboard({
           <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
             Admin Assessment Studio
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Configure exam windows, sections, anti-cheat strike limits, and Gemini AI question banks
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">

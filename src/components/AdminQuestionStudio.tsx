@@ -1335,10 +1335,6 @@ export function AdminQuestionStudio({
                 <FileJson className="h-4 w-4 text-indigo-700" />
                 <span>Upload JSON File &amp; Generate Preview with Gemini</span>
               </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Upload or drop a <code>.json</code> file containing questions, images, options, solutions, or raw notes. ExamPulse parses the JSON, sends it to Gemini AI, and previews generated questions for{' '}
-                <strong>{activeSection?.name}</strong> before saving to Firestore.
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <button

@@ -177,9 +177,6 @@ export function AdminTestBuilder({
         <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">
           {initialTest ? 'Step 1: Edit Test Details, Dates & Rules' : 'Step 1: Create Test Details & Rules'}
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Set test name, schedule window, duration, total question count, marking scheme, and anti-cheat strike limits—then proceed to Question Builder.
-        </p>
       </div>
 
       <form ref={formRef} onSubmit={handleSubmit} className="mt-6 space-y-8">
