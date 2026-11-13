@@ -115,8 +115,8 @@ service cloud.firestore {
         && data.testStatus in ['draft', 'published']
         && data.sectionId is string && data.sectionId.size() >= 1 && data.sectionId.size() <= 128
         && data.orderIndex is number && data.orderIndex >= 0 && data.orderIndex <= 500
-        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 3000
-        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 1000))
+        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 10000
+        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 800000))
         && data.options is list && data.options.size() == 4
         && data.options[0] is map
         && data.marks is number && data.marks >= 0.25 && data.marks <= 100
@@ -138,7 +138,7 @@ service cloud.firestore {
         && isValidId(data.testId)
         && data.testId == testId
         && data.correctOptionId in ['A', 'B', 'C', 'D']
-        && data.shortExplanation is string && data.shortExplanation.size() <= 1000
+        && data.shortExplanation is string && data.shortExplanation.size() <= 5000
         && data.stepByStepSolution is list && data.stepByStepSolution.size() <= 20
         && (data.stepByStepSolution.size() == 0 || data.stepByStepSolution[0] is string)
         && data.updatedAt is timestamp;
@@ -164,12 +164,12 @@ service cloud.firestore {
         && data.sectionId is string && data.sectionId.size() >= 1 && data.sectionId.size() <= 128
         && data.source in ['initial', 'manual_save', 'before_gemini_edit', 'gemini_edit', 'revert']
         && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 200
-        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 3000
-        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 1000))
+        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 10000
+        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 800000))
         && data.options is list && data.options.size() == 4
         && data.options[0] is map
         && data.correctOptionId in ['A', 'B', 'C', 'D']
-        && data.shortExplanation is string && data.shortExplanation.size() <= 1000
+        && data.shortExplanation is string && data.shortExplanation.size() <= 5000
         && data.stepByStepSolution is list && data.stepByStepSolution.size() <= 20
         && (data.stepByStepSolution.size() == 0 || data.stepByStepSolution[0] is string)
         && data.marks is number && data.marks >= 0.25 && data.marks <= 100

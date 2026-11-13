@@ -475,7 +475,7 @@ function normalizeFourOptions(options: TestQuestion['options']) {
       text: ((found?.text || '') || (found?.imageUrl ? `Option ${id}` : `Option ${id}`)).slice(0, 600),
     };
     if (found?.imageUrl?.trim()) {
-      opt.imageUrl = found.imageUrl.trim().slice(0, 1000);
+      opt.imageUrl = found.imageUrl.trim().slice(0, 800000);
     }
     return opt;
   });
@@ -499,14 +499,14 @@ export async function recordQuestionVersion(
   const safeQuestionText = (
     rawText.trim() ||
     (rawImg.trim() ? 'Refer to the diagram below.' : 'Question')
-  ).slice(0, 3000);
+  ).slice(0, 10000);
   const safeSectionId = (question.sectionId || 'default').slice(0, 128);
   const safeSummary = (summary.trim() || 'Saved revision').slice(0, 200);
-  const safeShort = String(question.shortExplanation || question.solution?.shortExplanation || '').slice(0, 1000);
+  const safeShort = String(question.shortExplanation || question.solution?.shortExplanation || '').slice(0, 5000);
   const rawSteps = question.stepByStepSolution || question.solution?.steps || [];
   const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
-    .slice(0, 20)
-    .map((s) => String(s).slice(0, 800));
+    .slice(0, 50)
+    .map((s) => String(s).slice(0, 2000));
   const safeMarks = Math.min(Math.max(Number(question.marks) || 4, 0.25), 100);
   const safeCorrect: OptionId = ['A', 'B', 'C', 'D'].includes(question.correctOptionId)
     ? question.correctOptionId
@@ -530,7 +530,7 @@ export async function recordQuestionVersion(
       createdAt: serverTimestamp(),
     };
     if (rawImg.trim()) {
-      payload.questionImageUrl = rawImg.trim().slice(0, 1000);
+      payload.questionImageUrl = rawImg.trim().slice(0, 800000);
     }
 
     await setDoc(
@@ -547,7 +547,7 @@ export async function recordQuestionVersion(
       summary: safeSummary,
       questionText: safeQuestionText,
       ...(question.questionImageUrl?.trim()
-        ? { questionImageUrl: question.questionImageUrl.trim().slice(0, 1000) }
+        ? { questionImageUrl: question.questionImageUrl.trim().slice(0, 800000) }
         : {}),
       options: cleanOptions.map((o) => ({
         id: o.id as OptionId,
@@ -661,9 +661,9 @@ export async function saveQuestion(
     const cleanOptions = question.options.slice(0, 4).map((o) => {
       const opt: Record<string, string> = {
         id: o.id,
-        text: (o.text || '').slice(0, 600),
+        text: (o.text || '').slice(0, 1000),
       };
-      if (o.imageUrl) opt.imageUrl = o.imageUrl.slice(0, 1000);
+      if (o.imageUrl) opt.imageUrl = o.imageUrl.slice(0, 800000);
       return opt;
     });
 
@@ -675,24 +675,24 @@ export async function saveQuestion(
 
     const safeShortExplanation = String(
       question.shortExplanation || question.solution?.shortExplanation || ''
-    ).slice(0, 1000);
+    ).slice(0, 5000);
     const rawSteps = question.stepByStepSolution || question.solution?.steps || [];
     const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
-      .slice(0, 20)
-      .map((s) => String(s).slice(0, 800));
+      .slice(0, 50)
+      .map((s) => String(s).slice(0, 2000));
 
     // Sanitized question payload — ZERO answers or solutions stored here
     const sanitizedPayload: Record<string, unknown> = {
       testStatus: question.testStatus || 'draft',
       sectionId: String(question.sectionId || 'default').slice(0, 128),
       orderIndex: Number(question.orderIndex ?? question.order ?? 0) || 0,
-      questionText: safeQuestionText.slice(0, 3000),
+      questionText: safeQuestionText.slice(0, 10000),
       options: cleanOptions,
       marks: Math.min(Math.max(Number(question.marks) || 4, 0.25), 100),
       updatedAt: serverTimestamp(),
     };
     if (rawQuestionImageUrl.trim()) {
-      sanitizedPayload.questionImageUrl = rawQuestionImageUrl.trim().slice(0, 1000);
+      sanitizedPayload.questionImageUrl = rawQuestionImageUrl.trim().slice(0, 800000);
     } else if (existingSnap.exists() && existingSnap.data()?.questionImageUrl) {
       sanitizedPayload.questionImageUrl = deleteField();
     }
@@ -1031,14 +1031,32 @@ export async function finalizeAttempt(
   attempt: TestAttempt,
   status: 'submitted' | 'auto_submitted_strike'
 ): Promise<{ attempt: TestAttempt; unlockedQuestions: TestQuestion[] }> {
-  const { grading, unlockedKeys } = await gradeExamOnServer({
-    testId: test.testId,
-    status,
-    responses: attempt.responses,
-    questionsMeta: questions.map((q) => ({ questionId: q.questionId, marks: q.marks })),
-    negativeMarking: test.negativeMarking,
-    negativeMarkValue: test.negativeMarkValue,
-  });
+  let grading = {
+    score: 0,
+    maxScore: questions.reduce((sum, q) => sum + (Number(q.marks) || 4), 0),
+    accuracy: 0,
+    correctCount: 0,
+    wrongCount: 0,
+    unattemptedCount: questions.length,
+  };
+  let unlockedKeys: Record<string, UnlockedKeyRecord> = {};
+
+  try {
+    const res = await gradeExamOnServer({
+      testId: test.testId,
+      status,
+      responses: attempt.responses,
+      questionsMeta: questions.map((q) => ({ questionId: q.questionId, marks: q.marks })),
+      negativeMarking: test.negativeMarking,
+      negativeMarkValue: test.negativeMarkValue,
+    });
+    if (res && res.grading) {
+      grading = res.grading;
+      unlockedKeys = res.unlockedKeys || {};
+    }
+  } catch (gradeErr) {
+    console.warn('gradeExamOnServer fallback used:', gradeErr);
+  }
 
   const totalSeconds = Math.max(1, test.durationMins) * 60;
   const timeTakenSeconds = Math.max(0, totalSeconds - Math.max(0, attempt.remainingSeconds));
@@ -1074,16 +1092,27 @@ export async function finalizeAttempt(
 
   const path = `attempts/${attempt.attemptId}`;
   try {
+    const sanitizedResponses: Record<string, any> = {};
+    for (const [k, v] of Object.entries(attempt.responses || {})) {
+      if (v && typeof v === 'object') {
+        sanitizedResponses[k] = {
+          selectedOptionId: v.selectedOptionId || null,
+          markedForReview: Boolean(v.markedForReview),
+          visited: Boolean(v.visited),
+        };
+      }
+    }
+
     await updateDoc(doc(db, 'attempts', attempt.attemptId), {
       status,
       lastActiveAt: serverTimestamp(),
       submittedAt: serverTimestamp(),
       remainingSeconds: Math.max(0, Math.round(attempt.remainingSeconds)),
       currentQuestionIndex: Math.max(0, attempt.currentQuestionIndex),
-      currentSectionId: attempt.currentSectionId.slice(0, 128),
-      strikeCount: attempt.strikeCount,
-      strikes: attempt.strikes.slice(0, 50),
-      responses: attempt.responses,
+      currentSectionId: (attempt.currentSectionId || 'default').slice(0, 128),
+      strikeCount: attempt.strikeCount || 0,
+      strikes: (attempt.strikes || []).slice(0, 50),
+      responses: sanitizedResponses,
       score: grading.score,
       maxScore: grading.maxScore,
       accuracy: grading.accuracy,
@@ -1094,7 +1123,9 @@ export async function finalizeAttempt(
     });
     return { attempt: finalized, unlockedQuestions };
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, path);
+    console.error('Failed to update attempt doc in Firestore:', err);
+    // Return finalized attempt so candidate is NEVER stuck on a dead exam screen
+    return { attempt: finalized, unlockedQuestions };
   }
 }
 

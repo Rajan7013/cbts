@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Check,
+  Clock,
 } from 'lucide-react';
 import { MathText } from './MathText';
 import { askAiTutor, translateTextsWithAI } from '../lib/api';

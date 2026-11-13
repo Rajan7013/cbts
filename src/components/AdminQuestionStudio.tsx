@@ -37,6 +37,7 @@ import {
   Radio,
   ExternalLink,
   Edit3,
+  ClipboardPaste,
 } from 'lucide-react';
 import { MathText } from './MathText';
 import {
@@ -658,23 +659,53 @@ export function AdminQuestionStudio({
     }
   };
 
-  // Image Upload helper
+  // Image Upload helper with direct dataUrl fallback
   const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
     setUploadingTarget(target);
+    setErrorMsg(null);
     try {
       const dataUrl = await fileToDataUrl(file);
-      const uploaded = await uploadImageDataUrl(dataUrl);
+      let finalUrl = dataUrl;
+      try {
+        const uploaded = await uploadImageDataUrl(dataUrl, file.name);
+        if (uploaded) finalUrl = uploaded;
+      } catch (uploadErr) {
+        console.warn('Server image upload failed, retaining dataUrl directly:', uploadErr);
+      }
       if (target === 'question') {
-        setQuestionImageUrl(uploaded);
+        setQuestionImageUrl(finalUrl);
       } else {
         setOptions((prev) =>
-          prev.map((o) => (o.id === target ? { ...o, imageUrl: uploaded } : o))
+          prev.map((o) => (o.id === target ? { ...o, imageUrl: finalUrl } : o))
         );
       }
     } catch (err) {
       setErrorMsg(formatSafeErrorMessage(err, 'Failed to upload image.'));
     } finally {
       setUploadingTarget(null);
+    }
+  };
+
+  const handlePasteImageFromClipboard = async (target: 'question' | OptionId = 'question') => {
+    setErrorMsg(null);
+    try {
+      if (!navigator.clipboard?.read) {
+        setErrorMsg('Clipboard reading is not supported by this browser. Use Upload Image or paste in the editor.');
+        return;
+      }
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find((t) => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'pasted_diagram.png', { type: imageType });
+          await handleUploadImage(file, target);
+          return;
+        }
+      }
+      setErrorMsg('No image found in clipboard. Please copy an image first.');
+    } catch {
+      setErrorMsg('Clipboard permission was denied or no image was found in clipboard.');
     }
   };
 
@@ -1061,6 +1092,21 @@ export function AdminQuestionStudio({
                   rows={4}
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
+                  onPaste={async (e) => {
+                    const items = e.clipboardData?.items;
+                    if (items) {
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.startsWith('image/')) {
+                          const file = items[i].getAsFile();
+                          if (file) {
+                            e.preventDefault();
+                            await handleUploadImage(file, 'question');
+                            return;
+                          }
+                        }
+                      }
+                    }
+                  }}
                   placeholder="Enter the question here... (Markdown and LaTeX supported)&#10;&#10;e.g., What is the equivalent resistance? $R_{eq} = \frac{R_1 R_2}{R_1 + R_2}$"
                   className="w-full rounded-b-xl border border-t-0 border-slate-200/80 bg-white p-3.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 font-mono"
                 />
@@ -1090,6 +1136,16 @@ export function AdminQuestionStudio({
                   >
                     <ImagePlus className="h-3.5 w-3.5 text-slate-500" />
                     <span>{uploadingTarget === 'question' ? 'Uploading…' : 'Upload Image'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePasteImageFromClipboard('question')}
+                    disabled={uploadingTarget === 'question'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5 text-slate-500" />
+                    <span>Paste Image</span>
                   </button>
 
                   <button
