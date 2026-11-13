@@ -39,7 +39,7 @@ function getFirebaseConfig(): FirebaseConfigFile {
 const firebaseConfig = getFirebaseConfig();
 
 function parseServiceAccountCredential(raw: string): Record<string, unknown> | null {
-  const cleaned = raw.trim().replace(/^["']|["']$/g, '');
+  let cleaned = raw.trim().replace(/^["']|["']$/g, '');
   if (!cleaned) return null;
 
   const tryJson = (text: string): Record<string, unknown> | null => {
@@ -47,6 +47,7 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
       const obj = JSON.parse(text) as Record<string, unknown>;
       if (
         obj &&
+        typeof obj === 'object' &&
         typeof obj.project_id === 'string' &&
         typeof obj.private_key === 'string' &&
         typeof obj.client_email === 'string'
@@ -59,10 +60,13 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
     }
   };
 
+  // Direct raw JSON string check (also handling escaped \n in private_key if needed)
   if (cleaned.startsWith('{')) {
-    return tryJson(cleaned);
+    const direct = tryJson(cleaned);
+    if (direct) return direct;
   }
 
+  // File path check
   if (cleaned.endsWith('.json')) {
     const resolved = path.isAbsolute(cleaned)
       ? cleaned
@@ -72,13 +76,29 @@ function parseServiceAccountCredential(raw: string): Record<string, unknown> | n
     }
   }
 
+  // Base64 candidates: stripped of whitespace/newlines and original cleaned
+  const stripped = cleaned.replace(/[\r\n\s]/g, '');
+  for (const candidate of [stripped, cleaned]) {
+    try {
+      const decoded = Buffer.from(candidate, 'base64').toString('utf8').trim();
+      if (decoded.startsWith('{')) {
+        const parsed = tryJson(decoded);
+        if (parsed) return parsed;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Also check if escaped json string e.g. "{\"type\": ...}"
   try {
-    const decoded = Buffer.from(cleaned, 'base64').toString('utf8').trim();
-    if (decoded.startsWith('{')) {
-      return tryJson(decoded);
+    const unescaped = JSON.parse(`"${cleaned}"`);
+    if (typeof unescaped === 'string' && unescaped.startsWith('{')) {
+      const parsed = tryJson(unescaped);
+      if (parsed) return parsed;
     }
   } catch {
-    // Ignore non-base64 strings
+    // Ignore
   }
 
   return null;
