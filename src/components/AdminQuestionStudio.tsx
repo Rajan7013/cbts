@@ -36,6 +36,7 @@ import {
   ImagePlus,
   Radio,
   ExternalLink,
+  Edit3,
 } from 'lucide-react';
 import { MathText } from './MathText';
 import {
@@ -54,6 +55,7 @@ import type {
   QuestionVersionSource,
   TestExam,
   TestQuestion,
+  TestSection,
 } from '../types';
 
 interface AdminQuestionStudioProps {
@@ -70,7 +72,8 @@ interface AdminQuestionStudioProps {
     summary: string
   ) => Promise<QuestionVersion>;
   onDeleteQuestion: (questionId: string) => Promise<void>;
-  onPublishTest: () => Promise<void>;
+  onPublishTest: (overrides?: Partial<TestExam>) => Promise<void>;
+  onUpdateTest?: (updated: Partial<TestExam>) => Promise<void>;
   onApplyDefaultMarksToAll?: (marks: number) => Promise<void>;
   onSwitchToCandidateView?: () => void;
 }
@@ -116,13 +119,98 @@ export function AdminQuestionStudio({
   onSaveQuestion,
   onDeleteQuestion,
   onPublishTest,
+  onUpdateTest,
   onSwitchToCandidateView,
 }: AdminQuestionStudioProps) {
   const defaultMarks = test.marksPerQuestion ?? 4;
 
+  const [sections, setSections] = useState<TestSection[]>(
+    test.sections?.length
+      ? test.sections
+      : [{ id: generateId('sec'), name: 'Section A: General', questionCount: 1 }]
+  );
+
+  useEffect(() => {
+    if (test.sections?.length) {
+      setSections(test.sections);
+    }
+  }, [test.sections]);
+
   const [activeSectionId, setActiveSectionId] = useState<string>(
     test.sections[0]?.id || 'default'
   );
+
+  useEffect(() => {
+    if (!sections.some((s) => s.id === activeSectionId) && sections[0]) {
+      setActiveSectionId(sections[0].id);
+    }
+  }, [sections, activeSectionId]);
+
+  const [isAddingSection, setIsAddingSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
+
+  const handleCreateSection = async () => {
+    const trimmed = newSectionName.trim() || `Section ${String.fromCharCode(65 + sections.length)}`;
+    const newSec: TestSection = {
+      id: generateId('sec'),
+      name: trimmed,
+      questionCount: 1,
+    };
+    const updated = [...sections, newSec];
+    setSections(updated);
+    setActiveSectionId(newSec.id);
+    setIsAddingSection(false);
+    setNewSectionName('');
+    if (onUpdateTest) {
+      const sum = updated.reduce((acc, s) => acc + (Number(s.questionCount) || 0), 0);
+      await onUpdateTest({
+        sections: updated,
+        totalQuestions: Math.max(1, sum),
+      });
+    }
+  };
+
+  const handleStartRenameSection = (sec: TestSection) => {
+    setEditingSectionId(sec.id);
+    setEditingSectionName(sec.name);
+  };
+
+  const handleSaveRenameSection = async (secId: string) => {
+    const trimmed = editingSectionName.trim();
+    if (!trimmed) {
+      setEditingSectionId(null);
+      return;
+    }
+    const updated = sections.map((s) => (s.id === secId ? { ...s, name: trimmed } : s));
+    setSections(updated);
+    setEditingSectionId(null);
+    if (onUpdateTest) {
+      await onUpdateTest({ sections: updated });
+    }
+  };
+
+  const handleDeleteSection = async (secId: string) => {
+    if (sections.length <= 1) {
+      setErrorMsg('A test must have at least one section.');
+      return;
+    }
+    const target = sections.find((s) => s.id !== secId);
+    const updated = sections.filter((s) => s.id !== secId);
+    setSections(updated);
+    if (activeSectionId === secId && target) {
+      setActiveSectionId(target.id);
+    }
+    if (onUpdateTest) {
+      const sum = updated.reduce((acc, s) => acc + (Number(s.questionCount) || 0), 0);
+      await onUpdateTest({
+        sections: updated,
+        totalQuestions: Math.max(1, sum),
+      });
+    }
+  };
+
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Main view mode
@@ -176,7 +264,7 @@ export function AdminQuestionStudio({
 
   // Active section's questions
   const sectionQuestions = questions.filter((q) => q.sectionId === activeSectionId);
-  const currentSection = test.sections.find((s) => s.id === activeSectionId) || test.sections[0];
+  const currentSection = sections.find((s) => s.id === activeSectionId) || sections[0];
   const currentQuestionIndex = sectionQuestions.findIndex((q) => q.questionId === editingId);
 
   // Load existing question into form
@@ -471,7 +559,23 @@ export function AdminQuestionStudio({
   const handleConfirmPublish = async () => {
     setPublishing(true);
     try {
-      await onPublishTest();
+      const updatedSections = sections.map((s) => {
+        const count = questions.filter((q) => q.sectionId === s.id).length;
+        return {
+          ...s,
+          questionCount: Math.max(1, count || s.questionCount || 1),
+        };
+      });
+      if (onUpdateTest) {
+        await onUpdateTest({
+          totalQuestions: Math.max(1, questions.length),
+          sections: updatedSections,
+        });
+      }
+      await onPublishTest({
+        totalQuestions: Math.max(1, questions.length),
+        sections: updatedSections,
+      });
       setShowPublishModal(false);
       setViewMode('published_success');
     } catch (err) {
@@ -525,11 +629,8 @@ export function AdminQuestionStudio({
     }
   };
 
-  const isAllSectionsComplete =
-    test.sections.every((s) => {
-      const count = questions.filter((q) => q.sectionId === s.id).length;
-      return count >= s.questionCount;
-    }) && questions.length >= test.totalQuestions;
+  const canPublish = questions.length >= 1;
+  const isAllSectionsComplete = canPublish;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-5">
@@ -579,9 +680,9 @@ export function AdminQuestionStudio({
         </div>
 
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-slate-600 font-medium">
-          <span className="flex items-center gap-1.5">
-            <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
-            <span>{test.totalQuestions} Questions</span>
+          <span className="flex items-center gap-1.5 font-bold text-slate-900">
+            <HelpCircle className="h-3.5 w-3.5 text-blue-600" />
+            <span>{questions.length} Questions</span>
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-slate-400" />
@@ -597,34 +698,150 @@ export function AdminQuestionStudio({
       {/* 3. Section Selector & Global Action Strip */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left: Section Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          {test.sections.map((sec) => {
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-1 min-w-0">
+          {sections.map((sec) => {
             const count = questions.filter((q) => q.sectionId === sec.id).length;
             const isActive = activeSectionId === sec.id;
-            return (
-              <button
+            const isEditing = editingSectionId === sec.id;
+
+            return isEditing ? (
+              <div
                 key={sec.id}
-                type="button"
-                onClick={() => {
-                  setActiveSectionId(sec.id);
-                  const firstQ = questions.find((q) => q.sectionId === sec.id);
-                  if (firstQ) loadQuestionIntoEditor(firstQ);
-                  else resetFormToNewQuestion(sec.id);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                className="flex items-center gap-1 bg-white border border-blue-300 rounded-xl px-2 py-1 shadow-xs shrink-0"
+              >
+                <input
+                  type="text"
+                  value={editingSectionName}
+                  onChange={(e) => setEditingSectionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveRenameSection(sec.id);
+                    if (e.key === 'Escape') setEditingSectionId(null);
+                  }}
+                  autoFocus
+                  className="text-xs px-1.5 py-0.5 rounded border border-slate-200 font-semibold text-slate-800 w-32 focus:outline-hidden focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSaveRenameSection(sec.id)}
+                  className="p-1 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                  title="Save name"
+                >
+                  <Check className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingSectionId(null)}
+                  className="p-1 text-slate-400 hover:bg-slate-100 rounded cursor-pointer"
+                  title="Cancel"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div
+                key={sec.id}
+                className={`group inline-flex items-center rounded-xl text-xs font-semibold whitespace-nowrap transition-colors border shrink-0 ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200/70 font-bold shadow-xs'
-                    : 'bg-white border border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200/70 font-bold shadow-xs'
+                    : 'bg-white border-slate-200/80 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
-                {sec.name} <span className="ml-1 opacity-75 font-mono">{count}/{sec.questionCount}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSectionId(sec.id);
+                    const firstQ = questions.find((q) => q.sectionId === sec.id);
+                    if (firstQ) loadQuestionIntoEditor(firstQ);
+                    else resetFormToNewQuestion(sec.id);
+                  }}
+                  className="px-3.5 py-2 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>{sec.name}</span>
+                  <span className="opacity-80 font-mono text-[11px] bg-slate-100/90 group-hover:bg-slate-200/80 px-1.5 py-0.5 rounded-md">
+                    {count} Qs
+                  </span>
+                </button>
+                {isActive && (
+                  <div className="flex items-center pr-1.5 gap-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartRenameSection(sec);
+                      }}
+                      className="p-1 text-blue-600 hover:bg-blue-100/70 rounded transition-colors cursor-pointer"
+                      title="Rename section"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                    </button>
+                    {sections.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSection(sec.id);
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                        title="Delete section"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })}
+
+          {isAddingSection ? (
+            <div className="flex items-center gap-1 bg-white border border-blue-300 rounded-xl px-2 py-1 shadow-xs shrink-0">
+              <input
+                type="text"
+                placeholder="Section name..."
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateSection();
+                  if (e.key === 'Escape') setIsAddingSection(false);
+                }}
+                autoFocus
+                className="text-xs px-2 py-1 rounded border border-slate-200 font-semibold text-slate-800 w-36 focus:outline-hidden focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleCreateSection}
+                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+                title="Create section"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddingSection(false)}
+                className="p-1 text-slate-400 hover:bg-slate-100 rounded cursor-pointer"
+                title="Cancel"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNewSectionName(`Section ${String.fromCharCode(65 + sections.length)}`);
+                setIsAddingSection(true);
+              }}
+              className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/40 transition-colors cursor-pointer shrink-0"
+              title="Add a new section"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Section</span>
+            </button>
+          )}
         </div>
 
         {/* Right: Global Actions (Import JSON, Bulk Gemini, Preview, Publish) */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setViewMode('json_import')}
@@ -669,12 +886,14 @@ export function AdminQuestionStudio({
 
           <button
             type="button"
+            disabled={!canPublish || publishing}
             onClick={() => setShowPublishModal(true)}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs ${
-              isAllSectionsComplete
-                ? 'bg-blue-600 hover:bg-blue-700 text-white font-bold'
-                : 'bg-slate-100 text-slate-400 border border-slate-200'
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-xs ${
+              canPublish
+                ? 'bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer'
+                : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
             }`}
+            title={canPublish ? 'Publish this test' : 'Add at least 1 question before publishing'}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             <span>Publish Test</span>
@@ -1035,7 +1254,7 @@ export function AdminQuestionStudio({
                   </div>
                 </div>
                 <span className="text-xs font-bold text-slate-700">
-                  {sectionQuestions.length} / {currentSection?.questionCount}
+                  {sectionQuestions.length} Questions
                 </span>
               </div>
 
@@ -1061,16 +1280,14 @@ export function AdminQuestionStudio({
                   </div>
                 ))}
 
-                {sectionQuestions.length < (currentSection?.questionCount || 0) && (
-                  <button
-                    type="button"
-                    onClick={() => resetFormToNewQuestion(activeSectionId)}
-                    className="w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:text-blue-600 hover:border-blue-300 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add Question {sectionQuestions.length + 1}</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => resetFormToNewQuestion(activeSectionId)}
+                  className="w-full py-2 rounded-xl border border-dashed border-slate-300 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Question {sectionQuestions.length + 1}</span>
+                </button>
               </div>
             </div>
 
@@ -1658,14 +1875,14 @@ export function AdminQuestionStudio({
               {/* Completion Checklist */}
               <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3 text-xs">
                 <h4 className="font-bold text-slate-900">Admin Completion Checklist</h4>
-                {test.sections.map((sec) => {
+                {sections.map((sec) => {
                   const count = questions.filter((q) => q.sectionId === sec.id).length;
-                  const isDone = count >= sec.questionCount;
+                  const isDone = count > 0;
                   return (
                     <div key={sec.id} className="flex items-center gap-2">
                       <CheckCircle2 className={`h-4 w-4 ${isDone ? 'text-emerald-600' : 'text-slate-300'}`} />
                       <span className={isDone ? 'text-slate-800 font-semibold' : 'text-slate-500'}>
-                        {sec.name}: {count}/{sec.questionCount} questions added
+                        {sec.name}: {count} questions added
                       </span>
                     </div>
                   );
@@ -1802,7 +2019,7 @@ export function AdminQuestionStudio({
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-slate-600 text-[11px]">
-                <span>{test.totalQuestions} Questions</span>
+                <span>{questions.length} Questions</span>
                 <span>{test.durationMins} Minutes</span>
                 <span>+{defaultMarks} per Correct</span>
                 <span>{test.negativeMarking ? 'Negative Marking' : 'No Negative Marking'}</span>

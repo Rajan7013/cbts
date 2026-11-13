@@ -67,7 +67,10 @@ export function AdminTestBuilder({
     toLocalDatetimeInput(initialTest?.endTime || defaultEnd)
   );
   const [durationMins, setDurationMins] = useState(initialTest?.durationMins ?? 20);
-  const [totalQuestions, setTotalQuestions] = useState(initialTest?.totalQuestions ?? 6);
+  const [totalQuestions, setTotalQuestions] = useState(
+    initialTest?.totalQuestions ??
+      (initialTest?.sections?.reduce((sum, s) => sum + (Number(s.questionCount) || 0), 0) || 1)
+  );
   const [passPercentage, setPassPercentage] = useState(initialTest?.passPercentage ?? 50);
   const [marksPerQuestionInput, setMarksPerQuestionInput] = useState(
     String(initialTest?.marksPerQuestion ?? 4)
@@ -89,8 +92,11 @@ export function AdminTestBuilder({
     initialTest?.sections?.length
       ? initialTest.sections
       : [
-          { id: generateId('sec'), name: 'Section A: Core Concepts', questionCount: 3 },
-          { id: generateId('sec'), name: 'Section B: Problem Solving', questionCount: 3 },
+          {
+            id: generateId('sec'),
+            name: 'Section A: General',
+            questionCount: Math.max(1, initialTest?.totalQuestions || 1),
+          },
         ]
   );
 
@@ -113,15 +119,45 @@ export function AdminTestBuilder({
       : 0;
 
   const handleAddSection = () => {
-    setSections((prev) => [
-      ...prev,
-      { id: generateId('sec'), name: `Section ${String.fromCharCode(65 + prev.length)}`, questionCount: 1 },
-    ]);
+    setSections((prev) => {
+      const char = String.fromCharCode(65 + prev.length);
+      const updated = [
+        ...prev,
+        { id: generateId('sec'), name: `Section ${char}`, questionCount: 1 },
+      ];
+      const sum = updated.reduce((s, x) => s + (Number(x.questionCount) || 0), 0);
+      setTotalQuestions(Math.max(1, sum));
+      return updated;
+    });
   };
 
   const handleRemoveSection = (id: string) => {
     if (sections.length <= 1) return;
-    setSections((prev) => prev.filter((s) => s.id !== id));
+    setSections((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      const sum = updated.reduce((s, x) => s + (Number(x.questionCount) || 0), 0);
+      setTotalQuestions(Math.max(1, sum));
+      return updated;
+    });
+  };
+
+  const handleSectionCountChange = (idx: number, countVal: number) => {
+    const val = Math.max(1, countVal || 1);
+    setSections((prev) => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], questionCount: val };
+      const sum = updated.reduce((s, x) => s + (Number(x.questionCount) || 0), 0);
+      setTotalQuestions(Math.max(1, sum));
+      return updated;
+    });
+  };
+
+  const handleTotalQuestionsChange = (val: number) => {
+    const safeVal = Math.max(1, val);
+    setTotalQuestions(safeVal);
+    if (sections.length === 1) {
+      setSections((prev) => [{ ...prev[0], questionCount: safeVal }]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,12 +167,8 @@ export function AdminTestBuilder({
       setError('Please enter a test name (at least 2 characters).');
       return;
     }
-    if (!sectionsMatch) {
-      setError(
-        `Section question counts sum to ${sectionSum}, which must equal Total Questions (${totalQuestions}).`
-      );
-      return;
-    }
+    const finalSectionSum = sections.reduce((sum, s) => sum + (Number(s.questionCount) || 0), 0);
+    const finalTotalQuestions = Math.max(1, finalSectionSum > 0 ? finalSectionSum : Number(totalQuestions) || 1);
     const startIso = new Date(startLocal).toISOString();
     const endIso = new Date(endLocal).toISOString();
     if (new Date(endIso).getTime() <= new Date(startIso).getTime()) {
@@ -163,7 +195,7 @@ export function AdminTestBuilder({
         startTime: startIso,
         endTime: endIso,
         durationMins: Math.max(1, Number(durationMins)),
-        totalQuestions: Math.max(1, Number(totalQuestions)),
+        totalQuestions: finalTotalQuestions,
         passPercentage: Math.min(100, Math.max(0, Number(passPercentage))),
         marksPerQuestion: Math.round(effectiveMarks * 100) / 100,
         negativeMarking,
@@ -322,7 +354,7 @@ export function AdminTestBuilder({
                     max={200}
                     required
                     value={totalQuestions}
-                    onChange={(e) => setTotalQuestions(Math.max(1, Number(e.target.value)))}
+                    onChange={(e) => handleTotalQuestionsChange(Math.max(1, Number(e.target.value)))}
                     className="w-full rounded-xl border border-slate-200/80 bg-slate-50/60 px-3.5 py-2.5 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-hidden transition-all font-mono"
                   />
                 </div>
@@ -486,12 +518,7 @@ export function AdminTestBuilder({
                         max={100}
                         required
                         value={section.questionCount}
-                        onChange={(e) => {
-                          const val = Math.max(1, Number(e.target.value) || 1);
-                          const updated = [...sections];
-                          updated[idx].questionCount = val;
-                          setSections(updated);
-                        }}
+                        onChange={(e) => handleSectionCountChange(idx, Number(e.target.value))}
                         className="w-16 rounded-xl border border-slate-200/80 bg-slate-50/60 px-2.5 py-2 text-xs font-mono font-bold text-slate-900 text-center focus:bg-white focus:border-blue-600 focus:outline-hidden"
                       />
                       <span className="text-xs text-slate-500 font-medium">Qs</span>

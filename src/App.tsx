@@ -577,10 +577,21 @@ export default function App() {
             const updated = await listQuestionsAdmin(user, selectedTest.testId);
             setAdminQuestions(updated);
           }}
-          onPublishTest={async () => {
-            const published: TestExam = { ...selectedTest, status: 'published' };
+          onUpdateTest={async (patch) => {
+            const updatedTest: TestExam = { ...selectedTest, ...patch };
+            await saveTest(user, updatedTest);
+            setSelectedTest(updatedTest);
+            setTests((prev) => prev.map((t) => (t.testId === updatedTest.testId ? updatedTest : t)));
+          }}
+          onPublishTest={async (overrides?: Partial<TestExam>) => {
+            const published: TestExam = {
+              ...selectedTest,
+              ...(overrides || {}),
+              status: 'published',
+            };
             await saveTest(user, published);
             setSelectedTest(published);
+            setTests((prev) => prev.map((t) => (t.testId === published.testId ? published : t)));
             setRecentlyPublishedMessage('Test published successfully');
             const updatedQs = await listQuestionsAdmin(user, selectedTest.testId);
             setAdminQuestions(updatedQs);
