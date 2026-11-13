@@ -182,8 +182,13 @@ function renderPlainMathNotation(text: string, keyPrefix: string): ReactNode[] {
   // e.g. sqrt(3) -> \sqrt{3}, sqrt(2g) -> \sqrt{2g}
   let processed = text
     .replace(/(?:\b)sqrt\(([^()]+)\)/g, '\\sqrt{$1}')
-    .replace(/(?<=[A-Za-z0-9)\]}])\s*\*\s*(?=[A-Za-z0-9(\[{√\\])/g, ' × ')
-    .replace(/(?<=\d)\s*\/\s*(?=\d)/g, ' ÷ ');
+    .replace(/(?<=[A-Za-z0-9)\]}])\s*\*\s*(?=[A-Za-z0-9(\[{√\\])/g, ' × ');
+
+  // Match fractions like 2/3 or 1/2 or (a+b)/(c+d) or \text{m}/\text{s}^2
+  // If the user wants textbook fractions (with numerator on top, denominator on bottom),
+  // convert plain numeric fractions e.g. 2/3, 5/12, or bracketed (a+b)/(c+d) into \frac{num}{den}
+  processed = processed.replace(/(?<![A-Za-z0-9_])(\d+)\s*\/\s*(\d+)(?![A-Za-z0-9_])/g, '\\frac{$1}{$2}');
+  processed = processed.replace(/\(([^()]+)\)\s*\/\s*\(([^()]+)\)/g, '\\frac{$1}{$2}');
 
   const tokenRegex = new RegExp(
     [

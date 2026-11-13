@@ -48,8 +48,7 @@ export function AdminDashboard({
             Admin Assessment Studio
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Configure exam windows, sections, anti-cheat strike limits, and Gemini AI question banks · Main Admin:{' '}
-            <span className="font-mono text-xs font-semibold text-slate-800">{adminEmail}</span>
+            Configure exam windows, sections, anti-cheat strike limits, and Gemini AI question banks
           </p>
         </div>
 
