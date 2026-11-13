@@ -10,14 +10,14 @@ interface AdminBuilderStepperProps {
 
 export function AdminBuilderStepper({
   activeStep,
-  testTitle,
+  testTitle: _testTitle,
   canSwitchToStep2,
   onBackToDashboard,
   onSelectStep,
 }: AdminBuilderStepperProps) {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-xs">
-      <div className="flex items-center gap-4 min-w-0">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-xs">
+      <div className="flex items-center min-w-0">
         <button
           type="button"
           onClick={onBackToDashboard}
@@ -26,15 +26,6 @@ export function AdminBuilderStepper({
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Back to Tests</span>
         </button>
-
-        <div className="min-w-0">
-          <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 truncate">
-            {testTitle ? `Edit: ${testTitle}` : 'Create a new test'}
-          </h2>
-          <p className="text-xs text-slate-500 truncate hidden sm:block">
-            Set up test details, schedule, marking, sections, and proctoring rules.
-          </p>
-        </div>
       </div>
 
       <nav
