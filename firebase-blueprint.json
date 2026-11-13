@@ -1,0 +1,230 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile storing identity and contact details.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "email", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Secondary admin allowlist managed exclusively by immutable main admin rajanprasaila@gmail.com.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "TestExam": {
+      "title": "TestExam",
+      "description": "Computer-based test configuration, schedule, sections, and anti-cheat rules.",
+      "type": "object",
+      "properties": {
+        "testId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "startTime": { "type": "string", "minLength": 10, "maxLength": 40 },
+        "endTime": { "type": "string", "minLength": 10, "maxLength": 40 },
+        "durationMins": { "type": "number" },
+        "totalQuestions": { "type": "number" },
+        "passPercentage": { "type": "number" },
+        "marksPerQuestion": { "type": "number" },
+        "negativeMarking": { "type": "boolean" },
+        "negativeMarkValue": { "type": "number" },
+        "maxStrikes": { "type": "number" },
+        "enforceFullscreen": { "type": "boolean" },
+        "detectTabSwitch": { "type": "boolean" },
+        "proctoringAIEnabled": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "sections": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "testId", "title", "description", "createdBy", "startTime", "endTime",
+        "durationMins", "totalQuestions", "passPercentage", "negativeMarking",
+        "negativeMarkValue", "maxStrikes", "enforceFullscreen", "detectTabSwitch",
+        "proctoringAIEnabled", "status", "sections", "createdAt", "updatedAt"
+      ]
+    },
+    "TestQuestion": {
+      "title": "TestQuestion",
+      "description": "Sanitized CBT question stem and options only (never stores answer keys or solutions).",
+      "type": "object",
+      "properties": {
+        "questionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testStatus": { "type": "string", "enum": ["draft", "published"] },
+        "sectionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderIndex": { "type": "number" },
+        "questionText": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "questionImageUrl": { "type": "string", "maxLength": 1000 },
+        "options": { "type": "array" },
+        "marks": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "questionId", "testId", "testStatus", "sectionId", "orderIndex",
+        "questionText", "options", "marks", "createdAt", "updatedAt"
+      ]
+    },
+    "AnswerKey": {
+      "title": "AnswerKey",
+      "description": "Protected correct option and step-by-step solutions readable strictly by admins and server-side grading.",
+      "type": "object",
+      "properties": {
+        "questionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "correctOptionId": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "shortExplanation": { "type": "string", "maxLength": 1000 },
+        "stepByStepSolution": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["questionId", "testId", "correctOptionId", "shortExplanation", "stepByStepSolution", "updatedAt"]
+    },
+    "QuestionVersion": {
+      "title": "QuestionVersion",
+      "description": "Immutable admin-only revision snapshot of a question before or after Gemini AI edits, manual saves, or reverts.",
+      "type": "object",
+      "properties": {
+        "versionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "questionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sectionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "source": {
+          "type": "string",
+          "enum": ["initial", "manual_save", "before_gemini_edit", "gemini_edit", "revert"]
+        },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "questionText": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "questionImageUrl": { "type": "string", "maxLength": 1000 },
+        "options": { "type": "array" },
+        "correctOptionId": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "shortExplanation": { "type": "string", "maxLength": 1000 },
+        "stepByStepSolution": { "type": "array" },
+        "marks": { "type": "number" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "versionId", "questionId", "testId", "sectionId", "source", "summary",
+        "questionText", "options", "correctOptionId", "shortExplanation",
+        "stepByStepSolution", "marks", "createdBy", "createdAt"
+      ]
+    },
+    "TestAttempt": {
+      "title": "TestAttempt",
+      "description": "Candidate exam attempt supporting pause/resume state, monotonic strike logs, and server-verified scoring.",
+      "type": "object",
+      "properties": {
+        "attemptId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "testTitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "userEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "status": { "type": "string", "enum": ["in_progress", "submitted", "auto_submitted_strike"] },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "lastActiveAt": { "type": "string", "format": "date-time" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "remainingSeconds": { "type": "number" },
+        "currentQuestionIndex": { "type": "number" },
+        "currentSectionId": { "type": "string", "maxLength": 128 },
+        "strikeCount": { "type": "number" },
+        "strikes": { "type": "array" },
+        "responses": { "type": "object" },
+        "score": { "type": "number" },
+        "maxScore": { "type": "number" },
+        "accuracy": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "wrongCount": { "type": "number" },
+        "unattemptedCount": { "type": "number" },
+        "timeTakenSeconds": { "type": "number" }
+      },
+      "required": [
+        "attemptId", "testId", "testTitle", "userId", "userName", "userEmail",
+        "status", "startedAt", "lastActiveAt", "remainingSeconds",
+        "currentQuestionIndex", "currentSectionId", "strikeCount", "strikes",
+        "responses", "score", "maxScore", "accuracy", "correctCount",
+        "wrongCount", "unattemptedCount", "timeTakenSeconds"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profiles isolated to the owner and admins."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Secondary admin allowlist records managed strictly by rajanprasaila@gmail.com."
+    },
+    "/tests/{testId}": {
+      "schema": { "$ref": "#/entities/TestExam" },
+      "description": "Exam configurations managed by admins and read when published."
+    },
+    "/tests/{testId}/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/TestQuestion" },
+      "description": "Sanitized question stems and options without answer keys."
+    },
+    "/tests/{testId}/questions/{questionId}/versions/{versionId}": {
+      "schema": { "$ref": "#/entities/QuestionVersion" },
+      "description": "Admin-only immutable version history snapshots for reverting Gemini AI or manual question edits."
+    },
+    "/tests/{testId}/answerKeys/{questionId}": {
+      "schema": { "$ref": "#/entities/AnswerKey" },
+      "description": "Admin-only answer keys and step-by-step solutions isolated from candidate reads."
+    },
+    "/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/TestAttempt" },
+      "description": "Candidate test attempts with monotonic strike counters and terminal state locking."
+    }
+  }
+}

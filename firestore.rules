@@ -1,0 +1,404 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Shared security primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Immutable Main Admin locked to rajanprasaila@gmail.com — cannot be replaced from frontend or backend
+    function isMainAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'rajanprasaila@gmail.com';
+    }
+
+    function isAdmin() {
+      return isMainAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'photoUrl', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data, adminId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == adminId
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTest(data, testId) {
+      return data.keys().hasAll([
+          'testId', 'title', 'description', 'createdBy', 'startTime', 'endTime',
+          'durationMins', 'totalQuestions', 'passPercentage', 'negativeMarking',
+          'negativeMarkValue', 'maxStrikes', 'enforceFullscreen', 'detectTabSwitch',
+          'proctoringAIEnabled', 'status', 'sections', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'testId', 'title', 'description', 'createdBy', 'startTime', 'endTime',
+          'durationMins', 'totalQuestions', 'passPercentage', 'marksPerQuestion',
+          'negativeMarking', 'negativeMarkValue', 'maxStrikes', 'enforceFullscreen',
+          'detectTabSwitch', 'proctoringAIEnabled', 'status', 'sections', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.testId)
+        && data.testId == testId
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 160
+        && data.description is string && data.description.size() <= 1000
+        && isValidId(data.createdBy)
+        && data.startTime is string && data.startTime.size() >= 10 && data.startTime.size() <= 40
+        && data.endTime is string && data.endTime.size() >= 10 && data.endTime.size() <= 40
+        && data.durationMins is number && data.durationMins >= 1 && data.durationMins <= 600
+        && data.totalQuestions is number && data.totalQuestions >= 1 && data.totalQuestions <= 300
+        && data.passPercentage is number && data.passPercentage >= 0 && data.passPercentage <= 100
+        && (!('marksPerQuestion' in data) || (data.marksPerQuestion is number && data.marksPerQuestion >= 0.25 && data.marksPerQuestion <= 100))
+        && data.negativeMarking is bool
+        && data.negativeMarkValue is number && data.negativeMarkValue >= 0 && data.negativeMarkValue <= 100
+        && data.maxStrikes is number && data.maxStrikes >= 0 && data.maxStrikes <= 20
+        && data.enforceFullscreen is bool
+        && data.detectTabSwitch is bool
+        && data.proctoringAIEnabled is bool
+        && data.status in ['draft', 'published']
+        && data.sections is list && data.sections.size() >= 1 && data.sections.size() <= 20
+        && data.sections[0] is map
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Sanitized question document — NEVER holds correctOptionId or solutions
+    function isValidQuestion(data, testId, questionId) {
+      return data.keys().hasAll([
+          'questionId', 'testId', 'testStatus', 'sectionId', 'orderIndex',
+          'questionText', 'options', 'marks', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'questionId', 'testId', 'testStatus', 'sectionId', 'orderIndex',
+          'questionText', 'questionImageUrl', 'options', 'marks', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.questionId)
+        && data.questionId == questionId
+        && isValidId(data.testId)
+        && data.testId == testId
+        && data.testStatus in ['draft', 'published']
+        && data.sectionId is string && data.sectionId.size() >= 1 && data.sectionId.size() <= 128
+        && data.orderIndex is number && data.orderIndex >= 0 && data.orderIndex <= 500
+        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 3000
+        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 1000))
+        && data.options is list && data.options.size() == 4
+        && data.options[0] is map
+        && data.marks is number && data.marks >= 0.25 && data.marks <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAnswerKey(data, testId, questionId) {
+      return data.keys().hasAll([
+          'questionId', 'testId', 'correctOptionId', 'shortExplanation',
+          'stepByStepSolution', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'questionId', 'testId', 'correctOptionId', 'shortExplanation',
+          'stepByStepSolution', 'updatedAt'
+        ])
+        && isValidId(data.questionId)
+        && data.questionId == questionId
+        && isValidId(data.testId)
+        && data.testId == testId
+        && data.correctOptionId in ['A', 'B', 'C', 'D']
+        && data.shortExplanation is string && data.shortExplanation.size() <= 1000
+        && data.stepByStepSolution is list && data.stepByStepSolution.size() <= 20
+        && (data.stepByStepSolution.size() == 0 || data.stepByStepSolution[0] is string)
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidQuestionVersion(data, testId, questionId, versionId) {
+      return data.keys().hasAll([
+          'versionId', 'questionId', 'testId', 'sectionId', 'source', 'summary',
+          'questionText', 'options', 'correctOptionId', 'shortExplanation',
+          'stepByStepSolution', 'marks', 'createdBy', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'versionId', 'questionId', 'testId', 'sectionId', 'source', 'summary',
+          'questionText', 'questionImageUrl', 'options', 'correctOptionId',
+          'shortExplanation', 'stepByStepSolution', 'marks', 'createdBy', 'createdAt'
+        ])
+        && isValidId(data.versionId)
+        && data.versionId == versionId
+        && isValidId(data.questionId)
+        && data.questionId == questionId
+        && isValidId(data.testId)
+        && data.testId == testId
+        && data.sectionId is string && data.sectionId.size() >= 1 && data.sectionId.size() <= 128
+        && data.source in ['initial', 'manual_save', 'before_gemini_edit', 'gemini_edit', 'revert']
+        && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 200
+        && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 3000
+        && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 1000))
+        && data.options is list && data.options.size() == 4
+        && data.options[0] is map
+        && data.correctOptionId in ['A', 'B', 'C', 'D']
+        && data.shortExplanation is string && data.shortExplanation.size() <= 1000
+        && data.stepByStepSolution is list && data.stepByStepSolution.size() <= 20
+        && (data.stepByStepSolution.size() == 0 || data.stepByStepSolution[0] is string)
+        && data.marks is number && data.marks >= 0.25 && data.marks <= 100
+        && isValidId(data.createdBy)
+        && data.createdBy == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAttempt(data, attemptId) {
+      return data.keys().hasAll([
+          'attemptId', 'testId', 'testTitle', 'userId', 'userName', 'userEmail',
+          'status', 'startedAt', 'lastActiveAt', 'remainingSeconds',
+          'currentQuestionIndex', 'currentSectionId', 'strikeCount', 'strikes',
+          'responses', 'score', 'maxScore', 'accuracy', 'correctCount',
+          'wrongCount', 'unattemptedCount', 'timeTakenSeconds'
+        ])
+        && data.keys().hasOnly([
+          'attemptId', 'testId', 'testTitle', 'userId', 'userName', 'userEmail',
+          'status', 'startedAt', 'lastActiveAt', 'submittedAt', 'remainingSeconds',
+          'currentQuestionIndex', 'currentSectionId', 'strikeCount', 'strikes',
+          'responses', 'score', 'maxScore', 'accuracy', 'correctCount',
+          'wrongCount', 'unattemptedCount', 'timeTakenSeconds'
+        ])
+        && isValidId(data.attemptId)
+        && data.attemptId == attemptId
+        && isValidId(data.testId)
+        && data.testTitle is string && data.testTitle.size() >= 1 && data.testTitle.size() <= 160
+        && isValidId(data.userId)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 120
+        && data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200
+        && data.status in ['in_progress', 'submitted', 'auto_submitted_strike']
+        && data.startedAt is timestamp
+        && data.lastActiveAt is timestamp
+        && (!('submittedAt' in data) || data.submittedAt is timestamp)
+        && data.remainingSeconds is number && data.remainingSeconds >= 0 && data.remainingSeconds <= 36000
+        && data.currentQuestionIndex is number && data.currentQuestionIndex >= 0 && data.currentQuestionIndex <= 500
+        && data.currentSectionId is string && data.currentSectionId.size() <= 128
+        && data.strikeCount is number && data.strikeCount >= 0 && data.strikeCount <= 50
+        && data.strikes is list && data.strikes.size() <= 50
+        && (data.strikes.size() == 0 || data.strikes[0] is map)
+        && data.responses is map
+        && data.score is number && data.score >= -500 && data.score <= 5000
+        && data.maxScore is number && data.maxScore >= 0 && data.maxScore <= 5000
+        && data.accuracy is number && data.accuracy >= 0 && data.accuracy <= 100
+        && data.correctCount is number && data.correctCount >= 0 && data.correctCount <= 500
+        && data.wrongCount is number && data.wrongCount >= 0 && data.wrongCount <= 500
+        && data.unattemptedCount is number && data.unattemptedCount >= 0 && data.unattemptedCount <= 500
+        && data.timeTakenSeconds is number && data.timeTakenSeconds >= 0 && data.timeTakenSeconds <= 36000;
+    }
+
+    // Users collection (strict PII isolation)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUser(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUser(incoming(), userId)
+        && (isAdmin() || (
+          request.auth.uid == userId
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'photoUrl', 'updatedAt'])
+        ));
+      allow delete: if isMainAdmin() && isValidId(userId);
+    }
+
+    // Secondary Admin Allowlist — ONLY immutable main admin (rajanprasaila@gmail.com) can manage
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isMainAdmin()
+        && isValidId(adminId)
+        && isValidAdminRecord(incoming(), adminId)
+        && incoming().email != 'rajanprasaila@gmail.com'
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isMainAdmin() && isValidId(adminId) && existing().email != 'rajanprasaila@gmail.com';
+    }
+
+    // Tests collection
+    match /tests/{testId} {
+      allow get: if isValidId(testId) && (isAdmin() || (isSignedIn() && existing().status == 'published'));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.status == 'published');
+      allow create: if isAdmin()
+        && isValidId(testId)
+        && isValidTest(incoming(), testId)
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(testId)
+        && isValidTest(incoming(), testId)
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'description', 'startTime', 'endTime', 'durationMins',
+          'totalQuestions', 'passPercentage', 'marksPerQuestion', 'negativeMarking', 'negativeMarkValue',
+          'maxStrikes', 'enforceFullscreen', 'detectTabSwitch', 'proctoringAIEnabled',
+          'status', 'sections', 'updatedAt'
+        ]);
+      allow delete: if isAdmin() && isValidId(testId);
+
+      // Sanitized Questions subcollection (no answers or solutions stored here)
+      match /questions/{questionId} {
+        allow get: if isValidId(testId) && isValidId(questionId) && (
+          isAdmin() || (
+            isSignedIn() &&
+            get(/databases/$(database)/documents/tests/$(testId)).data.status == 'published'
+          )
+        );
+        allow list: if isAdmin() || (isSignedIn() && resource.data.testStatus == 'published');
+        allow create: if isAdmin()
+          && isValidId(testId)
+          && isValidId(questionId)
+          && isValidQuestion(incoming(), testId, questionId)
+          && exists(/databases/$(database)/documents/tests/$(testId))
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isAdmin()
+          && isValidId(testId)
+          && isValidId(questionId)
+          && isValidQuestion(incoming(), testId, questionId)
+          && incoming().testId == existing().testId
+          && incoming().questionId == existing().questionId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'testStatus', 'sectionId', 'orderIndex', 'questionText',
+            'questionImageUrl', 'options', 'marks', 'updatedAt'
+          ]);
+        allow delete: if isAdmin() && isValidId(testId) && isValidId(questionId);
+
+        // Admin-only immutable question version snapshots (contains solutions; strictly invisible to candidates)
+        match /versions/{versionId} {
+          allow get: if isAdmin() && isValidId(testId) && isValidId(questionId) && isValidId(versionId);
+          allow list: if isAdmin();
+          allow create: if isAdmin()
+            && isValidId(testId)
+            && isValidId(questionId)
+            && isValidId(versionId)
+            && isValidQuestionVersion(incoming(), testId, questionId, versionId)
+            && exists(/databases/$(database)/documents/tests/$(testId)/questions/$(questionId))
+            && incoming().createdAt == request.time;
+          allow update: if false;
+          allow delete: if isAdmin() && isValidId(testId) && isValidId(questionId) && isValidId(versionId);
+        }
+      }
+
+      // Admin-only Answer Keys & Solutions subcollection — strictly invisible to candidates
+      match /answerKeys/{questionId} {
+        allow get: if isAdmin() && isValidId(testId) && isValidId(questionId);
+        allow list: if isAdmin();
+        allow create: if isAdmin()
+          && isValidId(testId)
+          && isValidId(questionId)
+          && isValidAnswerKey(incoming(), testId, questionId)
+          && exists(/databases/$(database)/documents/tests/$(testId))
+          && incoming().updatedAt == request.time;
+        allow update: if isAdmin()
+          && isValidId(testId)
+          && isValidId(questionId)
+          && isValidAnswerKey(incoming(), testId, questionId)
+          && incoming().testId == existing().testId
+          && incoming().questionId == existing().questionId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'correctOptionId', 'shortExplanation', 'stepByStepSolution', 'updatedAt'
+          ]);
+        allow delete: if isAdmin() && isValidId(testId) && isValidId(questionId);
+      }
+    }
+
+    // Attempts collection (Monotonic strikes + Terminal State Locking)
+    match /attempts/{attemptId} {
+      allow get: if isValidId(attemptId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && isValidId(attemptId)
+        && isValidAttempt(incoming(), attemptId)
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'in_progress'
+        && incoming().strikeCount == 0
+        && incoming().strikes.size() == 0
+        && incoming().startedAt == request.time
+        && incoming().lastActiveAt == request.time
+        && exists(/databases/$(database)/documents/tests/$(incoming().testId))
+        && get(/databases/$(database)/documents/tests/$(incoming().testId)).data.status == 'published';
+      allow update: if isVerifiedUser()
+        && isValidId(attemptId)
+        && isValidAttempt(incoming(), attemptId)
+        && (
+          isAdmin() || (
+            existing().userId == request.auth.uid
+            && existing().status == 'in_progress'
+            && incoming().userId == existing().userId
+            && incoming().testId == existing().testId
+            && incoming().startedAt == existing().startedAt
+            && incoming().lastActiveAt == request.time
+            && incoming().strikeCount >= existing().strikeCount
+            && incoming().strikes.size() >= existing().strikes.size()
+            && (
+              (
+                incoming().status == 'in_progress'
+                && incoming().diff(existing()).affectedKeys().hasOnly([
+                  'lastActiveAt', 'remainingSeconds', 'currentQuestionIndex',
+                  'currentSectionId', 'strikeCount', 'strikes', 'responses'
+                ])
+              ) || (
+                incoming().status in ['submitted', 'auto_submitted_strike']
+                && incoming().submittedAt == request.time
+                && incoming().diff(existing()).affectedKeys().hasOnly([
+                  'status', 'lastActiveAt', 'submittedAt', 'remainingSeconds',
+                  'currentQuestionIndex', 'currentSectionId', 'strikeCount',
+                  'strikes', 'responses', 'score', 'maxScore', 'accuracy',
+                  'correctCount', 'wrongCount', 'unattemptedCount', 'timeTakenSeconds'
+                ])
+              )
+            )
+          )
+        );
+      allow delete: if isAdmin() && isValidId(attemptId);
+    }
+  }
+}
