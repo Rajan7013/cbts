@@ -345,8 +345,6 @@ export function AppSidebarLayout({
                   isActive={activeScreen === 'admin-test-builder'}
                   collapsed={collapsed}
                   mobileOpen={mobileOpen}
-                  badge="New"
-                  badgeColor="bg-emerald-100 text-emerald-800"
                   onClick={() => {
                     onSwitchPortal('admin');
                     onNavigate('admin-test-builder');
