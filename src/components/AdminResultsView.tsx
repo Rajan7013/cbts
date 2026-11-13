@@ -27,6 +27,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { MathText } from './MathText';
+import { QuestionImage } from './QuestionImage';
 import type { OptionId, QuestionResponse, TestAttempt, TestExam, TestQuestion } from '../types';
 
 interface AdminResultsViewProps {
@@ -539,13 +540,10 @@ export function AdminResultsView({
               </div>
 
               {currentReview.q.questionImageUrl && (
-                <div className="rounded-xl border border-slate-100 overflow-hidden max-h-72">
-                  <img
-                    src={currentReview.q.questionImageUrl}
-                    alt="Question Diagram"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+                <QuestionImage
+                  src={currentReview.q.questionImageUrl}
+                  alt="Question Diagram"
+                />
               )}
 
               {/* Options Section */}

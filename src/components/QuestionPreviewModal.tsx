@@ -10,6 +10,7 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { MathText } from './MathText';
+import { QuestionImage } from './QuestionImage';
 import type { OptionId, TestExam, TestQuestion } from '../types';
 
 interface QuestionPreviewModalProps {
@@ -228,22 +229,10 @@ export function QuestionPreviewModal({
                   />
 
                   {currentQ.questionImageUrl && (
-                    <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <img
-                        src={currentQ.questionImageUrl}
-                        alt={`Question ${currentIndex + 1} diagram`}
-                        referrerPolicy="no-referrer"
-                        className="max-h-72 mx-auto rounded object-contain"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setZoomImgUrl(currentQ.questionImageUrl || null)}
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:underline cursor-pointer"
-                      >
-                        <ZoomIn className="h-3.5 w-3.5" />
-                        <span>Zoom Diagram</span>
-                      </button>
-                    </div>
+                    <QuestionImage
+                      src={currentQ.questionImageUrl}
+                      alt={`Question ${currentIndex + 1} diagram`}
+                    />
                   )}
 
                   {/* Options A–D */}

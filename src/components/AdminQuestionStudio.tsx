@@ -40,6 +40,7 @@ import {
   ClipboardPaste,
 } from 'lucide-react';
 import { MathText } from './MathText';
+import { QuestionImage } from './QuestionImage';
 import {
   generateDiagramWithAI,
   generateQuestionsWithAI,
@@ -659,28 +660,21 @@ export function AdminQuestionStudio({
     }
   };
 
-  // Image Upload helper with direct dataUrl fallback
+  // Image Upload helper with direct dataUrl storage (self-contained, 0 broken images, 0 404s)
   const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
     setUploadingTarget(target);
     setErrorMsg(null);
     try {
       const dataUrl = await fileToDataUrl(file);
-      let finalUrl = dataUrl;
-      try {
-        const uploaded = await uploadImageDataUrl(dataUrl, file.name);
-        if (uploaded) finalUrl = uploaded;
-      } catch (uploadErr) {
-        console.warn('Server image upload failed, retaining dataUrl directly:', uploadErr);
-      }
       if (target === 'question') {
-        setQuestionImageUrl(finalUrl);
+        setQuestionImageUrl(dataUrl);
       } else {
         setOptions((prev) =>
-          prev.map((o) => (o.id === target ? { ...o, imageUrl: finalUrl } : o))
+          prev.map((o) => (o.id === target ? { ...o, imageUrl: dataUrl } : o))
         );
       }
     } catch (err) {
-      setErrorMsg(formatSafeErrorMessage(err, 'Failed to upload image.'));
+      setErrorMsg(formatSafeErrorMessage(err, 'Failed to process image.'));
     } finally {
       setUploadingTarget(null);
     }
@@ -1183,9 +1177,7 @@ export function AdminQuestionStudio({
 
               {/* Diagram Preview if attached */}
               {questionImageUrl && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 max-w-sm">
-                  <img src={questionImageUrl} alt="Question diagram" className="max-h-40 rounded-lg object-contain" />
-                </div>
+                <QuestionImage src={questionImageUrl} alt="Question diagram" />
               )}
 
               {/* Answer Options */}
@@ -1423,7 +1415,7 @@ export function AdminQuestionStudio({
                 </div>
 
                 {questionImageUrl && (
-                  <img src={questionImageUrl} alt="preview" className="max-h-32 rounded-lg object-contain border" />
+                  <QuestionImage src={questionImageUrl} alt="Question preview" allowZoom={false} className="max-h-36" />
                 )}
 
                 {/* Radio options preview */}

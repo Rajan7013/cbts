@@ -1548,7 +1548,8 @@ Requirements:
         return;
       }
 
-      const svgDataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+      const svgBase64 = Buffer.from(svgText, 'utf8').toString('base64');
+      const svgDataUrl = `data:image/svg+xml;base64,${svgBase64}`;
       res.json({ svg: svgText, dataUrl: svgDataUrl });
     } catch (err) {
       sendAiError(res, err);

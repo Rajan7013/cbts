@@ -13,9 +13,12 @@ import {
   Upload,
   X,
   ZoomIn,
+  Maximize,
+  XCircle,
 } from 'lucide-react';
 import { MediaPipeProctor } from './MediaPipeProctor';
 import { MathText } from './MathText';
+import { QuestionImage } from './QuestionImage';
 import type { OptionId, SanitizedQuestion, StrikeLog, TestAttempt, TestExam } from '../types';
 
 interface LiveExamRunnerProps {
@@ -27,6 +30,7 @@ interface LiveExamRunnerProps {
     attempt: TestAttempt,
     status: 'submitted' | 'auto_submitted_strike'
   ) => Promise<void>;
+  onCancelExam?: () => void;
 }
 
 function formatClock(totalSeconds: number): string {
@@ -42,6 +46,7 @@ export function LiveExamRunner({
   initialAttempt,
   onSyncProgress,
   onSubmitExam,
+  onCancelExam,
 }: LiveExamRunnerProps) {
   const [attempt, setAttempt] = useState<TestAttempt>(initialAttempt);
   const attemptRef = useRef<TestAttempt>(initialAttempt);
@@ -53,6 +58,8 @@ export function LiveExamRunner({
 
   const [strikeModal, setStrikeModal] = useState<{ count: number; reason: string } | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isFullscreenExited, setIsFullscreenExited] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [zoomImgUrl, setZoomImgUrl] = useState<string | null>(null);
 
@@ -159,7 +166,7 @@ export function LiveExamRunner({
     return () => window.clearInterval(timer);
   }, [finalizeAndExit, onSyncProgress]);
 
-  // Anti-cheat listeners
+  // Anti-cheat listeners: Fullscreen enforcement, Tab switch, Window blur & Screenshot protection
   useEffect(() => {
     const armTimeout = window.setTimeout(() => {
       if (document.fullscreenElement) {
@@ -170,14 +177,16 @@ export function LiveExamRunner({
     const onFullscreenChange = () => {
       if (document.fullscreenElement) {
         wasFullscreenRef.current = true;
+        setIsFullscreenExited(false);
       } else if (test.enforceFullscreen && wasFullscreenRef.current && !isLockedRef.current) {
+        setIsFullscreenExited(true);
         triggerStrike('Exited Fullscreen Mode');
       }
     };
 
     const onVisibilityChange = () => {
       if (test.detectTabSwitch && document.hidden && !isLockedRef.current) {
-        triggerStrike('Switched Browser Tab / Minimized');
+        triggerStrike('Switched Browser Tab or Minimized Window');
       }
     };
 
@@ -187,12 +196,49 @@ export function LiveExamRunner({
       }
     };
 
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isLockedRef.current) return;
+
+      // PrintScreen key
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+        try {
+          navigator.clipboard?.writeText?.('');
+        } catch {}
+        triggerStrike('Screenshot Attempt Detected (PrintScreen Key)');
+        return;
+      }
+
+      // Windows Snipping Tool (Meta + Shift + S) or Mac Screenshot (Cmd + Shift + 3/4/5)
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        ['s', 'S', '3', '4', '5'].includes(e.key)
+      ) {
+        e.preventDefault();
+        try {
+          navigator.clipboard?.writeText?.('');
+        } catch {}
+        triggerStrike('Screen Capture Shortcut Detected');
+        return;
+      }
+
+      // Print dialog (Ctrl + P / Cmd + P)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        triggerStrike('Print / Save Page Attempt Detected');
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
     document.addEventListener('fullscreenchange', onFullscreenChange);
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('blur', onWindowBlur);
 
     return () => {
       window.clearTimeout(armTimeout);
+      window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('blur', onWindowBlur);
@@ -311,6 +357,16 @@ export function LiveExamRunner({
             </div>
           </div>
 
+          {/* Cancel Test Button */}
+          <button
+            type="button"
+            onClick={() => setShowCancelModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 hover:border-red-200 shadow-2xs cursor-pointer transition-colors"
+          >
+            <XCircle className="h-4 w-4 text-slate-400" />
+            <span>Cancel Test</span>
+          </button>
+
           {/* Submit Test Button */}
           <button
             type="button"
@@ -357,13 +413,10 @@ export function LiveExamRunner({
 
                 {/* Question Diagram Image if present */}
                 {currentQuestion.questionImageUrl && (
-                  <div className="mt-3">
-                    <img
-                      src={currentQuestion.questionImageUrl}
-                      alt="Question diagram"
-                      className="max-h-64 rounded-xl border border-slate-200 object-contain"
-                    />
-                  </div>
+                  <QuestionImage
+                    src={currentQuestion.questionImageUrl}
+                    alt="Question diagram"
+                  />
                 )}
 
                 {/* Radio Option Rows (Matching Image 3) */}
@@ -400,10 +453,11 @@ export function LiveExamRunner({
                         </div>
 
                         {opt.imageUrl && (
-                          <img
+                          <QuestionImage
                             src={opt.imageUrl}
                             alt={`Option ${opt.id}`}
-                            className="max-h-20 rounded border border-slate-200 object-contain"
+                            className="max-h-20"
+                            allowZoom={false}
                           />
                         )}
                       </button>
@@ -677,6 +731,88 @@ export function LiveExamRunner({
                 className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
               >
                 Acknowledge &amp; Resume
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Exited Blocking Overlay */}
+      {isFullscreenExited && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl border border-amber-300 bg-white p-7 sm:p-9 shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="h-16 w-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+              <Maximize className="h-8 w-8 stroke-[2.5]" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900">
+                Fullscreen Exited — Live Test Paused
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                You have left full-screen mode. To protect exam integrity and comply with proctoring rules, you must return to full-screen mode immediately to continue your test.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 font-medium">
+              ⚠️ Exiting fullscreen or minimizing windows logs a proctoring strike on your session.
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (!document.fullscreenElement) {
+                      await document.documentElement.requestFullscreen();
+                    }
+                    setIsFullscreenExited(false);
+                  } catch {
+                    setIsFullscreenExited(false);
+                  }
+                }}
+                className="w-full rounded-xl bg-blue-600 py-3 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-sm cursor-pointer transition-colors"
+              >
+                Re-enter Fullscreen &amp; Resume Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Exam Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2.5 text-slate-900">
+              <XCircle className="h-6 w-6 text-red-600 shrink-0" />
+              <h2 className="font-display text-lg font-bold">Cancel Examination?</h2>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to cancel and leave this exam? Your active exam session will be terminated and you will return to your dashboard.
+            </p>
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+              >
+                Keep Taking Test
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowCancelModal(false);
+                  if (document.fullscreenElement) {
+                    try {
+                      await document.exitFullscreen();
+                    } catch {}
+                  }
+                  onCancelExam?.();
+                }}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white hover:bg-red-700 cursor-pointer shadow-xs"
+              >
+                Yes, Cancel Exam
               </button>
             </div>
           </div>

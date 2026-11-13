@@ -15,6 +15,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { MathText } from './MathText';
+import { QuestionImage } from './QuestionImage';
 import { askAiTutor, translateTextsWithAI } from '../lib/api';
 import type { TestAttempt, TestExam, TestQuestion } from '../types';
 
@@ -480,18 +481,10 @@ export function ExamResultsScreen({
               />
 
               {q.questionImageUrl && (
-                <div className="my-2">
-                  <img
-                    src={q.questionImageUrl}
-                    alt="Question reference diagram"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      // If image failed to load, hide broken image icon cleanly
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                    className="max-h-56 rounded-lg border border-slate-200 object-contain bg-white p-1 shadow-sm"
-                  />
-                </div>
+                <QuestionImage
+                  src={q.questionImageUrl}
+                  alt="Question reference diagram"
+                />
               )}
 
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -511,11 +504,11 @@ export function ExamResultsScreen({
                         <MathText text={opt.text} inline className="min-w-0" />
                       </div>
                       {opt.imageUrl && (
-                        <img
+                        <QuestionImage
                           src={opt.imageUrl}
                           alt={`Option ${opt.id}`}
-                          referrerPolicy="no-referrer"
-                          className="mt-2 max-h-24 rounded border border-slate-200 bg-white object-contain"
+                          className="max-h-24"
+                          allowZoom={false}
                         />
                       )}
                     </div>

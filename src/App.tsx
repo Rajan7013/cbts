@@ -462,6 +462,7 @@ export default function App() {
         questions={sanitizedQuestions}
         initialAttempt={activeAttempt}
         onSyncProgress={(att) => syncAttemptProgress(user, att)}
+        onCancelExam={() => setScreen('candidate-dashboard')}
         onSubmitExam={async (att, status) => {
           try {
             const { attempt: finalized, unlockedQuestions } = await finalizeAttempt(
