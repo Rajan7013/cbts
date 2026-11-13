@@ -9,6 +9,8 @@ coverage/
 !.env.example
 *-firebase-adminsdk-*.json
 service-account*.json
+*service_account*.json
+*.key.json
 data/
 public/assets/aistudio/
 .antigravity/
