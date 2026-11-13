@@ -142,7 +142,8 @@ export default function App() {
           setUser(profile);
           const defaultMode = profile.role === 'admin' ? 'admin' : 'user';
           setPortalMode(defaultMode);
-          setScreen(defaultMode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard');
+          // Keep screen at landing if user navigated to landing, or go to candidate dashboard by default
+          setScreen((prev) => (prev === 'landing' ? 'landing' : defaultMode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard'));
         } catch (err) {
           setAuthError(err instanceof Error ? err.message : 'Failed to sync user profile.');
         }

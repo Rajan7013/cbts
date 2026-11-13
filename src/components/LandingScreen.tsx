@@ -57,7 +57,8 @@ export function LandingScreen({
                 after drops, and unlock step-by-step multilingual solutions.
               </p>
 
-              {authError && (
+              {/* Only show auth error if user is unauthenticated; once authenticated, clear error */}
+              {!user && authError && (
                 <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs sm:text-sm text-red-800 space-y-2">
                   <p>{authError}</p>
                   <button
@@ -67,30 +68,43 @@ export function LandingScreen({
                     className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100 cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
-                    <span>Open Google Account Chooser Again</span>
+                    <span>Try Google Sign-In Again</span>
                   </button>
                 </div>
               )}
 
+              {/* If user is logged in, show clean seamless navigation to tests or admin studio */}
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 {user ? (
-                  <button
-                    type="button"
-                    onClick={onContinueToPortal}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer shadow-sm"
-                  >
-                    <span>
-                      Go to {user.role === 'admin' ? 'Admin Studio' : 'Candidate Portal'}
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onContinueToPortal()}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-3.5 text-sm font-semibold text-white hover:bg-blue-800 transition-colors whitespace-nowrap cursor-pointer shadow-sm"
+                    >
+                      <span>Explore Assessment Tests</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                    {user.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = '#admin';
+                          onContinueToPortal();
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <span>Open Admin Studio</span>
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <>
                     <button
                       type="button"
                       disabled={authLoading}
                       onClick={() => onSignInGoogle()}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60 transition-colors whitespace-nowrap cursor-pointer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <span>
                         {authLoading ? 'Signing in…' : 'Sign in with Google'}
@@ -101,7 +115,7 @@ export function LandingScreen({
                     <button
                       type="button"
                       onClick={() => onEnterDemo('user')}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition-colors whitespace-nowrap cursor-pointer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <UserCheck className="h-4 w-4 text-blue-700" />
                       <span>Demo Candidate Exam</span>
