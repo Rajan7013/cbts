@@ -361,12 +361,18 @@ export function ExamResultsScreen({
               />
 
               {q.questionImageUrl && (
-                <img
-                  src={q.questionImageUrl}
-                  alt="Question reference diagram"
-                  referrerPolicy="no-referrer"
-                  className="max-h-56 rounded-lg border border-slate-200 object-contain bg-white p-1"
-                />
+                <div className="my-2">
+                  <img
+                    src={q.questionImageUrl}
+                    alt="Question reference diagram"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      // If image failed to load, hide broken image icon cleanly
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                    className="max-h-56 rounded-lg border border-slate-200 object-contain bg-white p-1 shadow-sm"
+                  />
+                </div>
               )}
 
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">

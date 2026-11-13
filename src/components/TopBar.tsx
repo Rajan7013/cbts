@@ -159,7 +159,7 @@ export function TopBar({
               onClick={() => onSignInGoogle()}
               className="rounded-lg bg-blue-700 px-3 sm:px-4 py-2 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              {authLoading ? 'Opening…' : 'Choose Gmail'}
+              {authLoading ? 'Signing in…' : 'Sign in'}
             </button>
           ) : (
             <div ref={menuRef} className="relative">

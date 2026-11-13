@@ -178,6 +178,15 @@ function renderKatexHtml(expr: string, displayMode: boolean): string {
  * - Common physics indexed variables (m1, m2, T2, v1, F1, m2g) -> <sub>
  */
 function renderPlainMathNotation(text: string, keyPrefix: string): ReactNode[] {
+  // Convert ASCII math operators and patterns to beautiful typography:
+  // - ASCII sqrt(...) e.g. 10*sqrt(3) -> 10 × √3
+  // - Division e.g. 300 / 20 -> 300 ÷ 20, or a/b -> a ÷ b
+  // - Multiplication asterisks e.g. 10 * 2 -> 10 × 2, kg * 10 -> kg × 10
+  let processed = text
+    .replace(/(?:\b|\b\d+)sqrt\(([^()]+)\)/g, '√($1)')
+    .replace(/(?<=[A-Za-z0-9)\]}])\s*\*\s*(?=[A-Za-z0-9(\[{√])/g, ' × ')
+    .replace(/(?<=\d)\s*\/\s*(?=\d)/g, ' ÷ ');
+
   const tokenRegex = new RegExp(
     [
       // 1. URLs (preserve untouched)
@@ -199,11 +208,11 @@ function renderPlainMathNotation(text: string, keyPrefix: string): ReactNode[] {
   let match: RegExpExecArray | null;
   let partIdx = 0;
 
-  while ((match = tokenRegex.exec(text)) !== null) {
+  while ((match = tokenRegex.exec(processed)) !== null) {
     if (match.index > lastIndex) {
       nodes.push(
         <Fragment key={`${keyPrefix}-t-${partIdx++}`}>
-          {text.slice(lastIndex, match.index)}
+          {processed.slice(lastIndex, match.index)}
         </Fragment>
       );
     }
@@ -285,9 +294,9 @@ function renderPlainMathNotation(text: string, keyPrefix: string): ReactNode[] {
     lastIndex = tokenRegex.lastIndex;
   }
 
-  if (lastIndex < text.length) {
+  if (lastIndex < processed.length) {
     nodes.push(
-      <Fragment key={`${keyPrefix}-tail`}>{text.slice(lastIndex)}</Fragment>
+      <Fragment key={`${keyPrefix}-tail`}>{processed.slice(lastIndex)}</Fragment>
     );
   }
 

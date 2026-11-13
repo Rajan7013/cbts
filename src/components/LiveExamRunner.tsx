@@ -518,6 +518,9 @@ export function LiveExamRunner({
                     src={currentQuestion.questionImageUrl}
                     alt="Question diagram"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
                     className="max-h-72 rounded object-contain"
                   />
                   <span className="mt-1.5 flex items-center justify-center gap-1 text-xs text-slate-500 group-hover:text-blue-700">

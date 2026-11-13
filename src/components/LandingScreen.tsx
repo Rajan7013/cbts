@@ -104,7 +104,7 @@ export function LandingScreen({
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <span>
-                        {authLoading ? 'Opening Account Chooser…' : 'Sign in / Choose Gmail Account'}
+                        {authLoading ? 'Signing in…' : 'Sign in with Google'}
                       </span>
                       <ArrowRight className="h-4 w-4" />
                     </button>
@@ -193,10 +193,6 @@ export function LandingScreen({
                   </div>
                 </div>
               )}
-
-              <p className="mt-3 text-xs text-slate-500">
-                Always prompts Google&apos;s account chooser when multiple Gmail accounts are signed in. Admin Studio is restricted to authorized platform administrators.
-              </p>
             </div>
 
             <div className="mt-8 sm:mt-10 grid grid-cols-3 gap-3 sm:gap-6 border-t border-slate-200 pt-5 sm:pt-6">
