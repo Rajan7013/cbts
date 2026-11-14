@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  LogOut,
 } from 'lucide-react';
 import { DonutScoreGauge } from './DonutScoreGauge';
 import { MathText } from './MathText';
@@ -33,6 +34,7 @@ interface CandidateDashboardProps {
   onStartOrResumeTest: (test: TestExam, existingAttempt?: TestAttempt) => void;
   onViewResult: (test: TestExam, attempt: TestAttempt, initialMode?: 'summary' | 'review') => void;
   onSwitchToAdmin?: () => void;
+  onSignOut?: () => void;
   initialTab?: 'available-tests' | 'my-results';
 }
 
@@ -48,6 +50,7 @@ export function CandidateDashboard({
   onStartOrResumeTest,
   onViewResult,
   onSwitchToAdmin,
+  onSignOut,
   initialTab = 'available-tests',
 }: CandidateDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -166,13 +169,44 @@ export function CandidateDashboard({
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none pb-28 md:pb-8">
       {/* Top Bar matching Images 1, 2, 3, 4, 5 */}
-      <div className="w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-4 px-1 shrink-0">
-        <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-          EP
+      <div className="w-full max-w-7xl mx-auto flex items-center justify-between pb-4 px-1 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+            EP
+          </div>
+          <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
+          <span className="text-slate-300">|</span>
+          <span className="font-bold text-slate-800 text-sm">{pageTitle}</span>
         </div>
-        <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
-        <span className="text-slate-300">|</span>
-        <span className="font-bold text-slate-800 text-sm">{pageTitle}</span>
+
+        {/* Right side: Student Profile + Log Out button */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-2xl bg-white/90 border border-slate-200/80 shadow-2xs">
+            <div className="h-6 w-6 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">
+              {(user?.displayName || user?.email || 'S').slice(0, 1).toUpperCase()}
+            </div>
+            <div className="text-left hidden sm:block">
+              <div className="text-xs font-bold text-slate-800 leading-tight">
+                {user?.displayName || 'Student'}
+              </div>
+              <div className="text-[10px] text-slate-400 leading-tight truncate max-w-[150px]">
+                {user?.email || ''}
+              </div>
+            </div>
+          </div>
+
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              title="Sign Out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Log Out</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
@@ -213,9 +247,9 @@ export function CandidateDashboard({
             </button>
           </nav>
 
-          {/* Bottom Back to Admin Studio if Admin */}
-          {isAdmin && onSwitchToAdmin && (
-            <div className="pt-4 border-t border-slate-100 mt-auto">
+          {/* Bottom Back to Admin Studio if Admin & Sign Out */}
+          <div className="space-y-2 pt-4 border-t border-slate-100 mt-auto">
+            {isAdmin && onSwitchToAdmin && (
               <button
                 type="button"
                 onClick={onSwitchToAdmin}
@@ -224,8 +258,19 @@ export function CandidateDashboard({
                 <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
                 <span>Back to Admin Studio</span>
               </button>
-            </div>
-          )}
+            )}
+
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4 shrink-0 text-rose-500" />
+                <span>Log Out</span>
+              </button>
+            )}
+          </div>
         </aside>
 
         {/* Right Main Content Area */}

@@ -618,6 +618,7 @@ export default function App() {
               }
             : undefined
         }
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -649,6 +650,7 @@ export default function App() {
               }
             : undefined
         }
+        onSignOut={handleSignOut}
       />
     );
   }

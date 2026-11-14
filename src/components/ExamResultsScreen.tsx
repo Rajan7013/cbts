@@ -20,6 +20,7 @@ import {
   Grid,
   ChevronDown,
   Hash,
+  LogOut,
 } from 'lucide-react';
 import { DonutScoreGauge } from './DonutScoreGauge';
 import { MathText } from './MathText';
@@ -36,6 +37,7 @@ interface ExamResultsScreenProps {
   onRetakeTest?: () => void;
   onBackToDashboard: () => void;
   onSwitchToAdmin?: () => void;
+  onSignOut?: () => void;
   initialMode?: 'summary' | 'review';
 }
 
@@ -49,6 +51,7 @@ export function ExamResultsScreen({
   onRetakeTest,
   onBackToDashboard,
   onSwitchToAdmin,
+  onSignOut,
   initialMode = 'summary',
 }: ExamResultsScreenProps) {
   const [mode, setMode] = useState<'summary' | 'review'>(initialMode);
@@ -194,16 +197,47 @@ export function ExamResultsScreen({
     <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
       {/* Top Bar matching Images 1, 2, 3, 4, 5 (Desktop persistent, clean on mobile) */}
       <div
-        className={`w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-3 sm:pb-4 px-1 shrink-0 ${
+        className={`w-full max-w-7xl mx-auto flex items-center justify-between pb-3 sm:pb-4 px-1 shrink-0 ${
           mode === 'review' ? 'hidden md:flex' : 'flex'
         }`}
       >
-        <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-          EP
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+            EP
+          </div>
+          <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
+          <span className="text-slate-300">|</span>
+          <span className="font-bold text-slate-800 text-sm">My Results</span>
         </div>
-        <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
-        <span className="text-slate-300">|</span>
-        <span className="font-bold text-slate-800 text-sm">My Results</span>
+
+        {/* Right side: Student Profile + Log Out button */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-2xl bg-white/90 border border-slate-200/80 shadow-2xs">
+            <div className="h-6 w-6 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">
+              {(user?.displayName || user?.email || 'S').slice(0, 1).toUpperCase()}
+            </div>
+            <div className="text-left hidden sm:block">
+              <div className="text-xs font-bold text-slate-800 leading-tight">
+                {user?.displayName || 'Student'}
+              </div>
+              <div className="text-[10px] text-slate-400 leading-tight truncate max-w-[150px]">
+                {user?.email || ''}
+              </div>
+            </div>
+          </div>
+
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+              title="Sign Out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Log Out</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
@@ -230,9 +264,9 @@ export function ExamResultsScreen({
             </button>
           </nav>
 
-          {/* Bottom Back to Admin Studio if Admin */}
-          {isAdmin && onSwitchToAdmin && (
-            <div className="pt-4 border-t border-slate-100 mt-auto">
+          {/* Bottom Back to Admin Studio if Admin & Sign Out */}
+          <div className="space-y-2 pt-4 border-t border-slate-100 mt-auto">
+            {isAdmin && onSwitchToAdmin && (
               <button
                 type="button"
                 onClick={onSwitchToAdmin}
@@ -241,8 +275,19 @@ export function ExamResultsScreen({
                 <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
                 <span>Back to Admin Studio</span>
               </button>
-            </div>
-          )}
+            )}
+
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4 shrink-0 text-rose-500" />
+                <span>Log Out</span>
+              </button>
+            )}
+          </div>
         </aside>
 
         {/* Right Main Content Area */}
@@ -572,17 +617,17 @@ export function ExamResultsScreen({
                   )}
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+                <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-2xs scrollbar-thin">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                        <th className="py-2.5 px-3">Attempt</th>
-                        <th className="py-2.5 px-3">Submitted At</th>
-                        <th className="py-2.5 px-3">Score</th>
-                        <th className="py-2.5 px-3">Percentage</th>
-                        <th className="py-2.5 px-3">Correct / Wrong / Blank</th>
-                        <th className="py-2.5 px-3">Status</th>
-                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      <tr className="border-b border-slate-200 bg-slate-50/90 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                        <th className="py-3 px-3.5 whitespace-nowrap">Attempt</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Submitted At</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Score</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Percentage</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Correct / Wrong / Blank</th>
+                        <th className="py-3 px-3 whitespace-nowrap">Status</th>
+                        <th className="py-3 px-3.5 whitespace-nowrap text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -595,11 +640,15 @@ export function ExamResultsScreen({
                         const ans = (att.correctCount || 0) + (att.wrongCount || 0);
                         const unans = Math.max(0, totalQ - ans);
                         const dateStr = att.submittedAtIso || att.lastActiveAtIso || att.startedAtIso;
-                        const formattedDate = dateStr
-                          ? new Date(dateStr).toLocaleString(undefined, {
+                        const dObj = dateStr ? new Date(dateStr) : null;
+                        const formattedDate = dObj && !isNaN(dObj.getTime())
+                          ? dObj.toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
+                            }) +
+                            ' · ' +
+                            dObj.toLocaleTimeString('en-US', {
                               hour: '2-digit',
                               minute: '2-digit',
                             })
@@ -612,56 +661,58 @@ export function ExamResultsScreen({
                               isCurrent ? 'bg-blue-50/40 font-semibold' : ''
                             }`}
                           >
-                            <td className="py-3 px-3">
-                              <div className="flex items-center gap-2">
-                                <span className="font-display font-bold text-slate-900 text-xs sm:text-sm">
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <div className="inline-flex items-center gap-2">
+                                <span className="font-display font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">
                                   Attempt #{att.attemptNumber || 1}
                                 </span>
                                 {isCurrent && (
-                                  <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5">
+                                  <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 whitespace-nowrap">
                                     Active
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td className="py-3 px-3 text-slate-500 font-sans">{formattedDate}</td>
-                            <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                            <td className="py-3 px-3 whitespace-nowrap text-slate-500 font-medium font-sans">
+                              {formattedDate}
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-slate-900">
                               {att.score} / {att.maxScore}
                             </td>
-                            <td className="py-3 px-3 font-mono font-bold">
+                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold">
                               <span
-                                className={`inline-block px-2 py-0.5 rounded-lg text-xs ${
-                                  attPassed ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${
+                                  attPassed ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'
                                 }`}
                               >
                                 {attPct}%
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-slate-600 font-mono text-xs">
-                              <span className="text-emerald-600 font-bold">{att.correctCount || 0}</span>
-                              <span className="text-slate-400 mx-1">/</span>
-                              <span className="text-purple-600 font-bold">{att.wrongCount || 0}</span>
-                              <span className="text-slate-400 mx-1">/</span>
-                              <span className="text-slate-500">{unans}</span>
+                            <td className="py-3 px-3 whitespace-nowrap font-mono text-xs">
+                              <span className="text-emerald-600 font-bold">{att.correctCount || 0} ✓</span>
+                              <span className="text-slate-300 mx-1">|</span>
+                              <span className="text-purple-600 font-bold">{att.wrongCount || 0} ✕</span>
+                              <span className="text-slate-300 mx-1">|</span>
+                              <span className="text-slate-500">{unans} –</span>
                             </td>
-                            <td className="py-3 px-3">
+                            <td className="py-3 px-3 whitespace-nowrap">
                               {attPassed ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                                   <Check className="h-3 w-3" /> Passed
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                                   <X className="h-3 w-3" /> Failed
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-right">
-                              <div className="inline-flex items-center gap-1.5 justify-end">
+                            <td className="py-3 px-3.5 whitespace-nowrap text-right">
+                              <div className="inline-flex items-center gap-2 justify-end whitespace-nowrap">
                                 {!isCurrent && (
                                   <button
                                     type="button"
                                     onClick={() => onSelectAttempt?.(att)}
-                                    className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-bold text-slate-700 cursor-pointer transition-colors shadow-2xs"
+                                    className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-bold text-slate-700 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                                   >
                                     View Score
                                   </button>
@@ -675,7 +726,7 @@ export function ExamResultsScreen({
                                     setCurrentQuestionIndex(0);
                                     setMode('review');
                                   }}
-                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer transition-colors shadow-2xs"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
                                 >
                                   <FileText className="h-3 w-3" />
                                   <span>Review Answers</span>
