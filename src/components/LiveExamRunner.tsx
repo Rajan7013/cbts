@@ -88,6 +88,24 @@ export function LiveExamRunner({
   const activeSection = test.sections.find((s) => s.id === currentQuestion?.sectionId);
   const currentResp = currentQuestion ? attempt.responses[currentQuestion.questionId] : undefined;
 
+  const [navigatorSectionId, setNavigatorSectionId] = useState<string>('all');
+  const activeBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (activeBtnRef.current) {
+      activeBtnRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [currentIndex]);
+
+  const navigatorQuestions = useMemo(() => {
+    if (navigatorSectionId === 'all') {
+      return questions.map((q, idx) => ({ q, idx }));
+    }
+    return questions
+      .map((q, idx) => ({ q, idx }))
+      .filter(({ q }) => q.sectionId === navigatorSectionId);
+  }, [questions, navigatorSectionId]);
+
   // Counts
   const answeredCount = useMemo(
     () => Object.values(attempt.responses).filter((r) => Boolean(r.selectedOptionId)).length,
@@ -439,26 +457,31 @@ export function LiveExamRunner({
         </div>
       </div>
 
-      {/* Main Content Area: Left 70% Question, Right 30% Navigator (Matching Image 3) */}
+      {/* Main Content Area: Left Question Area, Right Navigator */}
       <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Question Area */}
-          <div className="lg:col-span-8 flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs">
+          <div className="lg:col-span-8 flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
             {currentQuestion ? (
-              <div className="space-y-4">
+              <div className="p-5 sm:p-7 space-y-4">
                 {/* Section Header */}
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <Layers className="h-5 w-5 text-blue-600" />
                     <h2 className="font-display text-base font-bold text-slate-900">
                       {activeSection?.name || 'General Section'}
                     </h2>
                   </div>
+                  <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                    +{currentQuestion.marks || test.marksPerQuestion || 1} / -{test.negativeMarks || 0} marks
+                  </span>
                 </div>
 
                 {/* Subtitle spec */}
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                  <span>Question {currentIndex + 1} of {questions.length}</span>
+                  <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                    Question {currentIndex + 1} of {questions.length}
+                  </span>
                   <span className="text-slate-300">|</span>
                   <div className="flex items-center gap-1 text-slate-500">
                     <Clock className="h-3.5 w-3.5" />
@@ -473,14 +496,16 @@ export function LiveExamRunner({
 
                 {/* Question Diagram Image if present */}
                 {(currentQuestion.questionImageUrl || currentQuestion.imageUrl) && (
-                  <QuestionImage
-                    src={currentQuestion.questionImageUrl || currentQuestion.imageUrl}
-                    alt="Question diagram"
-                  />
+                  <div className="my-2 p-2 rounded-xl border border-slate-200 bg-slate-50/50 max-w-lg">
+                    <QuestionImage
+                      src={currentQuestion.questionImageUrl || currentQuestion.imageUrl}
+                      alt="Question diagram"
+                    />
+                  </div>
                 )}
 
-                {/* Radio Option Rows (Matching Image 3) */}
-                <div className="pt-4 space-y-3">
+                {/* Radio Option Rows */}
+                <div className="pt-3 space-y-2.5">
                   {currentQuestion.options.map((opt) => {
                     const isSelected = currentResp?.selectedOptionId === opt.id;
                     return (
@@ -488,28 +513,30 @@ export function LiveExamRunner({
                         key={opt.id}
                         type="button"
                         onClick={() => handleSelectOption(opt.id)}
-                        className={`w-full text-left flex items-center gap-3.5 rounded-2xl border p-4 transition-all cursor-pointer ${
+                        className={`w-full text-left flex items-center gap-3.5 rounded-2xl border p-3.5 sm:p-4 transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-blue-600 bg-blue-50/50 shadow-2xs'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                            ? 'border-blue-600 bg-blue-50/60 shadow-xs ring-1 ring-blue-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80'
                         }`}
                       >
                         {/* Radio Circle */}
                         <div
-                          className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 ${
+                          className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                             isSelected
-                              ? 'border-blue-600 bg-white'
+                              ? 'border-blue-600 bg-blue-600 text-white'
                               : 'border-slate-300 bg-white'
                           }`}
                         >
-                          {isSelected && (
-                            <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                          {isSelected ? (
+                            <div className="h-2 w-2 rounded-full bg-white" />
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 font-mono">{opt.id}</span>
                           )}
                         </div>
 
                         {/* Option Text */}
-                        <div className="flex-1 text-xs sm:text-sm font-medium text-slate-800">
-                          <MathText text={opt.text} />
+                        <div className="flex-1 text-xs sm:text-sm font-medium text-slate-800 leading-relaxed">
+                          <MathText text={opt.text} inline />
                         </div>
 
                         {opt.imageUrl && (
@@ -529,27 +556,28 @@ export function LiveExamRunner({
               <div className="p-8 text-center text-slate-400">No question selected</div>
             )}
 
-            {/* Bottom Controls Bar (Matching Image 3) */}
-            <div className="mt-8 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Bottom Controls Bar (Positioned immediately below options, with sticky bottom on long viewports) */}
+            <div className="border-t border-slate-100 bg-slate-50/85 backdrop-blur-md px-5 py-3.5 sm:px-7 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky bottom-0 z-10 shadow-2xs">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleClearResponse}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
+                  disabled={!currentResp?.selectedOptionId}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
                 >
                   Clear response
                 </button>
                 <button
                   type="button"
                   onClick={handleToggleMark}
-                  className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold cursor-pointer shadow-2xs transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-semibold cursor-pointer shadow-2xs transition-colors ${
                     currentResp?.markedForReview
-                      ? 'border-purple-300 bg-purple-50 text-purple-700'
+                      ? 'border-purple-300 bg-purple-50 text-purple-700 font-bold'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <Bookmark className="h-3.5 w-3.5 text-purple-600" />
-                  <span>Mark for review</span>
+                  <span>{currentResp?.markedForReview ? 'Marked for Review ✓' : 'Mark for review'}</span>
                 </button>
               </div>
 
@@ -558,7 +586,7 @@ export function LiveExamRunner({
                   type="button"
                   disabled={currentIndex === 0}
                   onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   <span>Previous</span>
@@ -566,7 +594,7 @@ export function LiveExamRunner({
                 <button
                   type="button"
                   onClick={handleSaveAndNext}
-                  className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
                 >
                   <span>Save &amp; Next</span>
                   <ChevronRight className="h-4 w-4" />
@@ -574,7 +602,7 @@ export function LiveExamRunner({
                 <button
                   type="button"
                   onClick={() => setShowSubmitConfirm(true)}
-                  className="inline-flex sm:hidden items-center gap-1 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-black shadow-xs cursor-pointer transition-colors"
+                  className="inline-flex sm:hidden items-center gap-1 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-black shadow-xs cursor-pointer transition-colors"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   <span>Submit</span>
@@ -583,8 +611,8 @@ export function LiveExamRunner({
             </div>
           </div>
 
-          {/* Right Column: Question Navigator & Legend (Matching Image 3) */}
-          <div className="lg:col-span-4 space-y-5">
+          {/* Right Column: Question Navigator & Legend */}
+          <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-20 lg:self-start">
             {/* MediaPipe On-Device Face Proctoring Preview */}
             {test.proctoringAIEnabled && (
               <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs">
@@ -598,14 +626,54 @@ export function LiveExamRunner({
             )}
 
             {/* Question Navigator */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4">
-              <h2 className="font-display text-sm font-bold text-slate-900">
-                Question navigator
-              </h2>
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-3.5">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-sm font-bold text-slate-900">
+                  Question navigator
+                </h2>
+                <span className="text-[11px] font-mono font-medium text-slate-500">
+                  {answeredCount}/{questions.length} answered
+                </span>
+              </div>
 
-              {/* Grid 1..N */}
-              <div className="grid grid-cols-5 gap-2.5">
-                {questions.map((q, idx) => {
+              {/* Section Filter Pills if multiple sections */}
+              {test.sections && test.sections.length > 1 && (
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-semibold scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => setNavigatorSectionId('all')}
+                    className={`px-2.5 py-1 rounded-lg shrink-0 transition-colors cursor-pointer ${
+                      navigatorSectionId === 'all'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All ({questions.length})
+                  </button>
+                  {test.sections.map((sec) => {
+                    const secCount = questions.filter((q) => q.sectionId === sec.id).length;
+                    if (secCount === 0) return null;
+                    return (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => setNavigatorSectionId(sec.id)}
+                        className={`px-2.5 py-1 rounded-lg shrink-0 transition-colors cursor-pointer ${
+                          navigatorSectionId === sec.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {sec.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '')} ({secCount})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Scrollable Grid 1..N with max height to avoid page stretching */}
+              <div className="max-h-[300px] sm:max-h-[360px] overflow-y-auto pr-1 grid grid-cols-5 gap-2">
+                {navigatorQuestions.map(({ q, idx }) => {
                   const resp = attempt.responses[q.questionId];
                   const isCurrent = idx === currentIndex;
                   const isAnswered = Boolean(resp?.selectedOptionId);
@@ -614,24 +682,25 @@ export function LiveExamRunner({
                   return (
                     <button
                       key={q.questionId}
+                      ref={isCurrent ? activeBtnRef : undefined}
                       type="button"
                       onClick={() => setCurrentIndex(idx)}
-                      className={`h-11 rounded-xl font-mono text-xs font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      className={`h-10 rounded-xl font-mono text-xs font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
                         isCurrent
-                          ? 'bg-blue-600 text-white shadow-xs'
+                          ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-300 ring-offset-1'
                           : isAnswered
-                          ? 'border border-emerald-300 bg-emerald-50 text-emerald-800'
+                          ? 'border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                           : isMarked
-                          ? 'border border-purple-300 bg-purple-50 text-purple-800'
+                          ? 'border border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100'
                           : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <span className="tabular-nums">{idx + 1}</span>
                       {isAnswered && !isCurrent && (
-                        <Check className="h-3 w-3 text-emerald-600 mt-0.5" />
+                        <Check className="h-2.5 w-2.5 text-emerald-600 -mt-0.5" />
                       )}
                       {isMarked && !isAnswered && !isCurrent && (
-                        <Bookmark className="h-2.5 w-2.5 text-purple-600 mt-0.5" />
+                        <Bookmark className="h-2.5 w-2.5 text-purple-600 -mt-0.5" />
                       )}
                     </button>
                   );
@@ -639,62 +708,43 @@ export function LiveExamRunner({
               </div>
             </div>
 
-            {/* Legend (Matching Image 3) */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-              <h3 className="font-display text-xs font-bold text-slate-900 uppercase tracking-wider">
+            {/* Legend (Compact 2x2 grid) */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-2.5">
+              <h3 className="font-display text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                 Legend
               </h3>
 
-              <div className="space-y-3 text-xs">
-                {/* Current question */}
-                <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 rounded-lg bg-blue-600 shrink-0" />
-                  <div>
-                    <span className="font-bold text-slate-900 block">Current question</span>
-                    <span className="text-[11px] text-slate-500">The question you are viewing now</span>
-                  </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-md bg-blue-600 shrink-0" />
+                  <span className="truncate">Current</span>
                 </div>
-
-                {/* Answered */}
-                <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 rounded-lg border border-emerald-300 bg-emerald-50 flex items-center justify-center shrink-0">
-                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-md border border-emerald-300 bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Check className="h-2.5 w-2.5 text-emerald-600" />
                   </div>
-                  <div>
-                    <span className="font-bold text-slate-900 block">Answered</span>
-                    <span className="text-[11px] text-slate-500">A question you have answered</span>
-                  </div>
+                  <span className="truncate">Answered ({answeredCount})</span>
                 </div>
-
-                {/* Unanswered */}
-                <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 rounded-lg border border-slate-300 bg-white shrink-0" />
-                  <div>
-                    <span className="font-bold text-slate-900 block">Unanswered</span>
-                    <span className="text-[11px] text-slate-500">A question you have not answered yet</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-md border border-purple-300 bg-purple-50 flex items-center justify-center shrink-0">
+                    <Bookmark className="h-2.5 w-2.5 text-purple-600" />
                   </div>
+                  <span className="truncate">Flagged ({markedCount})</span>
                 </div>
-
-                {/* Marked for review */}
-                <div className="flex items-start gap-3">
-                  <div className="h-6 w-6 rounded-lg border border-purple-300 bg-purple-50 flex items-center justify-center shrink-0">
-                    <Bookmark className="h-3.5 w-3.5 text-purple-600" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-slate-900 block">Marked for review</span>
-                    <span className="text-[11px] text-slate-500">A question flagged for later review (may be answered or unanswered)</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-md border border-slate-300 bg-white shrink-0" />
+                  <span className="truncate">Unanswered ({unansweredCount})</span>
                 </div>
               </div>
             </div>
 
             {/* Direct Submit Action Card */}
-            <div className="rounded-2xl border border-blue-200/90 bg-blue-50/70 p-4 space-y-2.5 shadow-2xs">
-              <div className="text-xs font-semibold text-slate-800">
-                Finish &amp; Submit Assessment
+            <div className="rounded-2xl border border-blue-200/90 bg-blue-50/70 p-4 space-y-2 shadow-2xs">
+              <div className="text-xs font-bold text-slate-800">
+                Ready to Submit?
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Review answered ({answeredCount}) and flagged ({markedCount}) questions before submitting.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                {answeredCount} of {questions.length} answered ({unansweredCount} remaining).
               </p>
               <button
                 type="button"
@@ -706,6 +756,8 @@ export function LiveExamRunner({
               </button>
             </div>
           </div>
+        </div>
+      </main>
         </div>
       </main>
 

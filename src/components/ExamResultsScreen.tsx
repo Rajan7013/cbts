@@ -631,7 +631,7 @@ export function ExamResultsScreen({
                     </span>
 
                     {/* Grid of buttons 1..N */}
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="max-h-[320px] sm:max-h-[380px] overflow-y-auto pr-1 grid grid-cols-5 gap-2">
                       {questions.map((q, idx) => {
                         const isCurrent = idx === currentQuestionIndex;
                         const resp = attempt.responses[q.questionId];
