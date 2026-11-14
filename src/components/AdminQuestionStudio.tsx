@@ -1186,9 +1186,11 @@ export function AdminQuestionStudio({
                     <button
                       type="button"
                       onClick={() => setQuestionImageUrl('')}
-                      className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-xs font-semibold text-red-700 hover:bg-red-100 cursor-pointer shadow-xs transition-colors"
+                      title="Remove attached diagram"
                     >
-                      Remove Diagram
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                      <span>Delete Image</span>
                     </button>
                   )}
                 </div>
@@ -1207,7 +1209,18 @@ export function AdminQuestionStudio({
 
               {/* Diagram Preview if attached */}
               {questionImageUrl && (
-                <QuestionImage src={questionImageUrl} alt="Question diagram" />
+                <div className="relative group inline-block my-2">
+                  <QuestionImage src={questionImageUrl} alt="Question diagram" />
+                  <button
+                    type="button"
+                    onClick={() => setQuestionImageUrl('')}
+                    className="absolute top-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 shadow-md transition-all cursor-pointer opacity-90 hover:opacity-100"
+                    title="Remove question diagram"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Delete Image</span>
+                  </button>
+                </div>
               )}
 
               {/* Answer Options */}
@@ -1264,6 +1277,23 @@ export function AdminQuestionStudio({
                         <span>{uploadingTarget === opt.id ? 'Uploading…' : opt.imageUrl ? 'Change Image' : 'Add Image'}</span>
                       </button>
 
+                      {/* Remove Option Image Button */}
+                      {opt.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOptions((prev) =>
+                              prev.map((o) => (o.id === opt.id ? { ...o, imageUrl: '' } : o))
+                            )
+                          }
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl border border-red-200 bg-red-50 text-xs font-semibold text-red-700 hover:bg-red-100 cursor-pointer shadow-xs shrink-0"
+                          title={`Remove Option ${opt.id} image`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+
                       {/* Radio select for correct answer */}
                       <button
                         type="button"
@@ -1303,7 +1333,21 @@ export function AdminQuestionStudio({
                             <X className="h-3 w-3" />
                           </button>
                         </div>
-                        <span className="text-[11px] text-slate-400">Option {opt.id} diagram attached</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[11px] font-medium text-slate-500">Option {opt.id} diagram attached</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOptions((prev) =>
+                                prev.map((o) => (o.id === opt.id ? { ...o, imageUrl: '' } : o))
+                              )
+                            }
+                            className="text-[11px] text-red-600 font-semibold hover:underline cursor-pointer text-left inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete Option {opt.id} Image</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1366,9 +1410,11 @@ export function AdminQuestionStudio({
                       <button
                         type="button"
                         onClick={() => setSolutionImageUrl('')}
-                        className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 text-[11px] font-semibold text-red-700 hover:bg-red-100 cursor-pointer shadow-xs transition-colors"
+                        title="Delete solution diagram"
                       >
-                        Remove Diagram
+                        <Trash2 className="h-3 w-3 text-red-600" />
+                        <span>Delete Diagram</span>
                       </button>
                     )}
                   </div>
@@ -1383,9 +1429,30 @@ export function AdminQuestionStudio({
                 />
 
                 {solutionImageUrl && (
-                  <div className="pt-1">
-                    <div className="text-[11px] font-semibold text-slate-500 mb-1">Solution Diagram Preview:</div>
-                    <QuestionImage src={solutionImageUrl} alt="Solution diagram" />
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-500">Solution Diagram Preview:</span>
+                      <button
+                        type="button"
+                        onClick={() => setSolutionImageUrl('')}
+                        className="text-[11px] text-red-600 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete Solution Image</span>
+                      </button>
+                    </div>
+                    <div className="relative group inline-block">
+                      <QuestionImage src={solutionImageUrl} alt="Solution diagram" />
+                      <button
+                        type="button"
+                        onClick={() => setSolutionImageUrl('')}
+                        className="absolute top-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 shadow-md transition-all cursor-pointer opacity-90 hover:opacity-100"
+                        title="Remove solution diagram"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
