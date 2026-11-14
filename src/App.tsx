@@ -50,6 +50,7 @@ import type {
   TestAttempt,
   TestExam,
   TestQuestion,
+  TestSection,
   UserProfile,
 } from './types';
 
@@ -350,6 +351,72 @@ export default function App() {
     }
   };
 
+  const handleImportDocExam = async (
+    testData: {
+      title: string;
+      description: string;
+      sections: TestSection[];
+      questions: TestQuestion[];
+    },
+    publishImmediately: boolean
+  ) => {
+    if (!user || user.role !== 'admin') return;
+    setLoadingData(true);
+    setGlobalError(null);
+    try {
+      const newTestId = `test_${Date.now()}`;
+      const now = new Date().toISOString();
+      const newTest: TestExam = {
+        testId: newTestId,
+        title: testData.title || 'Imported AI Assessment',
+        description: testData.description || 'Imported from Question & Solution booklet',
+        totalQuestions: testData.questions.length,
+        durationMinutes: Math.max(30, Math.ceil(testData.questions.length * 1.5)),
+        passingScorePercentage: 50,
+        marksPerQuestion: 1,
+        negativeMarks: 0,
+        status: publishImmediately ? 'published' : 'draft',
+        sections: testData.sections,
+        maxAttemptsPerCandidate: 1,
+        createdByUid: user.uid,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const savedTest = await saveTest(user, newTest);
+
+      for (let i = 0; i < testData.questions.length; i++) {
+        const q = testData.questions[i];
+        const fullQ: TestQuestion = {
+          ...q,
+          testId: savedTest.testId,
+          questionId: q.questionId || `q_${Date.now()}_${i + 1}`,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await saveQuestion(user, fullQ);
+      }
+
+      await refreshWorkspaceData(user, portalMode);
+      setSelectedTest(savedTest);
+      const qs = await listQuestionsAdmin(user, savedTest.testId);
+      setAdminQuestions(qs);
+
+      if (publishImmediately) {
+        setRecentlyPublishedMessage(
+          `Exam "${savedTest.title}" (${testData.questions.length} questions across ${testData.sections.length} sections) was published successfully!`
+        );
+        setScreen('admin-dashboard');
+      } else {
+        setScreen('admin-question-studio');
+      }
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : 'Failed to import exam.');
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
   // Candidate handlers — ONLY sanitized questions (zero answers/solutions) are loaded
   const handleStartOrResumeBriefing = async (test: TestExam, existingAttempt?: TestAttempt) => {
     if (!user) return;
@@ -635,6 +702,7 @@ export default function App() {
           onViewResults={handleViewAdminResults}
           onTogglePublish={handleTogglePublish}
           onDeleteTest={handleDeleteTest}
+          onImportFromDoc={handleImportDocExam}
         />
       )}
 

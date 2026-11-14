@@ -164,6 +164,36 @@ export async function importQuestionsFromJson(params: {
   return postJson('/api/ai/import-json', params);
 }
 
+export interface DocumentExamImportResult {
+  title: string;
+  description?: string;
+  sections: Array<{ name: string; questionCount?: number }>;
+  questions: Array<{
+    sectionName: string;
+    orderIndex?: number;
+    questionText: string;
+    questionImageUrl?: string;
+    options: Array<{ id: OptionId; text: string; imageUrl?: string }>;
+    correctOptionId: OptionId;
+    shortExplanation: string;
+    stepByStepSolution: string[];
+    marks?: number;
+  }>;
+}
+
+export async function importDocumentExamWithAI(params: {
+  questionDocBase64?: string;
+  questionDocMimeType?: string;
+  questionDocText?: string;
+  solutionDocBase64?: string;
+  solutionDocMimeType?: string;
+  solutionDocText?: string;
+  testTitle?: string;
+  useLocalSample?: boolean;
+}): Promise<DocumentExamImportResult> {
+  return postJson('/api/ai/import-document-exam', params);
+}
+
 export async function translateTextsWithAI(
   texts: string[],
   targetLanguage: string

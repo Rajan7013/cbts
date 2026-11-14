@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { MathText } from './MathText';
 import { QuestionImage } from './QuestionImage';
+import { AiDocumentImporterModal } from './AiDocumentImporterModal';
 import { processAndUploadImage } from '../lib/imageUtils';
 import {
   generateDiagramWithAI,
@@ -274,6 +275,7 @@ export function AdminQuestionStudio({
   const [generatingDiagram, setGeneratingDiagram] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showDocImporterModal, setShowDocImporterModal] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -987,8 +989,18 @@ export function AdminQuestionStudio({
           )}
         </div>
 
-        {/* Right: Global Actions (Import JSON, Bulk Gemini, Preview, Publish) */}
+        {/* Right: Global Actions (Import PDF, Import JSON, Bulk Gemini, Preview, Publish) */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowDocImporterModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer shadow-xs"
+            title="Import questions and solutions from PDF/Booklet"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+            <span>Import PDF / Booklet (AI)</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setViewMode('json_import')}
@@ -2427,6 +2439,36 @@ export function AdminQuestionStudio({
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Document & PDF Importer Modal with Pre-Publish Preview & Section Reordering */}
+      {showDocImporterModal && (
+        <AiDocumentImporterModal
+          currentTest={test}
+          onClose={() => setShowDocImporterModal(false)}
+          onImportComplete={async (imported, publishImmediately) => {
+            setSections(imported.sections);
+            if (onUpdateTest) {
+              await onUpdateTest({
+                sections: imported.sections,
+                totalQuestions: Math.max(1, imported.questions.length),
+                ...(imported.title ? { title: imported.title } : {}),
+                ...(imported.description ? { description: imported.description } : {}),
+              });
+            }
+            for (const q of imported.questions) {
+              await onSaveQuestion(q);
+            }
+            if (publishImmediately && onPublishTest) {
+              await onPublishTest({
+                status: 'published',
+                sections: imported.sections,
+                totalQuestions: imported.questions.length,
+              });
+            }
+            setShowDocImporterModal(false);
+          }}
+        />
       )}
     </div>
   );

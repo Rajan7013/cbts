@@ -164,7 +164,7 @@ export function CandidateDashboard({
   const pageTitle = activeTab === 'my-results' ? 'My Results' : 'Available Tests';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none pb-28 md:pb-8">
       {/* Top Bar matching Images 1, 2, 3, 4, 5 */}
       <div className="w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-4 px-1 shrink-0">
         <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
@@ -690,8 +690,8 @@ export function CandidateDashboard({
 
       {/* Mobile Bottom Navigation Bar matching modern app design */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-3 pt-2 shadow-2xl flex items-center justify-around"
-        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-3 pt-2 pb-6 shadow-2xl flex items-center justify-around"
+        style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))', minHeight: '68px' }}
       >
         <button
           type="button"

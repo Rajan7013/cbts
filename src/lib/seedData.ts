@@ -2,6 +2,16 @@ import type { TestAttempt, TestExam, TestQuestion } from '../types';
 import opticsDiagram from '../assets/images/diagram_physics_optics_1794574131101.jpg?inline';
 import circuitDiagram from '../assets/images/diagram_circuit_bridge_1794574130210.jpg?inline';
 
+const OPTICS_DIAGRAM_URL =
+  typeof opticsDiagram === 'string' && opticsDiagram.startsWith('data:')
+    ? opticsDiagram
+    : '/assets/images/diagram_physics_optics_1794574131101.jpg';
+
+const CIRCUIT_DIAGRAM_URL =
+  typeof circuitDiagram === 'string' && circuitDiagram.startsWith('data:')
+    ? circuitDiagram
+    : '/assets/images/diagram_circuit_bridge_1794574130210.jpg';
+
 export function buildSampleTests(createdByUid: string): {
   tests: TestExam[];
   questionsByTest: Record<string, TestQuestion[]>;
@@ -100,7 +110,7 @@ export function buildSampleTests(createdByUid: string): {
         orderIndex: 0,
         questionText:
           'Refer to the prism refraction diagram below. Light travels from air (n = 1.0) into glass (n = 1.5) at an angle of incidence θ1 = 45°. What is the approximate angle of refraction θ2 inside the glass prism?',
-        questionImageUrl: opticsDiagram,
+        questionImageUrl: OPTICS_DIAGRAM_URL,
         options: [
           { id: 'A', text: '19.5°' },
           { id: 'B', text: '28.1°' },
@@ -151,7 +161,7 @@ export function buildSampleTests(createdByUid: string): {
         orderIndex: 2,
         questionText:
           'In the Wheatstone bridge schematic shown below, R1 = 12 Ω, R2 = 24 Ω, and R3 = 15 Ω. What value of R4 ensures zero current flows through the central galvanometer G?',
-        questionImageUrl: circuitDiagram,
+        questionImageUrl: CIRCUIT_DIAGRAM_URL,
         options: [
           { id: 'A', text: '20 Ω' },
           { id: 'B', text: '27 Ω' },

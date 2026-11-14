@@ -10,10 +10,10 @@ export function normalizeQuestionImageUrl(raw?: string): string {
 
   // Embedded inline assets for built-in diagrams (guarantees zero 404s on Vercel)
   if (trimmed.includes('diagram_physics_optics') || trimmed.includes('optics_1794574131101')) {
-    return opticsDiagram;
+    return '/assets/images/diagram_physics_optics_1794574131101.jpg';
   }
   if (trimmed.includes('diagram_circuit_bridge') || trimmed.includes('circuit_bridge_1794574130210')) {
-    return circuitDiagram;
+    return '/assets/images/diagram_circuit_bridge_1794574130210.jpg';
   }
 
   // If local /src/ path was stored, normalize to production static /assets/ path
@@ -61,13 +61,15 @@ export function QuestionImage({
   const [loadError, setLoadError] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   const normalized = normalizeQuestionImageUrl(src);
+  const [activeSrc, setActiveSrc] = useState(normalized);
 
   // Automatically reset loadError whenever src changes so new images always render
   useEffect(() => {
     setLoadError(false);
-  }, [src, normalized]);
+    setActiveSrc(normalizeQuestionImageUrl(src));
+  }, [src]);
 
-  if (!normalized) return null;
+  if (!activeSrc) return null;
 
   if (loadError) {
     return (
@@ -81,7 +83,10 @@ export function QuestionImage({
         </div>
         <button
           type="button"
-          onClick={() => setLoadError(false)}
+          onClick={() => {
+            setLoadError(false);
+            setActiveSrc(normalizeQuestionImageUrl(src));
+          }}
           className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 cursor-pointer shrink-0"
         >
           <RefreshCw className="h-3 w-3" />
@@ -95,11 +100,27 @@ export function QuestionImage({
     <>
       <div className="relative group my-2.5 inline-block overflow-hidden rounded-xl border border-slate-200/90 bg-white p-2 shadow-2xs">
         <img
-          src={normalized}
+          src={activeSrc}
           alt={alt}
           loading="eager"
           referrerPolicy="no-referrer"
-          onError={() => setLoadError(true)}
+          onError={() => {
+            if (
+              activeSrc !== opticsDiagram &&
+              (normalized.includes('optics') || normalized.includes('diagram_physics_optics'))
+            ) {
+              setActiveSrc(opticsDiagram);
+              return;
+            }
+            if (
+              activeSrc !== circuitDiagram &&
+              (normalized.includes('circuit') || normalized.includes('diagram_circuit_bridge'))
+            ) {
+              setActiveSrc(circuitDiagram);
+              return;
+            }
+            setLoadError(true);
+          }}
           className={`max-h-72 w-auto max-w-full rounded-lg object-contain transition-transform duration-200 ${
             allowZoom ? 'cursor-zoom-in group-hover:scale-[1.01]' : ''
           } ${className}`}

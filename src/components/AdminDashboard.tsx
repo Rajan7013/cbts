@@ -20,8 +20,10 @@ import {
   HelpCircle,
   ArrowRight,
   Database,
+  Sparkles,
 } from 'lucide-react';
-import type { TestExam } from '../types';
+import { AiDocumentImporterModal } from './AiDocumentImporterModal';
+import type { TestExam, TestQuestion, TestSection } from '../types';
 
 interface AdminDashboardProps {
   tests: TestExam[];
@@ -36,6 +38,15 @@ interface AdminDashboardProps {
   onViewResults: (test: TestExam) => void;
   onTogglePublish: (test: TestExam) => void;
   onDeleteTest: (test: TestExam) => void;
+  onImportFromDoc?: (
+    testData: {
+      title: string;
+      description: string;
+      sections: TestSection[];
+      questions: TestQuestion[];
+    },
+    publishImmediately: boolean
+  ) => Promise<void>;
 }
 
 function getScheduleStatus(test: TestExam): { label: string; isLive: boolean; isScheduled: boolean } {
@@ -74,11 +85,13 @@ export function AdminDashboard({
   onViewResults,
   onTogglePublish,
   onDeleteTest,
+  onImportFromDoc,
 }: AdminDashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showToast, setShowToast] = useState(true);
+  const [showDocImporterModal, setShowDocImporterModal] = useState(false);
 
   const liveCount = tests.filter((t) => getScheduleStatus(t).isLive).length;
   const draftCount = tests.filter((t) => t.status === 'draft').length;
@@ -143,6 +156,15 @@ export function AdminDashboard({
               <span>Load Samples</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowDocImporterModal(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-linear-to-r from-indigo-50 to-blue-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-indigo-700 hover:from-indigo-100 hover:to-blue-100 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+          >
+            <Sparkles className="h-4 w-4 text-indigo-600" />
+            <span>Import PDF / Booklet (AI)</span>
+          </button>
 
           <button
             type="button"
@@ -547,6 +569,19 @@ export function AdminDashboard({
           </div>
         )}
       </div>
+
+      {showDocImporterModal && (
+        <AiDocumentImporterModal
+          isOpen={showDocImporterModal}
+          onClose={() => setShowDocImporterModal(false)}
+          onApplyExam={async (examData, publishImmediately) => {
+            if (onImportFromDoc) {
+              await onImportFromDoc(examData, publishImmediately);
+            }
+            setShowDocImporterModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

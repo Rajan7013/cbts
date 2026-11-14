@@ -960,7 +960,8 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
   readVault();
 
   const app = express();
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use('/uploads', express.static(UPLOADS_DIR));
   if (IS_VERCEL && fs.existsSync(BUNDLED_UPLOADS_DIR)) {
     app.use('/uploads', express.static(BUNDLED_UPLOADS_DIR));
@@ -2192,6 +2193,185 @@ Requirements:
         incompleteCount: 0,
         parsedAsArray: false,
       });
+    } catch (err) {
+      sendAiError(res, err);
+    }
+  });
+
+  app.post('/api/ai/import-document-exam', async (req: Request, res: Response) => {
+    try {
+      const {
+        questionDocBase64,
+        questionDocMimeType = 'application/pdf',
+        questionDocText,
+        solutionDocBase64,
+        solutionDocMimeType = 'application/pdf',
+        solutionDocText,
+        testTitle = 'MECEE BL Model Entrance Exam',
+        useLocalSample = false,
+        pageRange = '1-3',
+      } = req.body as {
+        questionDocBase64?: string;
+        questionDocMimeType?: string;
+        questionDocText?: string;
+        solutionDocBase64?: string;
+        solutionDocMimeType?: string;
+        solutionDocText?: string;
+        testTitle?: string;
+        useLocalSample?: boolean;
+        pageRange?: string;
+      };
+
+      const ai = getAiClient();
+      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
+
+      if (useLocalSample) {
+        const sampleQPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0011.pdf';
+        const sampleSolPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0012.pdf';
+        if (fs.existsSync(sampleQPath)) {
+          const qBuf = fs.readFileSync(sampleQPath);
+          parts.push({
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: qBuf.toString('base64'),
+            },
+          });
+        }
+        if (fs.existsSync(sampleSolPath)) {
+          const sBuf = fs.readFileSync(sampleSolPath);
+          parts.push({
+            inlineData: {
+              mimeType: 'application/pdf',
+              data: sBuf.toString('base64'),
+            },
+          });
+        }
+      } else {
+        if (questionDocBase64) {
+          parts.push({
+            inlineData: {
+              mimeType: questionDocMimeType,
+              data: questionDocBase64,
+            },
+          });
+        }
+        if (solutionDocBase64) {
+          parts.push({
+            inlineData: {
+              mimeType: solutionDocMimeType,
+              data: solutionDocBase64,
+            },
+          });
+        }
+        if (questionDocText?.trim()) {
+          parts.push({ text: `Question Document Content:\n${questionDocText.trim()}` });
+        }
+        if (solutionDocText?.trim()) {
+          parts.push({ text: `Solution / Answer Key Document Content:\n${solutionDocText.trim()}` });
+        }
+      }
+
+      if (parts.length === 0) {
+        res.status(400).json({ error: 'Please provide question booklet or solution document to import.' });
+        return;
+      }
+
+      const promptText = `You are an expert Computer-Based Testing (CBT) assessment extraction and LaTeX digitization system.
+Analyze the provided Question document and Solution booklet, extract all multiple-choice questions, and structure them into their respective sections.
+
+CRITICAL EXTRACTION GUIDELINES:
+1. SECTIONS:
+   - Auto-detect the sections present in the exam (e.g., Zoology, Botany, Chemistry, Physics, Mental Agility / MAT, or other domain headings).
+   - Return a list of all detected sections in "sections" with their name and estimated question count.
+   - For every question, set "sectionName" to its matching section.
+
+2. QUESTIONS & 4 OPTIONS:
+   - Extract clear, unambiguous question stems.
+   - Extract exactly 4 distinct options labeled A, B, C, D for every question.
+   - If options in the paper are (a), (b), (c), (d), normalize them to uppercase 'A', 'B', 'C', 'D'.
+
+3. STRICT KaTeX LaTeX PRESERVATION:
+   - Wrap ALL mathematical equations, physics variables, fractions, square roots, subscripts, superscripts, chemical formulas, Greek letters (alpha, beta, theta, mu, lambda, etc.), and units in standard KaTeX LaTeX delimiters ($...$ for inline, $$...$$ for block).
+   - Examples:
+     * $B_{\\text{inside}} = \\mu_0 n i$
+     * $\\frac{R_1}{R_2} = \\frac{1 + \\alpha t_1}{1 + \\alpha t_2} \\implies T = 1127\\text{ K}$
+     * $T_2 = 2\\sqrt{\\frac{B_H}{2B_H}} = \\sqrt{2}\\text{ s}$
+     * $y = \\frac{1}{\\sqrt{a}}\\sin\\omega t \\pm \\frac{1}{\\sqrt{b}}\\cos\\omega t$
+     * $C_{AB} = \\frac{5}{3}C$
+   - NEVER leave bare ASCII or unbalanced dollar signs.
+
+4. ANSWER KEY & SOLUTIONS:
+   - Accurately match each Question #N with its correct answer from the solutions booklet/answer key.
+   - "correctOptionId" MUST be exactly one of "A", "B", "C", or "D".
+   - "shortExplanation": A crisp 1-3 sentence explanation summarizing the underlying concept.
+   - "stepByStepSolution": If numerical steps or derivation exist (e.g. Physics, Chemistry, Math), list each step as an item in the array.
+
+5. TITLE & METADATA:
+   - Extract or infer the overall exam title, e.g. "${testTitle || 'Medical Entrance Examination'}".`;
+
+      parts.push({ text: promptText });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: { parts },
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              sections: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    questionCount: { type: Type.NUMBER },
+                  },
+                  required: ['name'],
+                },
+              },
+              questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    sectionName: { type: Type.STRING },
+                    orderIndex: { type: Type.NUMBER },
+                    questionText: { type: Type.STRING },
+                    questionImageUrl: { type: Type.STRING },
+                    options: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          text: { type: Type.STRING },
+                        },
+                        required: ['id', 'text'],
+                      },
+                    },
+                    correctOptionId: { type: Type.STRING },
+                    shortExplanation: { type: Type.STRING },
+                    stepByStepSolution: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                    },
+                  },
+                  required: ['questionText', 'options', 'correctOptionId'],
+                },
+              },
+            },
+            required: ['title', 'sections', 'questions'],
+          },
+        },
+      });
+
+      const textOut = (response.text ?? '{}').trim();
+      const parsed = JSON.parse(textOut);
+      res.json(parsed);
     } catch (err) {
       sendAiError(res, err);
     }

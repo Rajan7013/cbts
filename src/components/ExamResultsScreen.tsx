@@ -695,7 +695,7 @@ export function ExamResultsScreen({
       {mode === 'review' && (
         <div
           className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
-          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+          style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
           <button
             type="button"
@@ -731,7 +731,7 @@ export function ExamResultsScreen({
       {mode === 'summary' && (
         <div
           className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
-          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+          style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
         >
           <button
             type="button"
