@@ -177,8 +177,8 @@ export function CandidateDashboard({
 
       {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
       <div className="w-full max-w-7xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
-        {/* Left Sidebar matching Images 1, 2, 3, 4, 5 */}
-        <aside className="w-full md:w-60 lg:w-64 border-b md:border-b-0 md:border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex flex-col justify-between shrink-0">
+        {/* Left Sidebar on Desktop */}
+        <aside className="hidden md:flex md:w-60 lg:w-64 border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex-col justify-between shrink-0">
           <nav className="space-y-2">
             <button
               type="button"
@@ -229,7 +229,7 @@ export function CandidateDashboard({
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 p-5 sm:p-7 lg:p-8 overflow-y-auto bg-white/40">
+        <main className="flex-1 p-4 sm:p-7 lg:p-8 pb-24 md:pb-8 overflow-y-auto bg-white/40">
           {/* ======================================================== */}
           {/* TAB 1: AVAILABLE TESTS                                   */}
           {/* ======================================================== */}
@@ -687,6 +687,52 @@ export function CandidateDashboard({
           )}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar matching modern app design */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2 flex items-center justify-around shadow-xl">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('available-tests');
+            setSearchQuery('');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'available-tests'
+              ? 'text-blue-600 bg-blue-50/90 shadow-2xs'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <ClipboardList className="h-5 w-5" />
+          <span>Available Tests</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('my-results');
+            setSearchQuery('');
+          }}
+          className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'my-results'
+              ? 'text-blue-600 bg-blue-50/90 shadow-2xs'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <BarChart2 className="h-5 w-5" />
+          <span>My Results</span>
+        </button>
+
+        {isAdmin && onSwitchToAdmin && (
+          <button
+            type="button"
+            onClick={onSwitchToAdmin}
+            className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+          >
+            <ExternalLink className="h-5 w-5 text-slate-400" />
+            <span>Admin Studio</span>
+          </button>
+        )}
+      </nav>
     </div>
   );
 }

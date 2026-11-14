@@ -48,6 +48,7 @@ export function ExamResultsScreen({
 }: ExamResultsScreenProps) {
   const [mode, setMode] = useState<'summary' | 'review'>(initialMode);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showMobileNavigator, setShowMobileNavigator] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
@@ -69,9 +70,13 @@ export function ExamResultsScreen({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
-      {/* Top Bar matching Images 1, 2, 3, 4, 5 */}
-      <div className="w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-4 px-1 shrink-0">
-        <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+      {/* Top Bar matching Images 1, 2, 3, 4, 5 (Desktop persistent, clean on mobile) */}
+      <div
+        className={`w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-3 sm:pb-4 px-1 shrink-0 ${
+          mode === 'review' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
+        <div className="h-8 sm:h-9 w-8 sm:w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
           EP
         </div>
         <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
@@ -81,8 +86,8 @@ export function ExamResultsScreen({
 
       {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
       <div className="w-full max-w-7xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
-        {/* Left Sidebar */}
-        <aside className="w-full md:w-60 lg:w-64 border-b md:border-b-0 md:border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex flex-col justify-between shrink-0">
+        {/* Left Sidebar on Desktop */}
+        <aside className="hidden md:flex md:w-60 lg:w-64 border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex-col justify-between shrink-0">
           <nav className="space-y-2">
             <button
               type="button"
@@ -119,7 +124,7 @@ export function ExamResultsScreen({
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 p-5 sm:p-7 lg:p-8 overflow-y-auto bg-white/40">
+        <main className="flex-1 p-3.5 sm:p-7 lg:p-8 pb-24 md:pb-8 overflow-y-auto bg-white/40">
           {/* ======================================================== */}
           {/* VIEW 1: YOUR RESULT SUMMARY (Matching Image 2)           */}
           {/* ======================================================== */}
@@ -327,9 +332,38 @@ export function ExamResultsScreen({
           {/* VIEW 2: ANSWER REVIEW (Matching Images 3 & 4)            */}
           {/* ======================================================== */}
           {mode === 'review' && currentQ && (
-            <div className="space-y-6">
-              {/* Header Title with Subtitle & Back to Result matching Images 3 & 4 */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+            <div className="space-y-4 sm:space-y-6">
+              {/* Mobile Compact Sticky Top Bar for Answer Review */}
+              <div className="md:hidden sticky -top-3.5 sm:-top-7 z-20 -mx-3.5 sm:-mx-7 -mt-3.5 sm:-mt-7 mb-3 bg-white/95 backdrop-blur-md px-3.5 py-2.5 border-b border-slate-200/90 flex items-center justify-between gap-2 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setMode('summary')}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-50/90 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-blue-100 transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Result</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900">
+                    Q {currentQuestionIndex + 1} of {questions.length}
+                  </span>
+                  <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200/60 px-2 py-0.5 rounded-full">
+                    Att #{currentAttemptNumber}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowMobileNavigator(true)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-slate-200 transition-colors"
+                >
+                  <span>Grid</span>
+                </button>
+              </div>
+
+              {/* Desktop Header Title with Subtitle & Back to Result matching Images 3 & 4 */}
+              <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
                 <div>
                   <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                     Answer review
@@ -363,9 +397,9 @@ export function ExamResultsScreen({
               {/* Two-Column Grid: Left 70% Question, Right 30% Navigator matching Images 3 & 4 */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Left Column (Question Area) */}
-                <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs space-y-5">
-                  {/* Question Counter */}
-                  <div className="text-xs font-bold text-slate-800">
+                <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-5">
+                  {/* Question Counter (Desktop) */}
+                  <div className="hidden md:block text-xs font-bold text-slate-800">
                     Question {currentQuestionIndex + 1} of {questions.length}
                   </div>
 
@@ -376,10 +410,14 @@ export function ExamResultsScreen({
 
                   {/* Question Reference Diagram if present */}
                   {(currentQ.questionImageUrl || currentQ.imageUrl) && (
-                    <QuestionImage
-                      src={currentQ.questionImageUrl || currentQ.imageUrl}
-                      alt={`Question ${currentQuestionIndex + 1} diagram`}
-                    />
+                    <div className="rounded-2xl border border-slate-200/80 bg-white p-2 sm:p-3 overflow-hidden shadow-2xs">
+                      <QuestionImage
+                        src={currentQ.questionImageUrl || currentQ.imageUrl}
+                        alt={`Question ${currentQuestionIndex + 1} diagram`}
+                        className="w-full max-h-64 sm:max-h-96 object-contain rounded-xl"
+                        allowZoom={true}
+                      />
+                    </div>
                   )}
 
                   {/* 4 Options matching Images 3 & 4 */}
@@ -412,36 +450,40 @@ export function ExamResultsScreen({
                       return (
                         <div
                           key={opt.id}
-                          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${containerStyle}`}
+                          className={`rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${containerStyle}`}
                         >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                             {/* Radio circle */}
                             <div
-                              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${radioStyle}`}
+                              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${radioStyle}`}
                             >
                               {isRadioFilled && (
                                 <div className="h-2 w-2 rounded-full bg-white" />
                               )}
                             </div>
 
-                            {/* Option Text */}
-                            <div className="text-xs sm:text-sm min-w-0">
-                              <MathText text={opt.text} />
-                            </div>
+                            {/* Option Text & Option Image */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs sm:text-sm min-w-0 leading-relaxed font-medium">
+                                <MathText text={opt.text} />
+                              </div>
 
-                            {/* Option image if present */}
-                            {opt.imageUrl && (
-                              <QuestionImage
-                                src={opt.imageUrl}
-                                alt={`Option ${opt.id}`}
-                                className="max-h-16"
-                                allowZoom={false}
-                              />
-                            )}
+                              {/* Option image if present */}
+                              {opt.imageUrl && (
+                                <div className="mt-2.5">
+                                  <QuestionImage
+                                    src={opt.imageUrl}
+                                    alt={`Option ${opt.id} diagram`}
+                                    className="max-h-36 sm:max-h-48 w-auto rounded-xl object-contain border border-slate-200/80 p-1.5 bg-white shadow-2xs"
+                                    allowZoom={true}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Right Badges matching Images 3 & 4 */}
-                          <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+                          <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center pl-8 sm:pl-0">
                             {/* If User Answered Correctly (Both badges shown side-by-side in Image 4) */}
                             {isCorrect && isUserChoice && (
                               <>
@@ -478,7 +520,7 @@ export function ExamResultsScreen({
                   </div>
 
                   {/* Explanation Box matching Images 3 & 4 */}
-                  <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-5 space-y-2">
+                  <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:p-5 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                       <Info className="h-4 w-4 text-blue-600 shrink-0" />
                       <span>Explanation</span>
@@ -494,13 +536,15 @@ export function ExamResultsScreen({
                         <QuestionImage
                           src={currentQ.solutionImageUrl || currentQ.solution?.imageUrl}
                           alt="Solution diagram"
+                          className="max-h-56 sm:max-h-72 w-auto rounded-xl object-contain border border-slate-200/80 p-1.5 bg-white shadow-2xs"
+                          allowZoom={true}
                         />
                       </div>
                     )}
                   </div>
 
-                  {/* Bottom Navigation Buttons matching Images 3 & 4 */}
-                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  {/* Bottom Navigation Buttons matching Images 3 & 4 (Desktop view) */}
+                  <div className="hidden sm:flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
                     <button
                       type="button"
                       disabled={currentQuestionIndex === 0}
@@ -646,6 +690,136 @@ export function ExamResultsScreen({
           )}
         </main>
       </div>
+
+      {/* Mobile Fixed Bottom Navigation for Answer Review */}
+      {mode === 'review' && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xl">
+          <button
+            type="button"
+            disabled={currentQuestionIndex === 0}
+            onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Previous</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowMobileNavigator(true)}
+            className="h-10 px-3.5 rounded-xl border border-blue-200 bg-blue-50/90 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+          >
+            <span>{currentQuestionIndex + 1} / {questions.length}</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={currentQuestionIndex === questions.length - 1}
+            onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs transition-colors"
+          >
+            <span>Next</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Bottom Bar for Summary Mode */}
+      {mode === 'summary' && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xl">
+          <button
+            type="button"
+            onClick={onBackToDashboard}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Tests</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentQuestionIndex(0);
+              setMode('review');
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer shadow-xs"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Review answers</span>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Question Navigator Drawer / Modal */}
+      {showMobileNavigator && (
+        <div className="md:hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowMobileNavigator(false)}
+          />
+          <div className="relative bg-white rounded-t-3xl p-5 shadow-2xl max-h-[80vh] flex flex-col space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="font-display font-bold text-sm text-slate-900">Question Navigator</h3>
+                <span className="text-[11px] text-slate-500">Tap any question to jump</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileNavigator(false)}
+                className="p-1.5 rounded-xl bg-slate-100 text-slate-500 hover:text-slate-800 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[50vh] grid grid-cols-5 gap-2.5 py-1">
+              {questions.map((q, idx) => {
+                const isCurrent = idx === currentQuestionIndex;
+                const resp = attempt.responses[q.questionId];
+                const isUserAnswered = Boolean(resp?.selectedOptionId);
+                const isUserCorrect = isUserAnswered && resp?.selectedOptionId === q.correctOptionId;
+                const isUserWrong = isUserAnswered && resp?.selectedOptionId !== q.correctOptionId;
+
+                let btnStyle = 'border border-blue-200 bg-blue-50/50 text-blue-800';
+                let symbol = '–';
+
+                if (isUserCorrect) {
+                  btnStyle = 'border border-emerald-300 bg-emerald-50/80 text-emerald-800';
+                  symbol = '✓';
+                } else if (isUserWrong) {
+                  btnStyle = 'border border-purple-300 bg-purple-50/80 text-purple-800';
+                  symbol = '✕';
+                }
+
+                return (
+                  <button
+                    key={q.questionId}
+                    type="button"
+                    onClick={() => {
+                      setCurrentQuestionIndex(idx);
+                      setShowMobileNavigator(false);
+                    }}
+                    className={`h-12 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition-all cursor-pointer ${btnStyle} ${
+                      isCurrent ? 'ring-2 ring-blue-600 shadow-xs' : 'hover:opacity-90'
+                    }`}
+                  >
+                    <span className="leading-none">{idx + 1}</span>
+                    <span className="text-[10px] leading-tight font-extrabold mt-0.5">
+                      {symbol}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-around text-xs font-semibold">
+              <span className="text-emerald-700">✓ Correct ({attempt.correctCount || 0})</span>
+              <span className="text-purple-700">✕ Incorrect ({attempt.wrongCount || 0})</span>
+              <span className="text-blue-700">– Unanswered ({unansweredCount})</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
