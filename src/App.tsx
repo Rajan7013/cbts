@@ -12,6 +12,7 @@ import {
 } from './lib/firebase';
 import {
   applyMarksToAllQuestions,
+  batchSaveQuestions,
   createAttempt,
   deleteQuestion,
   deleteTest,
@@ -385,17 +386,14 @@ export default function App() {
 
       const savedTest = await saveTest(user, newTest);
 
-      for (let i = 0; i < testData.questions.length; i++) {
-        const q = testData.questions[i];
-        const fullQ: TestQuestion = {
-          ...q,
-          testId: savedTest.testId,
-          questionId: q.questionId || `q_${Date.now()}_${i + 1}`,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await saveQuestion(user, fullQ);
-      }
+      const fullQuestions: TestQuestion[] = testData.questions.map((q, i) => ({
+        ...q,
+        testId: savedTest.testId,
+        questionId: q.questionId || `q_${Date.now()}_${i + 1}`,
+        createdAt: now,
+        updatedAt: now,
+      }));
+      await batchSaveQuestions(user, savedTest.testId, fullQuestions);
 
       await refreshWorkspaceData(user, portalMode);
       setSelectedTest(savedTest);
@@ -727,6 +725,18 @@ export default function App() {
           onEditTestDetails={() => setScreen('admin-test-builder')}
           onSaveQuestion={async (q, opts?: SaveQuestionOptions) => {
             await saveQuestion(user, q, opts);
+            const updated = await listQuestionsAdmin(user, selectedTest.testId);
+            setAdminQuestions(updated);
+          }}
+          onBatchSaveQuestions={async (importedQs) => {
+            const fullQs = importedQs.map((q, i) => ({
+              ...q,
+              testId: selectedTest.testId,
+              questionId: q.questionId || `q_${Date.now()}_${i + 1}`,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }));
+            await batchSaveQuestions(user, selectedTest.testId, fullQs);
             const updated = await listQuestionsAdmin(user, selectedTest.testId);
             setAdminQuestions(updated);
           }}

@@ -1773,13 +1773,34 @@ export function AiDocumentImporterModal({
                                 )}
 
                                 {q.stepByStepSolution && q.stepByStepSolution.length > 0 && (
-                                  <ul className="list-disc list-inside space-y-0.5 text-slate-600 pt-1">
-                                    {q.stepByStepSolution.map((st, sIdx) => (
-                                      <li key={sIdx}>
-                                        <MathText text={st} />
-                                      </li>
-                                    ))}
-                                  </ul>
+                                  <div className="space-y-1.5 pt-2">
+                                    <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                      Step-by-Step Derivation:
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      {q.stepByStepSolution.map((st, sIdx) => {
+                                        // Clean redundant prefixes like "1. ", "1) ", "Step 1: ", "• ", "- "
+                                        const cleanStep =
+                                          st
+                                            .replace(/^(?:step\s*)?\d+[\.\):\s-]\s*/i, '')
+                                            .replace(/^[-*•]\s*/, '')
+                                            .trim() || st;
+                                        return (
+                                          <div
+                                            key={sIdx}
+                                            className="flex items-start gap-2 text-xs text-slate-700 bg-white/70 rounded-lg p-2 border border-slate-100/90 shadow-2xs"
+                                          >
+                                            <span className="shrink-0 h-4.5 w-4.5 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px] flex items-center justify-center mt-0.5">
+                                              {sIdx + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0 leading-relaxed pt-0.5">
+                                              <MathText text={cleanStep} inline />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             )}

@@ -341,11 +341,18 @@ export function QuestionPreviewModal({
                             Step-by-Step Solution:
                           </div>
                           <ol className="list-decimal list-inside space-y-1 text-slate-700">
-                            {currentQ.stepByStepSolution.map((step, sIdx) => (
-                              <li key={sIdx}>
-                                <MathText text={step} inline />
-                              </li>
-                            ))}
+                            {currentQ.stepByStepSolution.map((step, sIdx) => {
+                              const cleanStep =
+                                step
+                                  .replace(/^(?:step\s*)?\d+[\.\):\s-]\s*/i, '')
+                                  .replace(/^[-*•]\s*/, '')
+                                  .trim() || step;
+                              return (
+                                <li key={sIdx}>
+                                  <MathText text={cleanStep} inline />
+                                </li>
+                              );
+                            })}
                           </ol>
                         </div>
                       )}

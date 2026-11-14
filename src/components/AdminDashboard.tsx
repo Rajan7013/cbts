@@ -573,9 +573,8 @@ export function AdminDashboard({
 
       {showDocImporterModal && (
         <AiDocumentImporterModal
-          isOpen={showDocImporterModal}
           onClose={() => setShowDocImporterModal(false)}
-          onApplyExam={async (examData, publishImmediately) => {
+          onImportComplete={async (examData, publishImmediately) => {
             if (onImportFromDoc) {
               await onImportFromDoc(examData, publishImmediately);
             }

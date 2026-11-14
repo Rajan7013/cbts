@@ -69,6 +69,7 @@ interface AdminQuestionStudioProps {
   onBack: () => void;
   onEditTestDetails: () => void;
   onSaveQuestion: (q: TestQuestion, options?: SaveQuestionOptions) => Promise<void>;
+  onBatchSaveQuestions?: (questions: TestQuestion[]) => Promise<void>;
   onLoadQuestionVersions?: (questionId: string) => Promise<QuestionVersion[]>;
   onRecordQuestionVersion?: (
     q: TestQuestion,
@@ -138,6 +139,7 @@ export function AdminQuestionStudio({
   onBack,
   onEditTestDetails,
   onSaveQuestion,
+  onBatchSaveQuestions,
   onDeleteQuestion,
   onPublishTest,
   onUpdateTest,
@@ -2456,8 +2458,12 @@ export function AdminQuestionStudio({
                 ...(imported.description ? { description: imported.description } : {}),
               });
             }
-            for (const q of imported.questions) {
-              await onSaveQuestion(q);
+            if (onBatchSaveQuestions) {
+              await onBatchSaveQuestions(imported.questions);
+            } else {
+              for (const q of imported.questions) {
+                await onSaveQuestion(q);
+              }
             }
             if (publishImmediately && onPublishTest) {
               await onPublishTest({

@@ -787,6 +787,136 @@ export async function saveQuestion(
   }
 }
 
+/**
+ * High-performance batch saving for 100+ questions (up to 500+ questions).
+ * Uses Firestore writeBatch in chunks of 100 questions (200 ops per commit),
+ * avoiding the 500 write limit, and performs a single bulk server key sync.
+ */
+export async function batchSaveQuestions(
+  user: UserProfile,
+  testId: string,
+  questions: TestQuestion[],
+  onProgress?: (savedCount: number, totalCount: number) => void
+): Promise<void> {
+  if (user.isDemo || user.role !== 'admin') {
+    throw new Error('Unauthorized.');
+  }
+
+  if (!questions || questions.length === 0) return;
+
+  const total = questions.length;
+  const CHUNK_SIZE = 100;
+  const answerKeysToSync: Array<{
+    questionId: string;
+    correctOptionId: OptionId;
+    shortExplanation?: string;
+    solutionImageUrl?: string;
+    stepByStepSolution?: string[];
+    marks?: number;
+  }> = [];
+
+  let savedSoFar = 0;
+
+  for (let c = 0; c < questions.length; c += CHUNK_SIZE) {
+    const chunk = questions.slice(c, c + CHUNK_SIZE);
+    const batch = writeBatch(db);
+
+    for (let i = 0; i < chunk.length; i++) {
+      const q = chunk[i];
+      const qId = q.questionId || `q_${Date.now()}_${c + i + 1}`;
+      const qRef = doc(db, 'tests', testId, 'questions', qId);
+      const kRef = doc(db, 'tests', testId, 'answerKeys', qId);
+
+      const cleanOptions = (q.options || []).slice(0, 4).map((o) => {
+        const opt: Record<string, string> = {
+          id: o.id,
+          text: (o.text || '').slice(0, 1000),
+        };
+        if (o.imageUrl) opt.imageUrl = o.imageUrl.slice(0, 800000);
+        return opt;
+      });
+
+      const rawQuestionText = String(q.questionText || q.stem || '');
+      const rawQuestionImageUrl = String(q.questionImageUrl || q.imageUrl || '');
+      const safeQuestionText =
+        rawQuestionText.trim() ||
+        (rawQuestionImageUrl.trim() ? 'Refer to the diagram below.' : 'Question');
+
+      const safeShortExplanation = String(
+        q.shortExplanation || q.solution?.shortExplanation || ''
+      ).slice(0, 5000);
+      const rawSteps = q.stepByStepSolution || q.solution?.steps || [];
+      const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
+        .slice(0, 50)
+        .map((s) => String(s).slice(0, 2000));
+
+      const questionPayload: Record<string, unknown> = {
+        questionId: qId,
+        testId: testId,
+        testStatus: q.testStatus || 'draft',
+        sectionId: String(q.sectionId || 'default').slice(0, 128),
+        orderIndex: Number(q.orderIndex ?? q.order ?? c + i) || (c + i),
+        questionText: safeQuestionText.slice(0, 10000),
+        options: cleanOptions,
+        marks: Math.min(Math.max(Number(q.marks) || 4, 0.25), 100),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      if (rawQuestionImageUrl.trim()) {
+        questionPayload.questionImageUrl = rawQuestionImageUrl.trim().slice(0, 800000);
+      }
+
+      batch.set(qRef, questionPayload);
+
+      const rawSolutionImg = String(q.solutionImageUrl || q.solution?.imageUrl || '');
+      const answerKeyPayload: Record<string, unknown> = {
+        questionId: qId,
+        testId: testId,
+        correctOptionId: q.correctOptionId || 'A',
+        shortExplanation: safeShortExplanation,
+        stepByStepSolution: safeSteps,
+        updatedAt: serverTimestamp(),
+      };
+      if (rawSolutionImg.trim()) {
+        answerKeyPayload.solutionImageUrl = rawSolutionImg.trim().slice(0, 800000);
+      }
+
+      batch.set(kRef, answerKeyPayload);
+
+      answerKeysToSync.push({
+        questionId: qId,
+        correctOptionId: q.correctOptionId || 'A',
+        shortExplanation: safeShortExplanation,
+        solutionImageUrl: rawSolutionImg.trim() || undefined,
+        stepByStepSolution: safeSteps,
+        marks: q.marks,
+      });
+    }
+
+    try {
+      await batch.commit();
+    } catch (batchErr) {
+      console.warn('[batchSaveQuestions] Batch commit fallback to individual saves:', batchErr);
+      for (const q of chunk) {
+        await saveQuestion(user, { ...q, testId }).catch(() => {});
+      }
+    }
+
+    savedSoFar += chunk.length;
+    if (onProgress) {
+      onProgress(savedSoFar, total);
+    }
+  }
+
+  // Bulk sync all answer keys with server in a single call
+  try {
+    const token = await getIdTokenOrThrow();
+    await syncAdminAnswerKeys(token, testId, answerKeysToSync);
+  } catch (syncErr) {
+    console.warn('[batchSaveQuestions] Server-side bulk key sync notice:', syncErr);
+  }
+}
+
 export async function deleteQuestion(
   user: UserProfile,
   testId: string,
