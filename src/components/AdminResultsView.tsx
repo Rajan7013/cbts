@@ -872,7 +872,7 @@ export function AdminResultsView({
             <div>
               <div className="text-[11px] font-medium text-slate-400">Attempt</div>
               <div className="text-xs sm:text-sm font-bold text-slate-900">
-                1
+                Attempt #{selectedAttempt.attemptNumber || 1} of {test.maxAttempts || 1}
               </div>
             </div>
           </div>
@@ -1353,7 +1353,9 @@ export function AdminResultsView({
                         </td>
 
                         <td className="py-3.5 px-4 text-center font-medium text-slate-700 tabular-nums">
-                          1
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                            Attempt #{attempt.attemptNumber || 1}
+                          </span>
                         </td>
 
                         <td className="py-3.5 px-4 text-center font-semibold text-slate-800 tabular-nums">

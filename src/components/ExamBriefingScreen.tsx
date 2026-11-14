@@ -49,7 +49,7 @@ export function ExamBriefingScreen({
           {test.description && <p className="mt-2 text-xs sm:text-sm text-slate-600">{test.description}</p>}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-5">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-3.5">
             <div className="text-xs text-slate-500">Duration</div>
             <div className="mt-1 font-mono text-base sm:text-lg font-semibold text-slate-900 tabular-nums">
@@ -60,6 +60,12 @@ export function ExamBriefingScreen({
             <div className="text-xs text-slate-500">Questions</div>
             <div className="mt-1 font-mono text-base sm:text-lg font-semibold text-slate-900 tabular-nums">
               {test.totalQuestions}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-3.5">
+            <div className="text-xs text-slate-500">Max Attempts</div>
+            <div className="mt-1 font-mono text-base sm:text-lg font-semibold text-blue-700 tabular-nums">
+              {test.maxAttempts || 1} allowed
             </div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-3.5">

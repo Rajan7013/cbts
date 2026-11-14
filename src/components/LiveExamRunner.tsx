@@ -321,38 +321,32 @@ export function LiveExamRunner({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none">
-      {/* MediaPipe Face Proctoring if enabled */}
-      {test.proctoringAIEnabled && (
-        <MediaPipeProctor
-          active={!isLockedRef.current}
-          onMultipleFacesDetected={() => triggerStrike('Multiple Faces Detected by MediaPipe AI')}
-          onNoFaceDetected={() => triggerStrike('No Candidate Face Detected by MediaPipe AI')}
-        />
-      )}
-
       {/* Top Header Bar (Matching Image 3) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/90 bg-white px-4 sm:px-6 py-3 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/90 bg-white px-3 sm:px-6 py-2.5 sm:py-3 shadow-2xs">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs shrink-0">
             EP
           </div>
-          <span className="font-bold text-sm sm:text-base text-slate-900">ExamPulse</span>
-          <span className="text-slate-300">|</span>
-          <h1 className="font-semibold text-sm sm:text-base text-slate-900 truncate max-w-xs sm:max-w-md">
+          <span className="font-bold text-xs sm:text-base text-slate-900 shrink-0">ExamPulse</span>
+          <span className="text-slate-300 shrink-0">|</span>
+          <h1 className="font-semibold text-xs sm:text-base text-slate-900 truncate max-w-[130px] sm:max-w-xs md:max-w-md">
             {test.title}
           </h1>
+          <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
+            Attempt #{initialAttempt.attemptNumber || 1} of {test.maxAttempts || 1}
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
           {/* Timer Pill */}
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 shadow-2xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3.5 py-1.5 shadow-2xs shrink-0">
             <Clock className="h-4 w-4 text-blue-600 shrink-0" />
             <div className="text-right">
               <span className="font-mono text-xs sm:text-sm font-bold text-slate-900 tabular-nums">
-                {formatClock(remainingSeconds)} remaining
+                {formatClock(remainingSeconds)}
               </span>
-              <span className="text-[10px] text-slate-400 block leading-none">
-                Time continues during test
+              <span className="hidden sm:block text-[10px] text-slate-400 leading-none">
+                Time continues
               </span>
             </div>
           </div>
@@ -361,19 +355,20 @@ export function LiveExamRunner({
           <button
             type="button"
             onClick={() => setShowCancelModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 hover:border-red-200 shadow-2xs cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 hover:border-red-200 shadow-2xs cursor-pointer transition-colors shrink-0"
+            title="Cancel Test"
           >
             <XCircle className="h-4 w-4 text-slate-400" />
-            <span>Cancel Test</span>
+            <span className="hidden sm:inline">Cancel</span>
           </button>
 
-          {/* Submit Test Button */}
+          {/* Submit Test Button — Always Visible & Fixed Prominently */}
           <button
             type="button"
             onClick={() => setShowSubmitConfirm(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-blue-600 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors shrink-0"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-4 w-4 shrink-0" />
             <span>Submit Test</span>
           </button>
         </div>
@@ -511,12 +506,32 @@ export function LiveExamRunner({
                   <span>Save &amp; Next</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSubmitConfirm(true)}
+                  className="inline-flex sm:hidden items-center gap-1 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-black shadow-xs cursor-pointer transition-colors"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Submit</span>
+                </button>
               </div>
             </div>
           </div>
 
           {/* Right Column: Question Navigator & Legend (Matching Image 3) */}
           <div className="lg:col-span-4 space-y-5">
+            {/* MediaPipe On-Device Face Proctoring Preview */}
+            {test.proctoringAIEnabled && (
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs">
+                <MediaPipeProctor
+                  active={!isLockedRef.current}
+                  compact={true}
+                  onMultipleFacesDetected={() => triggerStrike('Multiple Faces Detected by MediaPipe AI')}
+                  onNoFaceDetected={() => triggerStrike('No Candidate Face Detected by MediaPipe AI')}
+                />
+              </div>
+            )}
+
             {/* Question Navigator */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-4">
               <h2 className="font-display text-sm font-bold text-slate-900">
@@ -606,6 +621,24 @@ export function LiveExamRunner({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Direct Submit Action Card */}
+            <div className="rounded-2xl border border-blue-200/90 bg-blue-50/70 p-4 space-y-2.5 shadow-2xs">
+              <div className="text-xs font-semibold text-slate-800">
+                Finish &amp; Submit Assessment
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Review answered ({answeredCount}) and flagged ({markedCount}) questions before submitting.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowSubmitConfirm(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                <span>Submit Test Now</span>
+              </button>
             </div>
           </div>
         </div>

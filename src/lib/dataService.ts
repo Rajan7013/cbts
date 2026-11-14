@@ -230,6 +230,7 @@ export async function listTests(user: UserProfile, isAdminMode: boolean): Promis
         negativeMarking: Boolean(data.negativeMarking),
         negativeMarkValue: Number(data.negativeMarkValue ?? 0),
         maxStrikes: Number(data.maxStrikes ?? 3),
+        maxAttempts: Math.min(Math.max(Number(data.maxAttempts) || 1, 1), 99),
         enforceFullscreen: Boolean(data.enforceFullscreen),
         detectTabSwitch: Boolean(data.detectTabSwitch),
         proctoringAIEnabled: Boolean(data.proctoringAIEnabled),
@@ -272,6 +273,7 @@ export async function saveTest(user: UserProfile, test: TestExam): Promise<TestE
         negativeMarking: Boolean(test.negativeMarking),
         negativeMarkValue: Math.min(Math.max(Number(test.negativeMarkValue) || 0, 0), 100),
         maxStrikes: Math.min(Math.max(Number(test.maxStrikes) || 0, 0), 20),
+        maxAttempts: Math.min(Math.max(Number(test.maxAttempts) || 1, 1), 99),
         enforceFullscreen: Boolean(test.enforceFullscreen),
         detectTabSwitch: Boolean(test.detectTabSwitch),
         proctoringAIEnabled: Boolean(test.proctoringAIEnabled),
@@ -294,6 +296,7 @@ export async function saveTest(user: UserProfile, test: TestExam): Promise<TestE
         negativeMarking: Boolean(test.negativeMarking),
         negativeMarkValue: Math.min(Math.max(Number(test.negativeMarkValue) || 0, 0), 100),
         maxStrikes: Math.min(Math.max(Number(test.maxStrikes) || 0, 0), 20),
+        maxAttempts: Math.min(Math.max(Number(test.maxAttempts) || 1, 1), 99),
         enforceFullscreen: Boolean(test.enforceFullscreen),
         detectTabSwitch: Boolean(test.detectTabSwitch),
         proctoringAIEnabled: Boolean(test.proctoringAIEnabled),
@@ -891,6 +894,7 @@ function mapDocToAttempt(id: string, data: Record<string, unknown>): TestAttempt
     userName: String(data.userName || ''),
     userEmail: String(data.userEmail || ''),
     status: (data.status as TestAttempt['status']) || 'in_progress',
+    attemptNumber: Number(data.attemptNumber) || 1,
     startedAtIso: tsToIso(data.startedAt),
     lastActiveAtIso: tsToIso(data.lastActiveAt),
     submittedAtIso: data.submittedAt ? tsToIso(data.submittedAt) : undefined,
@@ -951,8 +955,25 @@ export async function listAllAttemptsForTest(
 
 export async function createAttempt(
   user: UserProfile,
-  test: TestExam
+  test: TestExam,
+  targetAttemptNumber?: number
 ): Promise<TestAttempt> {
+  let currentAttemptNumber = targetAttemptNumber;
+  if (!currentAttemptNumber) {
+    try {
+      const userAttempts = await listUserAttempts(user);
+      const forThisTest = userAttempts.filter((a) => a.testId === test.testId);
+      currentAttemptNumber = forThisTest.length + 1;
+    } catch {
+      currentAttemptNumber = 1;
+    }
+  }
+
+  const maxAllowed = test.maxAttempts || 1;
+  if (currentAttemptNumber > maxAllowed) {
+    throw new Error(`Maximum attempts allowed (${maxAllowed}) has been reached for this test.`);
+  }
+
   const attemptId = generateId('att');
   const nowIso = new Date().toISOString();
   const initialSectionId = test.sections[0]?.id || 'default';
@@ -966,6 +987,7 @@ export async function createAttempt(
     userName: user.name.slice(0, 120),
     userEmail: user.email.slice(0, 200),
     status: 'in_progress',
+    attemptNumber: currentAttemptNumber,
     startedAtIso: nowIso,
     lastActiveAtIso: nowIso,
     remainingSeconds: totalSeconds,
@@ -1000,6 +1022,7 @@ export async function createAttempt(
       userName: attempt.userName,
       userEmail: attempt.userEmail,
       status: 'in_progress',
+      attemptNumber: currentAttemptNumber,
       startedAt: serverTimestamp(),
       lastActiveAt: serverTimestamp(),
       remainingSeconds: attempt.remainingSeconds,

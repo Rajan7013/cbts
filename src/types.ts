@@ -131,6 +131,7 @@ export interface TestAttempt {
   userName: string;
   userEmail: string;
   status: AttemptStatus;
+  attemptNumber?: number;
   startedAtIso: string;
   lastActiveAtIso: string;
   submittedAtIso?: string;

@@ -683,6 +683,16 @@ export default function App() {
           test={selectedTest}
           questions={unlockedResultQuestions}
           attempt={activeAttempt}
+          allAttempts={attempts.filter((a) => a.testId === selectedTest.testId)}
+          onSelectAttempt={async (att) => {
+            setActiveAttempt(att);
+            const sanitized = await listSanitizedQuestions(user, selectedTest.testId);
+            const unlocked = await unlockQuestionsForReview(selectedTest.testId, sanitized, att.status);
+            setUnlockedResultQuestions(unlocked);
+          }}
+          onRetakeTest={() => {
+            handleStartOrResumeBriefing(selectedTest, undefined);
+          }}
           onBackToDashboard={() => setScreen('candidate-dashboard')}
         />
       )}

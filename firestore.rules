@@ -71,7 +71,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'testId', 'title', 'description', 'createdBy', 'startTime', 'endTime',
           'durationMins', 'totalQuestions', 'passPercentage', 'marksPerQuestion',
-          'negativeMarking', 'negativeMarkValue', 'maxStrikes', 'enforceFullscreen',
+          'negativeMarking', 'negativeMarkValue', 'maxStrikes', 'maxAttempts', 'enforceFullscreen',
           'detectTabSwitch', 'proctoringAIEnabled', 'status', 'sections', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.testId)
@@ -88,6 +88,7 @@ service cloud.firestore {
         && data.negativeMarking is bool
         && data.negativeMarkValue is number && data.negativeMarkValue >= 0 && data.negativeMarkValue <= 100
         && data.maxStrikes is number && data.maxStrikes >= 0 && data.maxStrikes <= 20
+        && (!('maxAttempts' in data) || (data.maxAttempts is number && data.maxAttempts >= 1 && data.maxAttempts <= 99))
         && data.enforceFullscreen is bool
         && data.detectTabSwitch is bool
         && data.proctoringAIEnabled is bool
@@ -193,7 +194,7 @@ service cloud.firestore {
           'status', 'startedAt', 'lastActiveAt', 'submittedAt', 'remainingSeconds',
           'currentQuestionIndex', 'currentSectionId', 'strikeCount', 'strikes',
           'responses', 'score', 'maxScore', 'accuracy', 'correctCount',
-          'wrongCount', 'unattemptedCount', 'timeTakenSeconds'
+          'wrongCount', 'unattemptedCount', 'timeTakenSeconds', 'attemptNumber'
         ])
         && isValidId(data.attemptId)
         && data.attemptId == attemptId
@@ -203,6 +204,7 @@ service cloud.firestore {
         && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 120
         && data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200
         && data.status in ['in_progress', 'submitted', 'auto_submitted_strike']
+        && (!('attemptNumber' in data) || (data.attemptNumber is number && data.attemptNumber >= 1 && data.attemptNumber <= 99))
         && data.startedAt is timestamp
         && data.lastActiveAt is timestamp
         && (!('submittedAt' in data) || data.submittedAt is timestamp)
@@ -277,7 +279,7 @@ service cloud.firestore {
         && incoming().diff(existing()).affectedKeys().hasOnly([
           'title', 'description', 'startTime', 'endTime', 'durationMins',
           'totalQuestions', 'passPercentage', 'marksPerQuestion', 'negativeMarking', 'negativeMarkValue',
-          'maxStrikes', 'enforceFullscreen', 'detectTabSwitch', 'proctoringAIEnabled',
+          'maxStrikes', 'maxAttempts', 'enforceFullscreen', 'detectTabSwitch', 'proctoringAIEnabled',
           'status', 'sections', 'updatedAt'
         ]);
       allow delete: if isAdmin() && isValidId(testId);
