@@ -19,7 +19,16 @@ export function ExamBriefingScreen({
   const [agreed, setAgreed] = useState(false);
 
   const handleEnterFullscreenAndStart = async () => {
-    if (test.enforceFullscreen && document.documentElement.requestFullscreen) {
+    // Only request OS immersive fullscreen on desktop devices.
+    // On mobile devices (Android/iOS), requestFullscreen causes intrusive OS overlays
+    // ("Drag from top and swipe... to exit full screen") and accidental swipe exits.
+    const isMobileDevice =
+      typeof window !== 'undefined' &&
+      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        window.innerWidth < 768 ||
+        window.matchMedia?.('(pointer: coarse)')?.matches);
+
+    if (test.enforceFullscreen && !isMobileDevice && document.documentElement.requestFullscreen) {
       try {
         await document.documentElement.requestFullscreen();
       } catch {

@@ -35,8 +35,12 @@ interface LiveExamRunnerProps {
 
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
-  const mins = Math.floor(s / 60);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
   const secs = s % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
@@ -71,6 +75,14 @@ export function LiveExamRunner({
   useEffect(() => {
     attemptRef.current = attempt;
   }, [attempt]);
+
+  const isWarning = remainingSeconds > 0 && remainingSeconds <= 300; // <= 5 minutes
+  const isUrgent = remainingSeconds > 0 && remainingSeconds <= 120; // <= 2 minutes
+  const isMobileDevice =
+    typeof window !== 'undefined' &&
+    (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      window.innerWidth < 768 ||
+      window.matchMedia?.('(pointer: coarse)')?.matches);
 
   const currentQuestion: SanitizedQuestion | undefined = questions[currentIndex];
   const activeSection = test.sections.find((s) => s.id === currentQuestion?.sectionId);
@@ -178,7 +190,7 @@ export function LiveExamRunner({
       if (document.fullscreenElement) {
         wasFullscreenRef.current = true;
         setIsFullscreenExited(false);
-      } else if (test.enforceFullscreen && wasFullscreenRef.current && !isLockedRef.current) {
+      } else if (test.enforceFullscreen && !isMobileDevice && wasFullscreenRef.current && !isLockedRef.current) {
         setIsFullscreenExited(true);
         triggerStrike('Exited Fullscreen Mode');
       }
@@ -321,15 +333,20 @@ export function LiveExamRunner({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none">
-      {/* Top Header Bar (Matching Image 3) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/90 bg-white px-3 sm:px-6 py-2.5 sm:py-3 shadow-2xs">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs shrink-0">
+      {/* Top Header Bar */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-slate-200/90 bg-white px-2.5 sm:px-6 py-2 sm:py-3 shadow-2xs">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 font-bold text-white text-xs shrink-0 shadow-2xs">
             EP
           </div>
-          <span className="font-bold text-xs sm:text-base text-slate-900 shrink-0">ExamPulse</span>
-          <span className="text-slate-300 shrink-0">|</span>
-          <h1 className="font-semibold text-xs sm:text-base text-slate-900 truncate max-w-[130px] sm:max-w-xs md:max-w-md">
+          <span className="hidden sm:inline font-bold text-sm sm:text-base text-slate-900 shrink-0">
+            ExamPulse
+          </span>
+          <span className="hidden sm:inline text-slate-300 shrink-0">|</span>
+          <h1
+            title={test.title}
+            className="font-semibold text-xs sm:text-sm md:text-base text-slate-900 truncate min-w-0"
+          >
             {test.title}
           </h1>
           <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
@@ -337,16 +354,33 @@ export function LiveExamRunner({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
-          {/* Timer Pill */}
-          <div className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3.5 py-1.5 shadow-2xs shrink-0">
-            <Clock className="h-4 w-4 text-blue-600 shrink-0" />
-            <div className="text-right">
-              <span className="font-mono text-xs sm:text-sm font-bold text-slate-900 tabular-nums">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Timer Pill — Clear Label & Urgency Colors */}
+          <div
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-xl border px-2 sm:px-3.5 py-1 sm:py-1.5 shadow-2xs shrink-0 transition-colors ${
+              isUrgent
+                ? 'border-red-400 bg-red-50 text-red-900 shadow-xs ring-1 ring-red-400/50'
+                : isWarning
+                ? 'border-amber-300 bg-amber-50 text-amber-900'
+                : 'border-slate-200 bg-white text-slate-900'
+            }`}
+            title="Time remaining for this assessment"
+          >
+            <Clock
+              className={`h-3.5 sm:h-4 w-3.5 sm:w-4 shrink-0 ${
+                isUrgent ? 'text-red-600 animate-pulse' : isWarning ? 'text-amber-600' : 'text-blue-600'
+              }`}
+            />
+            <div className="text-right leading-tight">
+              <span className="font-mono text-xs sm:text-sm font-bold tabular-nums block">
                 {formatClock(remainingSeconds)}
               </span>
-              <span className="hidden sm:block text-[10px] text-slate-400 leading-none">
-                Time continues
+              <span
+                className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider block ${
+                  isUrgent ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-slate-400'
+                }`}
+              >
+                {isUrgent ? 'Urgent' : 'Remaining'}
               </span>
             </div>
           </div>
@@ -355,27 +389,58 @@ export function LiveExamRunner({
           <button
             type="button"
             onClick={() => setShowCancelModal(true)}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 hover:border-red-200 shadow-2xs cursor-pointer transition-colors shrink-0"
-            title="Cancel Test"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-red-700 hover:bg-red-50 hover:border-red-200 shadow-2xs cursor-pointer transition-colors shrink-0"
+            title="Cancel Examination"
           >
-            <XCircle className="h-4 w-4 text-slate-400" />
+            <XCircle className="h-4 w-4 text-slate-400 hover:text-red-600" />
             <span className="hidden sm:inline">Cancel</span>
           </button>
 
-          {/* Submit Test Button — Always Visible & Fixed Prominently */}
+          {/* Submit Test Button */}
           <button
             type="button"
             onClick={() => setShowSubmitConfirm(true)}
-            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-xl bg-blue-600 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors shrink-0"
+            className="inline-flex items-center gap-1 sm:gap-2 rounded-xl bg-blue-600 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors shrink-0"
+            title="Submit Assessment"
           >
-            <Upload className="h-4 w-4 shrink-0" />
-            <span>Submit Test</span>
+            <Upload className="h-3.5 sm:h-4 w-3.5 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline">Submit Test</span>
+            <span className="sm:hidden text-xs">Submit</span>
           </button>
         </div>
       </header>
 
+      {/* Mobile Sticky Sub-Header: Question X of Y • Section Name • Persistent Time */}
+      <div className="sm:hidden sticky top-[49px] z-20 flex items-center justify-between border-b border-slate-200 bg-slate-100/95 px-3 py-1.5 backdrop-blur-xs text-[11px] font-semibold text-slate-700 shadow-2xs">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-blue-700 font-bold shrink-0">
+            Q{currentIndex + 1} of {questions.length}
+          </span>
+          <span className="text-slate-300 shrink-0">•</span>
+          <span className="truncate max-w-[130px] text-slate-600">
+            {activeSection?.name || 'General Section'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span
+            className={`font-mono font-bold ${
+              isUrgent
+                ? 'text-red-600 animate-pulse font-extrabold'
+                : isWarning
+                ? 'text-amber-700'
+                : 'text-slate-800'
+            }`}
+          >
+            ⏱ {formatClock(remainingSeconds)} left
+          </span>
+          <span className="text-[10px] bg-white border border-slate-200 px-1.5 py-0.2 rounded-full text-slate-600 font-medium">
+            Att. #{initialAttempt.attemptNumber || 1}
+          </span>
+        </div>
+      </div>
+
       {/* Main Content Area: Left 70% Question, Right 30% Navigator (Matching Image 3) */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Question Area */}
           <div className="lg:col-span-8 flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs">
