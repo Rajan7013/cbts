@@ -15,6 +15,7 @@ export interface UnlockedKeyRecord {
   testId: string;
   correctOptionId: OptionId;
   shortExplanation: string;
+  solutionImageUrl?: string;
   stepByStepSolution: string[];
 }
 

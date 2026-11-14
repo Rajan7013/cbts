@@ -580,7 +580,16 @@ export function AdminResultsView({
                           >
                             {opt.id}
                           </span>
-                          <MathText text={opt.text} className="text-xs sm:text-sm font-medium" />
+                          <div className="space-y-1 min-w-0">
+                            <MathText text={opt.text} className="text-xs sm:text-sm font-medium" />
+                            {opt.imageUrl && (
+                              <img
+                                src={opt.imageUrl}
+                                alt={`Option ${opt.id}`}
+                                className="max-h-20 rounded border border-slate-200 bg-white object-contain p-0.5"
+                              />
+                            )}
+                          </div>
                         </div>
 
                         {/* Badges on right */}
@@ -603,15 +612,23 @@ export function AdminResultsView({
               </div>
 
               {/* Explanation Card */}
-              {currentReview.q.shortExplanation && (
+              {(currentReview.q.shortExplanation || currentReview.q.solutionImageUrl) && (
                 <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5 space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                     <Lightbulb className="h-4 w-4 text-blue-600" />
                     <span>Explanation</span>
                   </div>
-                  <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
-                    <MathText text={currentReview.q.shortExplanation} />
-                  </div>
+                  {currentReview.q.shortExplanation && (
+                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                      <MathText text={currentReview.q.shortExplanation} />
+                    </div>
+                  )}
+                  {currentReview.q.solutionImageUrl && (
+                    <div className="pt-2">
+                      <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
+                      <QuestionImage src={currentReview.q.solutionImageUrl} alt="Solution diagram" />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

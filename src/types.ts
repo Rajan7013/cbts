@@ -74,10 +74,12 @@ export interface SanitizedQuestion {
 export interface TestQuestion extends SanitizedQuestion {
   correctOptionId: OptionId;
   shortExplanation: string;
+  solutionImageUrl?: string;
   stepByStepSolution: string[];
   // UI compatibility aliases
   solution?: {
     shortExplanation?: string;
+    imageUrl?: string;
     steps?: string[];
   };
 }

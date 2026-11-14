@@ -7,6 +7,7 @@ import {
   setPersistence,
 } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 // Support Vite client-side environment variables with safe defaults
 const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
 
@@ -22,6 +23,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+let storageInstance: FirebaseStorage | null = null;
+try {
+  storageInstance = getStorage(app);
+} catch (e) {
+  console.warn('Firebase storage could not be initialized:', e);
+}
+export const storage = storageInstance;
 export const auth = getAuth(app);
 auth.useDeviceLanguage();
 

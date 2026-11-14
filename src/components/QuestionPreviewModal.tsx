@@ -325,6 +325,13 @@ export function QuestionPreviewModal({
                         </div>
                       )}
 
+                      {currentQ.solutionImageUrl && (
+                        <div className="pt-2">
+                          <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
+                          <QuestionImage src={currentQ.solutionImageUrl} alt="Solution diagram" />
+                        </div>
+                      )}
+
                       {currentQ.stepByStepSolution?.length > 0 && (
                         <div className="border-t border-slate-200 pt-2.5">
                           <div className="font-semibold text-slate-900 mb-1">

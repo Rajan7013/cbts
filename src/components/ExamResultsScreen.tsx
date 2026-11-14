@@ -517,12 +517,20 @@ export function ExamResultsScreen({
               </div>
 
               {/* Short Explanation */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
-                <span className="font-semibold text-slate-900">Short Explanation: </span>
-                {displayShort ? (
-                  <MathText text={displayShort} inline />
-                ) : (
-                  'No short explanation provided.'
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700 space-y-2">
+                <div>
+                  <span className="font-semibold text-slate-900">Short Explanation: </span>
+                  {displayShort ? (
+                    <MathText text={displayShort} inline />
+                  ) : (
+                    'No short explanation provided.'
+                  )}
+                </div>
+                {q.solutionImageUrl && (
+                  <div className="pt-2">
+                    <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
+                    <QuestionImage src={q.solutionImageUrl} alt="Solution diagram" />
+                  </div>
                 )}
               </div>
 

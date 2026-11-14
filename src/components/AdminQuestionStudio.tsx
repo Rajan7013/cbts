@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { MathText } from './MathText';
 import { QuestionImage } from './QuestionImage';
+import { processAndUploadImage } from '../lib/imageUtils';
 import {
   generateDiagramWithAI,
   generateQuestionsWithAI,
@@ -238,6 +239,7 @@ export function AdminQuestionStudio({
   // Form Fields
   const [questionText, setQuestionText] = useState('');
   const [questionImageUrl, setQuestionImageUrl] = useState('');
+  const [solutionImageUrl, setSolutionImageUrl] = useState('');
   const [options, setOptions] = useState<QuestionOption[]>(
     OPTION_IDS.map((id) => ({ id, text: '', imageUrl: '' }))
   );
@@ -248,7 +250,10 @@ export function AdminQuestionStudio({
   const [showStepsAccordion, setShowStepsAccordion] = useState(false);
 
   const [savingQ, setSavingQ] = useState(false);
-  const [uploadingTarget, setUploadingTarget] = useState<'question' | OptionId | null>(null);
+  const [uploadingTarget, setUploadingTarget] = useState<'question' | 'solution' | OptionId | null>(null);
+  const [activeOptionUploadTarget, setActiveOptionUploadTarget] = useState<OptionId | null>(null);
+  const optFileInputRef = useRef<HTMLInputElement>(null);
+  const solImgInputRef = useRef<HTMLInputElement>(null);
   const [generatingWithAi, setGeneratingWithAi] = useState(false);
   const [generatingDiagram, setGeneratingDiagram] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -291,6 +296,7 @@ export function AdminQuestionStudio({
     setEditingId(q.questionId);
     setQuestionText(q.questionText || q.stem || '');
     setQuestionImageUrl(q.questionImageUrl || q.imageUrl || '');
+    setSolutionImageUrl(q.solutionImageUrl || q.solution?.imageUrl || '');
     setOptions(
       OPTION_IDS.map((id) => {
         const found = q.options.find((o) => o.id === id);
@@ -315,6 +321,7 @@ export function AdminQuestionStudio({
     setEditingId(null);
     setQuestionText('');
     setQuestionImageUrl('');
+    setSolutionImageUrl('');
     setOptions(OPTION_IDS.map((id) => ({ id, text: '', imageUrl: '' })));
     setCorrectOptionId('A');
     setShortExplanation('');
@@ -373,6 +380,7 @@ export function AdminQuestionStudio({
       const qId = editingId || generateId('q');
       const safeText = questionText.trim();
       const safeImg = questionImageUrl.trim() || undefined;
+      const safeSolImg = solutionImageUrl.trim() || undefined;
       const safeShort = shortExplanation.trim() || 'No explanation provided.';
       const safeSteps = steps.map((s) => s.trim()).filter(Boolean);
 
@@ -384,6 +392,7 @@ export function AdminQuestionStudio({
         orderIndex: questions.length + 1,
         questionText: safeText || (safeImg ? 'Refer to the diagram below.' : 'Question'),
         questionImageUrl: safeImg,
+        solutionImageUrl: safeSolImg,
         options: options.map((o) => ({
           id: o.id,
           text: (o.text || '').trim(),
@@ -397,6 +406,7 @@ export function AdminQuestionStudio({
         imageUrl: safeImg,
         solution: {
           shortExplanation: safeShort,
+          imageUrl: safeSolImg,
           steps: safeSteps,
         },
         order: questions.length + 1,
@@ -499,6 +509,8 @@ export function AdminQuestionStudio({
       for (let i = 0; i < aiDrafts.length; i++) {
         const draft = aiDrafts[i];
         const draftText = draft.stem || 'Question';
+        const draftImg = draft.imageUrl || (draft as any).questionImageUrl || undefined;
+        const draftSolImg = (draft as any).solutionImageUrl || draft.solution?.imageUrl || undefined;
         const draftShort = draft.solution?.shortExplanation || '';
         const draftSteps = draft.solution?.steps || [];
         const newQ: TestQuestion = {
@@ -508,6 +520,8 @@ export function AdminQuestionStudio({
           sectionId: aiTargetSectionId,
           orderIndex: questions.length + i + 1,
           questionText: draftText,
+          questionImageUrl: draftImg,
+          solutionImageUrl: draftSolImg,
           options: draft.options.map((o) => ({
             id: o.id,
             text: o.text || '',
@@ -518,9 +532,11 @@ export function AdminQuestionStudio({
           stepByStepSolution: draftSteps,
           marks: defaultMarks,
           stem: draftText,
+          imageUrl: draftImg,
           order: questions.length + i + 1,
           solution: {
             shortExplanation: draftShort,
+            imageUrl: draftSolImg,
             steps: draftSteps,
           },
         };
@@ -569,6 +585,8 @@ export function AdminQuestionStudio({
       for (let i = 0; i < jsonDrafts.length; i++) {
         const draft = jsonDrafts[i];
         const draftText = draft.stem || 'Question';
+        const draftImg = draft.imageUrl || (draft as any).questionImageUrl || undefined;
+        const draftSolImg = (draft as any).solutionImageUrl || draft.solution?.imageUrl || undefined;
         const draftShort = draft.solution?.shortExplanation || '';
         const draftSteps = draft.solution?.steps || [];
         const newQ: TestQuestion = {
@@ -578,6 +596,8 @@ export function AdminQuestionStudio({
           sectionId: activeSectionId,
           orderIndex: questions.length + i + 1,
           questionText: draftText,
+          questionImageUrl: draftImg,
+          solutionImageUrl: draftSolImg,
           options: draft.options.map((o) => ({
             id: o.id,
             text: o.text || '',
@@ -588,9 +608,11 @@ export function AdminQuestionStudio({
           stepByStepSolution: draftSteps,
           marks: defaultMarks,
           stem: draftText,
+          imageUrl: draftImg,
           order: questions.length + i + 1,
           solution: {
             shortExplanation: draftShort,
+            imageUrl: draftSolImg,
             steps: draftSteps,
           },
         };
@@ -636,18 +658,22 @@ export function AdminQuestionStudio({
     }
   };
 
-  const handleGenerateDiagramWithAi = async (target: 'question' | OptionId = 'question') => {
+  const handleGenerateDiagramWithAi = async (target: 'question' | 'solution' | OptionId = 'question') => {
     const prompt = window.prompt(
       'Enter diagram prompt for Gemini (e.g. "Wheatstone bridge circuit with 4 resistors and galvanometer", "Inclined plane with 2kg block at 30 degrees", "Optics ray diagram with convex lens"):',
-      questionText.slice(0, 160) || 'Physics circuit diagram'
+      target === 'solution'
+        ? (shortExplanation.slice(0, 160) || 'Solution diagram')
+        : (questionText.slice(0, 160) || 'Physics circuit diagram')
     );
     if (!prompt) return;
     setGeneratingDiagram(true);
     setErrorMsg(null);
     try {
-      const res = await generateDiagramWithAI({ prompt, topic: currentSection?.name || 'Physics' });
+      const res = await generateDiagramWithAI({ prompt, topic: currentSection?.name || 'Science' });
       if (target === 'question') {
         setQuestionImageUrl(res.dataUrl);
+      } else if (target === 'solution') {
+        setSolutionImageUrl(res.dataUrl);
       } else {
         setOptions((prev) =>
           prev.map((o) => (o.id === target ? { ...o, imageUrl: res.dataUrl } : o))
@@ -660,17 +686,20 @@ export function AdminQuestionStudio({
     }
   };
 
-  // Image Upload helper with direct dataUrl storage (self-contained, 0 broken images, 0 404s)
-  const handleUploadImage = async (file: File, target: 'question' | OptionId) => {
+  // Image Upload helper with Firebase Storage & client-side canvas optimization (100% resilient on Vercel)
+  const handleUploadImage = async (file: File, target: 'question' | 'solution' | OptionId) => {
     setUploadingTarget(target);
     setErrorMsg(null);
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const storagePath = `test-media/${test.testId}/${editingId || 'new'}_${target}_${Date.now()}`;
+      const url = await processAndUploadImage(file, storagePath);
       if (target === 'question') {
-        setQuestionImageUrl(dataUrl);
+        setQuestionImageUrl(url);
+      } else if (target === 'solution') {
+        setSolutionImageUrl(url);
       } else {
         setOptions((prev) =>
-          prev.map((o) => (o.id === target ? { ...o, imageUrl: dataUrl } : o))
+          prev.map((o) => (o.id === target ? { ...o, imageUrl: url } : o))
         );
       }
     } catch (err) {
@@ -680,7 +709,7 @@ export function AdminQuestionStudio({
     }
   };
 
-  const handlePasteImageFromClipboard = async (target: 'question' | OptionId = 'question') => {
+  const handlePasteImageFromClipboard = async (target: 'question' | 'solution' | OptionId = 'question') => {
     setErrorMsg(null);
     try {
       if (!navigator.clipboard?.read) {
@@ -692,7 +721,7 @@ export function AdminQuestionStudio({
         const imageType = item.types.find((t) => t.startsWith('image/'));
         if (imageType) {
           const blob = await item.getType(imageType);
-          const file = new File([blob], 'pasted_diagram.png', { type: imageType });
+          const file = new File([blob], `pasted_${target}.png`, { type: imageType });
           await handleUploadImage(file, target);
           return;
         }
@@ -1181,43 +1210,101 @@ export function AdminQuestionStudio({
               )}
 
               {/* Answer Options */}
-              <div className="space-y-2.5 pt-2">
+              <div className="space-y-3 pt-2">
                 <label className="block text-xs font-semibold text-slate-700">
                   Answer Options <span className="text-red-500">*</span>
                 </label>
 
+                {/* Hidden file input for options */}
+                <input
+                  ref={optFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && activeOptionUploadTarget) {
+                      handleUploadImage(file, activeOptionUploadTarget);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+
                 {options.map((opt) => (
-                  <div key={opt.id} className="flex items-center gap-2">
-                    <span className="h-8 w-8 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
-                      {opt.id}
-                    </span>
+                  <div key={opt.id} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="h-8 w-8 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                        {opt.id}
+                      </span>
 
-                    <input
-                      type="text"
-                      value={opt.text}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: val } : o)));
-                      }}
-                      placeholder={`Enter option ${opt.id}...`}
-                      className="flex-1 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2 text-xs text-slate-900 focus:outline-hidden focus:border-blue-500 font-mono"
-                    />
+                      <input
+                        type="text"
+                        value={opt.text}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: val } : o)));
+                        }}
+                        placeholder={`Enter option ${opt.id}...`}
+                        className="flex-1 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2 text-xs text-slate-900 focus:outline-hidden focus:border-blue-500 font-mono"
+                      />
 
-                    {/* Radio select for correct answer */}
-                    <button
-                      type="button"
-                      onClick={() => setCorrectOptionId(opt.id)}
-                      className="p-1 cursor-pointer"
-                      title={`Mark ${opt.id} as correct`}
-                    >
-                      <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                        correctOptionId === opt.id
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-slate-300 hover:border-slate-400'
-                      }`}>
-                        {correctOptionId === opt.id && <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
+                      {/* Add Image Button matching Image 7 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveOptionUploadTarget(opt.id);
+                          optFileInputRef.current?.click();
+                        }}
+                        disabled={uploadingTarget === opt.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs shrink-0"
+                        title={`Attach image for Option ${opt.id}`}
+                      >
+                        <ImagePlus className="h-3.5 w-3.5 text-slate-500" />
+                        <span>{uploadingTarget === opt.id ? 'Uploading…' : opt.imageUrl ? 'Change Image' : 'Add Image'}</span>
+                      </button>
+
+                      {/* Radio select for correct answer */}
+                      <button
+                        type="button"
+                        onClick={() => setCorrectOptionId(opt.id)}
+                        className="p-1 cursor-pointer shrink-0"
+                        title={`Mark ${opt.id} as correct`}
+                      >
+                        <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          correctOptionId === opt.id
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-slate-300 hover:border-slate-400'
+                        }`}>
+                          {correctOptionId === opt.id && <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Option Image Thumbnail if present */}
+                    {opt.imageUrl && (
+                      <div className="ml-10 flex items-center gap-2">
+                        <div className="relative group inline-block rounded-lg border border-slate-200 bg-white p-1">
+                          <img
+                            src={opt.imageUrl}
+                            alt={`Option ${opt.id} attachment`}
+                            className="h-16 w-auto max-w-xs rounded object-contain"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOptions((prev) =>
+                                prev.map((o) => (o.id === opt.id ? { ...o, imageUrl: '' } : o))
+                              )
+                            }
+                            className="absolute -top-2 -right-2 rounded-full bg-red-600 p-0.5 text-white hover:bg-red-700 shadow-xs cursor-pointer"
+                            title="Remove image"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <span className="text-[11px] text-slate-400">Option {opt.id} diagram attached</span>
                       </div>
-                    </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1238,11 +1325,54 @@ export function AdminQuestionStudio({
                 </select>
               </div>
 
-              {/* Explanation Textarea */}
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Explanation (Optional)
-                </label>
+              {/* Explanation Textarea & Solution Diagram */}
+              <div className="pt-2 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Explanation (Optional)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={solImgInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadImage(file, 'solution');
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => solImgInputRef.current?.click()}
+                      disabled={uploadingTarget === 'solution'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
+                    >
+                      <ImagePlus className="h-3 w-3 text-slate-500" />
+                      <span>{uploadingTarget === 'solution' ? 'Uploading…' : solutionImageUrl ? 'Change Diagram' : 'Upload Solution Diagram'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePasteImageFromClipboard('solution')}
+                      disabled={uploadingTarget === 'solution'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
+                    >
+                      <ClipboardPaste className="h-3 w-3 text-slate-500" />
+                      <span>Paste Diagram</span>
+                    </button>
+                    {solutionImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSolutionImageUrl('')}
+                        className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                      >
+                        Remove Diagram
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <textarea
                   rows={2}
                   value={shortExplanation}
@@ -1250,6 +1380,13 @@ export function AdminQuestionStudio({
                   placeholder="Brief explanation for the correct answer (shown after the test)..."
                   className="w-full rounded-xl border border-slate-200/80 bg-white p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500"
                 />
+
+                {solutionImageUrl && (
+                  <div className="pt-1">
+                    <div className="text-[11px] font-semibold text-slate-500 mb-1">Solution Diagram Preview:</div>
+                    <QuestionImage src={solutionImageUrl} alt="Solution diagram" />
+                  </div>
+                )}
               </div>
 
               {/* Solution Steps Accordion */}
@@ -1423,16 +1560,38 @@ export function AdminQuestionStudio({
                   {options.map((opt) => (
                     <div
                       key={opt.id}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-slate-200/80 bg-slate-50/50"
+                      className="p-2 rounded-lg border border-slate-200/80 bg-slate-50/50 space-y-1.5"
                     >
-                      <div className="h-4 w-4 rounded-full border border-slate-300 flex items-center justify-center shrink-0" />
-                      <span className="font-bold text-slate-700">{opt.id}.</span>
-                      <span className="text-slate-800 truncate">
-                        {opt.text ? <MathText text={opt.text} /> : <span className="text-slate-400">—</span>}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-full border border-slate-300 flex items-center justify-center shrink-0" />
+                        <span className="font-bold text-slate-700">{opt.id}.</span>
+                        <span className="text-slate-800 truncate">
+                          {opt.text ? <MathText text={opt.text} /> : <span className="text-slate-400">—</span>}
+                        </span>
+                      </div>
+                      {opt.imageUrl && (
+                        <div className="pl-6">
+                          <img
+                            src={opt.imageUrl}
+                            alt={`Option ${opt.id} preview`}
+                            className="max-h-20 rounded border border-slate-200 bg-white object-contain p-0.5"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {/* Solution Preview if entered */}
+                {(shortExplanation || solutionImageUrl) && (
+                  <div className="mt-3 p-2.5 rounded-lg border border-blue-100 bg-blue-50/50 space-y-1.5">
+                    <span className="font-bold text-blue-900 text-[11px] block">Solution &amp; Explanation Preview:</span>
+                    {shortExplanation && <MathText text={shortExplanation} />}
+                    {solutionImageUrl && (
+                      <QuestionImage src={solutionImageUrl} alt="Solution preview" allowZoom={false} className="max-h-24" />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

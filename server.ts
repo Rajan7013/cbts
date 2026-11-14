@@ -234,6 +234,7 @@ interface StoredAnswerKey {
   testId: string;
   correctOptionId: OptionId;
   shortExplanation: string;
+  solutionImageUrl?: string;
   stepByStepSolution: string[];
   marks?: number;
 }
@@ -450,6 +451,7 @@ async function fetchTestAnswerKeysFromAdminDb(
         testId,
         correctOptionId: (data.correctOptionId as OptionId) || 'A',
         shortExplanation: String(data.shortExplanation || ''),
+        solutionImageUrl: data.solutionImageUrl ? String(data.solutionImageUrl) : undefined,
         stepByStepSolution: Array.isArray(data.stepByStepSolution)
           ? (data.stepByStepSolution as string[])
           : [],
@@ -641,24 +643,31 @@ function saveBase64ImageToUploads(
   mimeType: string,
   filenameHint = 'diagram'
 ): string {
-  const rawExt = mimeType
-    .replace(/^image\//i, '')
-    .toLowerCase()
-    .replace('jpeg', 'jpg')
-    .replace('svg+xml', 'svg');
-  const allowedExt = ['png', 'jpg', 'webp', 'gif', 'svg'].includes(rawExt) ? rawExt : 'png';
-  const baseName = filenameHint
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .slice(0, 32);
-  const uniqueName = `${baseName}_${crypto.randomBytes(5).toString('hex')}.${allowedExt}`;
-  const targetPath = path.join(UPLOADS_DIR, uniqueName);
-  const buffer = Buffer.from(base64Data, 'base64');
-  if (buffer.byteLength > 8 * 1024 * 1024) {
-    throw new Error('Image file exceeds 8MB limit.');
+  const cleanMime = mimeType || 'image/png';
+  const dataUrl = `data:${cleanMime};base64,${base64Data}`;
+
+  // Best-effort write to local disk if directory exists and is writable
+  try {
+    const rawExt = cleanMime
+      .replace(/^image\//i, '')
+      .toLowerCase()
+      .replace('jpeg', 'jpg')
+      .replace('svg+xml', 'svg');
+    const allowedExt = ['png', 'jpg', 'webp', 'gif', 'svg'].includes(rawExt) ? rawExt : 'png';
+    const baseName = filenameHint
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 32);
+    const uniqueName = `${baseName}_${crypto.randomBytes(5).toString('hex')}.${allowedExt}`;
+    const targetPath = path.join(UPLOADS_DIR, uniqueName);
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(targetPath, buffer);
+  } catch {
+    // Ignore ephemeral filesystem failures in serverless environments
   }
-  fs.writeFileSync(targetPath, buffer);
-  return `/uploads/${uniqueName}`;
+
+  // Return dataUrl directly so it is 100% self-contained and never 404s on Vercel or any serverless host
+  return dataUrl;
 }
 
 function resolveImageUrlToInlinePart(
@@ -1019,6 +1028,7 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
           stepByStepSolution: Array.isArray(k.stepByStepSolution)
             ? k.stepByStepSolution.map(String)
             : [],
+          solutionImageUrl: k.solutionImageUrl ? String(k.solutionImageUrl) : undefined,
           marks: Number(k.marks || 4),
         };
         vault.byTest[testId][k.questionId] = entry;
@@ -1171,29 +1181,27 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
         return;
       }
 
-      const match = dataUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
-      if (!match) {
-        res.status(400).json({ error: 'Malformed base64 image string.' });
-        return;
+      // Best effort disk cache
+      try {
+        const match = dataUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+        if (match) {
+          const rawExt = match[1].toLowerCase().replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+          const allowedExt = ['png', 'jpg', 'webp', 'gif', 'svg'].includes(rawExt) ? rawExt : 'png';
+          const baseName = (filename || 'diagram')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[^a-zA-Z0-9_-]/g, '_')
+            .slice(0, 32);
+          const uniqueName = `${baseName}_${crypto.randomBytes(5).toString('hex')}.${allowedExt}`;
+          const targetPath = path.join(UPLOADS_DIR, uniqueName);
+          const buffer = Buffer.from(match[2], 'base64');
+          fs.writeFileSync(targetPath, buffer);
+        }
+      } catch {
+        // Ignore filesystem write error in serverless
       }
 
-      const rawExt = match[1].toLowerCase().replace('jpeg', 'jpg').replace('svg+xml', 'svg');
-      const allowedExt = ['png', 'jpg', 'webp', 'gif', 'svg'].includes(rawExt) ? rawExt : 'png';
-      const baseName = (filename || 'diagram')
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-zA-Z0-9_-]/g, '_')
-        .slice(0, 32);
-      const uniqueName = `${baseName}_${crypto.randomBytes(5).toString('hex')}.${allowedExt}`;
-      const targetPath = path.join(UPLOADS_DIR, uniqueName);
-
-      const buffer = Buffer.from(match[2], 'base64');
-      if (buffer.byteLength > 8 * 1024 * 1024) {
-        res.status(400).json({ error: 'Image file exceeds 8MB limit.' });
-        return;
-      }
-
-      fs.writeFileSync(targetPath, buffer);
-      res.json({ url: `/uploads/${uniqueName}` });
+      // Return dataUrl directly so uploaded image is resilient and never 404s on Vercel
+      res.json({ url: dataUrl });
     } catch (err) {
       res.status(500).json({ error: extractErrorMessage(err) });
     }

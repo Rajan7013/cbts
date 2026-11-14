@@ -415,6 +415,7 @@ export async function listQuestionsAdmin(
       const qText = String(data.questionText || data.stem || '');
       const qImg = data.questionImageUrl ? String(data.questionImageUrl) : data.imageUrl ? String(data.imageUrl) : undefined;
       const qShort = String(key.shortExplanation ?? data.shortExplanation ?? '');
+      const qSolImg = key.solutionImageUrl ? String(key.solutionImageUrl) : undefined;
       const qSteps = Array.isArray(key.stepByStepSolution)
         ? (key.stepByStepSolution as string[])
         : Array.isArray(data.stepByStepSolution)
@@ -435,12 +436,14 @@ export async function listQuestionsAdmin(
           (data.correctOptionId as TestQuestion['correctOptionId']) ||
           'A',
         shortExplanation: qShort,
+        solutionImageUrl: qSolImg,
         stepByStepSolution: qSteps,
         stem: qText,
         imageUrl: qImg,
         order: Number(data.orderIndex ?? data.order ?? 0),
         solution: {
           shortExplanation: qShort,
+          imageUrl: qSolImg,
           steps: qSteps,
         },
       };
@@ -532,6 +535,10 @@ export async function recordQuestionVersion(
     if (rawImg.trim()) {
       payload.questionImageUrl = rawImg.trim().slice(0, 800000);
     }
+    const rawSolutionImg = String(question.solutionImageUrl || question.solution?.imageUrl || '');
+    if (rawSolutionImg.trim()) {
+      payload.solutionImageUrl = rawSolutionImg.trim().slice(0, 800000);
+    }
 
     await setDoc(
       doc(db, 'tests', question.testId, 'questions', question.questionId, 'versions', versionId),
@@ -546,6 +553,7 @@ export async function recordQuestionVersion(
       source,
       summary: safeSummary,
       questionText: safeQuestionText,
+      solutionImageUrl: rawSolutionImg.trim() || undefined,
       ...(question.questionImageUrl?.trim()
         ? { questionImageUrl: question.questionImageUrl.trim().slice(0, 800000) }
         : {}),
@@ -709,14 +717,19 @@ export async function saveQuestion(
     }
 
     // Protected answerKey document (readable ONLY by admins in firestore.rules)
-    await setDoc(kRef, {
+    const rawSolutionImg = String(question.solutionImageUrl || question.solution?.imageUrl || '');
+    const answerKeyPayload: Record<string, unknown> = {
       questionId: question.questionId,
       testId: question.testId,
       correctOptionId: question.correctOptionId || 'A',
       shortExplanation: safeShortExplanation,
       stepByStepSolution: safeSteps,
       updatedAt: serverTimestamp(),
-    });
+    };
+    if (rawSolutionImg.trim()) {
+      answerKeyPayload.solutionImageUrl = rawSolutionImg.trim().slice(0, 800000);
+    }
+    await setDoc(kRef, answerKeyPayload);
 
     // Record new version snapshot
     if (shouldRecordVersion) {
@@ -735,6 +748,7 @@ export async function saveQuestion(
         questionId: question.questionId,
         correctOptionId: question.correctOptionId || 'A',
         shortExplanation: safeShortExplanation,
+        solutionImageUrl: rawSolutionImg.trim() || undefined,
         stepByStepSolution: safeSteps,
         marks: question.marks,
       },
