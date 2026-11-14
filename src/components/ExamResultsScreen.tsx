@@ -124,7 +124,7 @@ export function ExamResultsScreen({
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 p-3.5 sm:p-7 lg:p-8 pb-24 md:pb-8 overflow-y-auto bg-white/40">
+        <main className="flex-1 p-3.5 sm:p-7 lg:p-8 pb-32 md:pb-8 overflow-y-auto bg-white/40">
           {/* ======================================================== */}
           {/* VIEW 1: YOUR RESULT SUMMARY (Matching Image 2)           */}
           {/* ======================================================== */}
@@ -693,21 +693,24 @@ export function ExamResultsScreen({
 
       {/* Mobile Fixed Bottom Navigation for Answer Review */}
       {mode === 'review' && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xl">
+        <div
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
+          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+        >
           <button
             type="button"
             disabled={currentQuestionIndex === 0}
             onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 shrink-0" />
             <span>Previous</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowMobileNavigator(true)}
-            className="h-10 px-3.5 rounded-xl border border-blue-200 bg-blue-50/90 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+            className="h-10 px-4 rounded-2xl border border-blue-200 bg-blue-50/90 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
           >
             <span>{currentQuestionIndex + 1} / {questions.length}</span>
           </button>
@@ -716,23 +719,26 @@ export function ExamResultsScreen({
             type="button"
             disabled={currentQuestionIndex === questions.length - 1}
             onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs transition-colors"
           >
             <span>Next</span>
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-4 w-4 shrink-0" />
           </button>
         </div>
       )}
 
       {/* Mobile Bottom Bar for Summary Mode */}
       {mode === 'summary' && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 flex items-center justify-between gap-3 shadow-xl">
+        <div
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
+          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))' }}
+        >
           <button
             type="button"
             onClick={onBackToDashboard}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 shrink-0" />
             <span>Back to Tests</span>
           </button>
 
@@ -742,9 +748,9 @@ export function ExamResultsScreen({
               setCurrentQuestionIndex(0);
               setMode('review');
             }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer shadow-xs"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer shadow-xs"
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 shrink-0" />
             <span>Review answers</span>
           </button>
         </div>
