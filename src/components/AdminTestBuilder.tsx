@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import {
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Trash2,
   AlertCircle,
@@ -534,15 +536,45 @@ export function AdminTestBuilder({
                       <span className="text-xs text-slate-500 font-medium">Qs</span>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={sections.length <= 1}
-                      onClick={() => handleRemoveSection(section.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 cursor-pointer shrink-0 transition-colors"
-                      title="Delete section"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const updated = [...sections];
+                          const [moved] = updated.splice(idx, 1);
+                          updated.splice(idx - 1, 0, moved);
+                          setSections(updated);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-20 cursor-pointer transition-colors"
+                        title="Move section up"
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === sections.length - 1}
+                        onClick={() => {
+                          const updated = [...sections];
+                          const [moved] = updated.splice(idx, 1);
+                          updated.splice(idx + 1, 0, moved);
+                          setSections(updated);
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-20 cursor-pointer transition-colors"
+                        title="Move section down"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={sections.length <= 1}
+                        onClick={() => handleRemoveSection(section.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors"
+                        title="Delete section"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

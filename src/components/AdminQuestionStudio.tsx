@@ -231,6 +231,22 @@ export function AdminQuestionStudio({
     }
   };
 
+  const handleMoveSection = async (secId: string, direction: 'left' | 'right') => {
+    const idx = sections.findIndex((s) => s.id === secId);
+    if (idx < 0) return;
+    const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= sections.length) return;
+
+    const updated = [...sections];
+    const [moved] = updated.splice(idx, 1);
+    updated.splice(targetIdx, 0, moved);
+
+    setSections(updated);
+    if (onUpdateTest) {
+      await onUpdateTest({ sections: updated });
+    }
+  };
+
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Main view mode
@@ -866,6 +882,34 @@ export function AdminQuestionStudio({
                 </button>
                 {isActive && (
                   <div className="flex items-center pr-1.5 gap-0.5">
+                    {sections.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={sections.findIndex((s) => s.id === sec.id) === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveSection(sec.id, 'left');
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-100/70 rounded disabled:opacity-20 cursor-pointer transition-colors"
+                          title="Move section left/up"
+                        >
+                          <ChevronLeft className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sections.findIndex((s) => s.id === sec.id) === sections.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveSection(sec.id, 'right');
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-700 hover:bg-blue-100/70 rounded disabled:opacity-20 cursor-pointer transition-colors"
+                          title="Move section right/down"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
