@@ -748,12 +748,16 @@ export function LiveExamRunner({
             <div className="space-y-3 pt-2">
               {currentQuestion?.options.map((opt) => {
                 const isSelected = currentResp?.selectedOptionId === opt.id;
+                const rawText = (opt.text || '').trim();
+                const isPlaceholder = /^see\s*(structural\s*formula\s*in\s*)?option[a-d]?imageurl\.?$/i.test(rawText);
+                const displayText = isPlaceholder ? '' : rawText;
+
                 return (
                   <button
                     key={opt.id}
                     type="button"
                     onClick={() => handleSelectOption(opt.id)}
-                    className={`w-full text-left flex items-start gap-3.5 rounded-xl border p-4 transition-all cursor-pointer ${
+                    className={`w-full text-left flex items-start gap-3.5 rounded-xl border p-3.5 sm:p-4 transition-all cursor-pointer ${
                       isSelected
                         ? 'border-blue-600 bg-white shadow-xs ring-1 ring-blue-600'
                         : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80'
@@ -761,7 +765,7 @@ export function LiveExamRunner({
                   >
                     {/* Radio Circle matching Unstop Image 1, 3, 5 */}
                     <div
-                      className={`mt-0.5 h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                      className={`mt-1 h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
                           ? 'border-blue-600 bg-blue-600 text-white'
                           : 'border-slate-400 bg-white'
@@ -770,18 +774,25 @@ export function LiveExamRunner({
                       {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </div>
 
-                    <div className="flex-1 text-xs sm:text-sm text-slate-800 leading-relaxed font-normal">
-                      <MathText text={opt.text} inline />
-                    </div>
+                    {/* Content: Text and/or Left-Aligned Image (never pushed to far right) */}
+                    <div className="flex-1 min-w-0 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      {displayText && (
+                        <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-normal shrink-0">
+                          <MathText text={displayText} inline />
+                        </div>
+                      )}
 
-                    {opt.imageUrl && (
-                      <QuestionImage
-                        src={opt.imageUrl}
-                        alt={`Option ${opt.id}`}
-                        className="max-h-20"
-                        allowZoom={false}
-                      />
-                    )}
+                      {opt.imageUrl && (
+                        <div className="rounded-lg border border-slate-200/90 p-1.5 bg-white shadow-2xs inline-flex items-center shrink-0">
+                          <img
+                            src={opt.imageUrl}
+                            alt={`Option ${opt.id}`}
+                            className="max-h-16 sm:max-h-20 w-auto object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </button>
                 );
               })}

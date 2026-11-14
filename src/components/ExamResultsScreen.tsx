@@ -1130,6 +1130,10 @@ export function ExamResultsScreen({
                         isRadioFilled = true;
                       }
 
+                      const rawText = (opt.text || '').trim();
+                      const isPlaceholder = /^see\s*(structural\s*formula\s*in\s*)?option[a-d]?imageurl\.?$/i.test(rawText);
+                      const displayText = isPlaceholder ? '' : rawText;
+
                       return (
                         <div
                           key={opt.id}
@@ -1147,17 +1151,19 @@ export function ExamResultsScreen({
 
                             {/* Option Text & Option Image */}
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs sm:text-sm min-w-0 leading-relaxed font-medium">
-                                <MathText text={opt.text} />
-                              </div>
+                              {displayText && (
+                                <div className="text-xs sm:text-sm min-w-0 leading-relaxed font-medium">
+                                  <MathText text={displayText} />
+                                </div>
+                              )}
 
                               {/* Option image if present */}
                               {opt.imageUrl && (
-                                <div className="mt-2.5">
+                                <div className={`${displayText ? 'mt-2.5' : ''} inline-block`}>
                                   <QuestionImage
                                     src={opt.imageUrl}
                                     alt={`Option ${opt.id} diagram`}
-                                    className="max-h-36 sm:max-h-48 w-auto rounded-xl object-contain border border-slate-200/80 p-1.5 bg-white shadow-2xs"
+                                    className="max-h-24 sm:max-h-36 w-auto rounded-xl object-contain border border-slate-200/80 p-1.5 bg-white shadow-2xs"
                                     allowZoom={true}
                                   />
                                 </div>
