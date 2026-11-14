@@ -16,6 +16,10 @@ import {
   ChevronLeft,
   RotateCcw,
   History,
+  Layers,
+  Grid,
+  ChevronDown,
+  Hash,
 } from 'lucide-react';
 import { DonutScoreGauge } from './DonutScoreGauge';
 import { MathText } from './MathText';
@@ -79,6 +83,112 @@ export function ExamResultsScreen({
     list.sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1));
     return list;
   }, [allAttempts, attempt]);
+
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('all');
+
+  // Effective sections inferred from test.sections or questions
+  const effectiveSections = useMemo(() => {
+    if (test.sections && test.sections.length > 0) {
+      return test.sections;
+    }
+    const uniqueIds = Array.from(new Set(questions.map((q) => q.sectionId || 'default')));
+    return uniqueIds.map((id, idx) => ({
+      id,
+      name: id === 'default' ? 'General Section' : `Section ${idx + 1}`,
+      questionCount: questions.filter((q) => (q.sectionId || 'default') === id).length,
+    }));
+  }, [test.sections, questions]);
+
+  // Section-by-section breakdown statistics
+  const sectionStats = useMemo(() => {
+    return effectiveSections.map((sec) => {
+      const isSingle = effectiveSections.length === 1;
+      const questionIndices: number[] = [];
+      const secQuestions: TestQuestion[] = [];
+
+      questions.forEach((q, idx) => {
+        if (isSingle || (q.sectionId || 'default') === sec.id) {
+          questionIndices.push(idx);
+          secQuestions.push(q);
+        }
+      });
+
+      const firstQuestionIndex = questionIndices.length > 0 ? questionIndices[0] : 0;
+      let correct = 0;
+      let wrong = 0;
+      let unanswered = 0;
+      let score = 0;
+      let maxScore = 0;
+
+      secQuestions.forEach((q) => {
+        const resp = attempt.responses[q.questionId];
+        const marks = Number(q.marks) || test.marksPerQuestion || 4;
+        maxScore += marks;
+        if (!resp || !resp.selectedOptionId) {
+          unanswered++;
+        } else if (resp.selectedOptionId === q.correctOptionId) {
+          correct++;
+          score += marks;
+        } else {
+          wrong++;
+          if (test.negativeMarking) {
+            score -= Number(test.negativeMarkValue) || 0;
+          }
+        }
+      });
+
+      const accuracy = maxScore > 0 ? Math.max(0, Math.round((score / maxScore) * 100)) : 0;
+
+      return {
+        section: sec,
+        totalQuestions: secQuestions.length,
+        questionIndices,
+        firstQuestionIndex,
+        correct,
+        wrong,
+        unanswered,
+        score,
+        maxScore,
+        accuracy,
+      };
+    });
+  }, [effectiveSections, questions, attempt.responses, test.marksPerQuestion, test.negativeMarking, test.negativeMarkValue]);
+
+  const currentSection = useMemo(() => {
+    if (!currentQ) return effectiveSections[0];
+    return (
+      effectiveSections.find((s) => s.id === (currentQ.sectionId || 'default')) || effectiveSections[0]
+    );
+  }, [effectiveSections, currentQ]);
+
+  // Filtered question indices based on selected section tab
+  const filteredQuestionIndices = useMemo(() => {
+    if (selectedSectionFilter === 'all') {
+      return questions.map((_, idx) => idx);
+    }
+    const sec = sectionStats.find((s) => s.section.id === selectedSectionFilter);
+    return sec && sec.questionIndices.length > 0 ? sec.questionIndices : questions.map((_, idx) => idx);
+  }, [selectedSectionFilter, sectionStats, questions]);
+
+  // Horizontal Question Strip visible sliding window (9 numbers around current)
+  const visiblePageNumbers = useMemo(() => {
+    const list = filteredQuestionIndices;
+    if (list.length <= 9) return list;
+    const currentPos = list.indexOf(currentQuestionIndex);
+    const pos = currentPos >= 0 ? currentPos : 0;
+    const half = 4;
+    let start = Math.max(0, pos - half);
+    let end = Math.min(list.length, start + 9);
+    if (end - start < 9) {
+      start = Math.max(0, end - 9);
+    }
+    return list.slice(start, end);
+  }, [filteredQuestionIndices, currentQuestionIndex]);
+
+  // Status for the currently viewed question
+  const isCurrentAnswered = Boolean(currentResp?.selectedOptionId);
+  const isCurrentCorrect = isCurrentAnswered && currentResp?.selectedOptionId === currentQ?.correctOptionId;
+  const isCurrentWrong = isCurrentAnswered && currentResp?.selectedOptionId !== currentQ?.correctOptionId;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
@@ -350,6 +460,88 @@ export function ExamResultsScreen({
                   </span>
                 </div>
               </div>
+
+              {/* ======================================================== */}
+              {/* SECTION-BY-SECTION PERFORMANCE & QUICK JUMP              */}
+              {/* ======================================================== */}
+              {effectiveSections.length > 1 && (
+                <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/70 flex items-center justify-center">
+                        <Layers className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-display text-base sm:text-lg font-bold text-slate-900">
+                          Section Performance Breakdown
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Jump straight into review for any section or explore accuracy section-by-section.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl self-start sm:self-center">
+                      {effectiveSections.length} Sections · {questions.length} Questions
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {sectionStats.map((stat) => {
+                      const cleanSecName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                      return (
+                        <div
+                          key={stat.section.id}
+                          className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-4 space-y-3 hover:border-blue-300 transition-colors shadow-2xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <h4 className="font-display font-bold text-sm text-slate-900 truncate">
+                                {cleanSecName}
+                              </h4>
+                              <span className="text-[11px] text-slate-500">
+                                {stat.totalQuestions} Questions · Max: {stat.maxScore} pts
+                              </span>
+                            </div>
+                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
+                              {stat.accuracy}%
+                            </span>
+                          </div>
+
+                          {/* Stats breakdown */}
+                          <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
+                            <div className="bg-emerald-50 text-emerald-800 rounded-xl p-1.5 border border-emerald-100 font-semibold">
+                              <span className="block text-emerald-600 font-bold">{stat.correct}</span>
+                              <span className="text-[10px]">Correct</span>
+                            </div>
+                            <div className="bg-purple-50 text-purple-800 rounded-xl p-1.5 border border-purple-100 font-semibold">
+                              <span className="block text-purple-600 font-bold">{stat.wrong}</span>
+                              <span className="text-[10px]">Wrong</span>
+                            </div>
+                            <div className="bg-white text-slate-700 rounded-xl p-1.5 border border-slate-200 font-semibold">
+                              <span className="block text-slate-600 font-bold">{stat.unanswered}</span>
+                              <span className="text-[10px]">Blank</span>
+                            </div>
+                          </div>
+
+                          {/* Direct Jump to Review this section button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentQuestionIndex(stat.firstQuestionIndex);
+                              setSelectedSectionFilter(stat.section.id);
+                              setMode('review');
+                            }}
+                            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white hover:bg-blue-600 hover:text-white border border-slate-200 hover:border-blue-600 text-xs font-bold text-blue-700 cursor-pointer transition-colors shadow-2xs group"
+                          >
+                            <span>Review {cleanSecName}</span>
+                            <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ======================================================== */}
               {/* ALL ATTEMPTS BREAKDOWN & SCORE HISTORY TABLE             */}
@@ -653,13 +845,194 @@ export function ExamResultsScreen({
                 </div>
               )}
 
+              {/* ======================================================== */}
+              {/* SECTION SWITCHER TABS (Jump to any section)              */}
+              {/* ======================================================== */}
+              {effectiveSections.length > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-bold text-slate-800">Sections:</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSectionFilter('all')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        selectedSectionFilter === 'all'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>All Sections ({questions.length})</span>
+                    </button>
+                    {sectionStats.map((stat) => {
+                      const isFilterSelected = selectedSectionFilter === stat.section.id;
+                      const isCurSec = currentSection.id === stat.section.id;
+                      const cleanName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                      return (
+                        <button
+                          key={stat.section.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSectionFilter(stat.section.id);
+                            setCurrentQuestionIndex(stat.firstQuestionIndex);
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+                            isFilterSelected
+                              ? 'bg-blue-600 text-white font-bold shadow-xs ring-2 ring-blue-400/40'
+                              : isCurSec
+                              ? 'bg-blue-50 text-blue-700 border border-blue-300 font-bold'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium'
+                          }`}
+                        >
+                          <span>{cleanName}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                              isFilterSelected
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-white text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {stat.correct}/{stat.totalQuestions} ✓
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* HORIZONTAL CBT QUESTION STRIP & DIRECT QUESTION JUMPER   */}
+              {/* ======================================================== */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                {/* Left: Previous, Page Numbers, Next */}
+                <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
+                  <button
+                    type="button"
+                    disabled={currentQuestionIndex === 0}
+                    onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                    className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
+                    title="Previous Question"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  {visiblePageNumbers.map((idx) => {
+                    const q = questions[idx];
+                    const resp = attempt.responses[q?.questionId];
+                    const isCur = idx === currentQuestionIndex;
+                    const isAns = Boolean(resp?.selectedOptionId);
+                    const isCor = isAns && resp?.selectedOptionId === q?.correctOptionId;
+                    const isWr = isAns && resp?.selectedOptionId !== q?.correctOptionId;
+
+                    let btnBg = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60';
+                    if (isCor) {
+                      btnBg = 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700';
+                    } else if (isWr) {
+                      btnBg = 'bg-purple-600 text-white border border-purple-600 hover:bg-purple-700';
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCurrentQuestionIndex(idx)}
+                        className={`h-8 min-w-8 px-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${btnBg} ${
+                          isCur ? 'ring-2 ring-blue-600 shadow-xs ring-offset-1 font-extrabold scale-105' : ''
+                        }`}
+                        title={`Jump to Question ${idx + 1}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={currentQuestionIndex === questions.length - 1}
+                    onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
+                    className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
+                    title="Next Question"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Right: Quick Jump Select Dropdown */}
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-xs font-bold text-slate-600 whitespace-nowrap hidden sm:inline flex items-center gap-1">
+                    <Hash className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Jump to Question:</span>
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={currentQuestionIndex}
+                      onChange={(e) => {
+                        const idx = Number(e.target.value);
+                        setCurrentQuestionIndex(idx);
+                        const q = questions[idx];
+                        if (q?.sectionId && selectedSectionFilter !== 'all' && selectedSectionFilter !== q.sectionId) {
+                          setSelectedSectionFilter('all');
+                        }
+                      }}
+                      className="h-8 pl-3 pr-8 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 cursor-pointer focus:ring-2 focus:ring-blue-500 appearance-none shadow-2xs"
+                    >
+                      {questions.map((q, idx) => {
+                        const resp = attempt.responses[q.questionId];
+                        const isAns = Boolean(resp?.selectedOptionId);
+                        const isCor = isAns && resp?.selectedOptionId === q.correctOptionId;
+                        const isWr = isAns && resp?.selectedOptionId !== q.correctOptionId;
+                        const sym = isCor ? '✓ Correct' : isWr ? '✕ Incorrect' : '– Blank';
+                        const secObj = effectiveSections.find((s) => s.id === (q.sectionId || 'default'));
+                        const secTag = secObj ? `${secObj.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '').slice(0, 10)} · ` : '';
+                        return (
+                          <option key={q.questionId} value={idx}>
+                            Q{idx + 1}: {secTag}({sym})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                </div>
+              </div>
+
               {/* Two-Column Grid: Left 70% Question, Right 30% Navigator matching Images 3 & 4 */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Left Column (Question Area) */}
                 <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-5">
-                  {/* Question Counter (Desktop) */}
-                  <div className="hidden md:block text-xs font-bold text-slate-800">
-                    Question {currentQuestionIndex + 1} of {questions.length}
+                  {/* Question Header: Section tag + Counter + Status pill */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-bold shadow-2xs">
+                        <Layers className="h-3.5 w-3.5 text-blue-600" />
+                        <span>{currentSection.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '')}</span>
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900">
+                        Question {currentQuestionIndex + 1} of {questions.length}
+                      </span>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex items-center gap-2">
+                      {isCurrentCorrect && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full">
+                          <Check className="h-3.5 w-3.5" /> Correct (+{currentQ.marks || test.marksPerQuestion || 4} marks)
+                        </span>
+                      )}
+                      {isCurrentWrong && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-0.5 rounded-full">
+                          <X className="h-3.5 w-3.5" /> Incorrect ({test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks)
+                        </span>
+                      )}
+                      {!isCurrentAnswered && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-0.5 rounded-full">
+                          – Unanswered (0 marks)
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Question Stem with LaTeX support */}
@@ -885,13 +1258,60 @@ export function ExamResultsScreen({
 
                   {/* Question Navigator matching Images 3 & 4 */}
                   <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3.5">
-                    <span className="text-xs font-bold text-slate-900 block">
-                      Question navigator
-                    </span>
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Question navigator
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-semibold">
+                        {filteredQuestionIndices.length} {selectedSectionFilter === 'all' ? 'total' : 'in section'}
+                      </span>
+                    </div>
+
+                    {/* Section Filter Pills */}
+                    {effectiveSections.length > 1 && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSectionFilter('all')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                            selectedSectionFilter === 'all'
+                              ? 'bg-blue-600 text-white shadow-2xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          All ({questions.length})
+                        </button>
+                        {effectiveSections.map((sec) => {
+                          const isSel = selectedSectionFilter === sec.id;
+                          const cleanName = sec.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                          const count = questions.filter((q) => (q.sectionId || 'default') === sec.id).length;
+                          return (
+                            <button
+                              key={sec.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSectionFilter(sec.id);
+                                const secStat = sectionStats.find((s) => s.section.id === sec.id);
+                                if (secStat) setCurrentQuestionIndex(secStat.firstQuestionIndex);
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                isSel
+                                  ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {cleanName} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Grid of buttons 1..N */}
                     <div className="max-h-[320px] sm:max-h-[380px] overflow-y-auto pr-1 grid grid-cols-5 gap-2">
-                      {questions.map((q, idx) => {
+                      {filteredQuestionIndices.map((idx) => {
+                        const q = questions[idx];
+                        if (!q) return null;
                         const isCurrent = idx === currentQuestionIndex;
                         const resp = attempt.responses[q.questionId];
                         const isUserAnswered = Boolean(resp?.selectedOptionId);
@@ -915,8 +1335,9 @@ export function ExamResultsScreen({
                             type="button"
                             onClick={() => setCurrentQuestionIndex(idx)}
                             className={`h-11 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition-all cursor-pointer ${btnStyle} ${
-                              isCurrent ? 'ring-2 ring-blue-600 shadow-xs' : 'hover:opacity-90'
+                              isCurrent ? 'ring-2 ring-blue-600 shadow-xs ring-offset-1 font-extrabold scale-105' : 'hover:opacity-90'
                             }`}
+                            title={`Jump to Question ${idx + 1}`}
                           >
                             <span className="leading-none">{idx + 1}</span>
                             <span className="text-[10px] leading-tight font-extrabold mt-0.5">
@@ -1026,7 +1447,7 @@ export function ExamResultsScreen({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
                 <h3 className="font-display font-bold text-sm text-slate-900">Question Navigator</h3>
-                <span className="text-[11px] text-slate-500">Tap any question to jump</span>
+                <span className="text-[11px] text-slate-500">Tap any question or section to jump</span>
               </div>
               <button
                 type="button"
@@ -1037,8 +1458,50 @@ export function ExamResultsScreen({
               </button>
             </div>
 
+            {/* Mobile Section Filter Pills */}
+            {effectiveSections.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSectionFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    selectedSectionFilter === 'all'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  All ({questions.length})
+                </button>
+                {effectiveSections.map((sec) => {
+                  const isSel = selectedSectionFilter === sec.id;
+                  const cleanSecName = sec.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                  const count = questions.filter((q) => (q.sectionId || 'default') === sec.id).length;
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSectionFilter(sec.id);
+                        const secStat = sectionStats.find((s) => s.section.id === sec.id);
+                        if (secStat) setCurrentQuestionIndex(secStat.firstQuestionIndex);
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        isSel
+                          ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {cleanSecName} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="overflow-y-auto max-h-[50vh] grid grid-cols-5 gap-2.5 py-1">
-              {questions.map((q, idx) => {
+              {filteredQuestionIndices.map((idx) => {
+                const q = questions[idx];
+                if (!q) return null;
                 const isCurrent = idx === currentQuestionIndex;
                 const resp = attempt.responses[q.questionId];
                 const isUserAnswered = Boolean(resp?.selectedOptionId);
