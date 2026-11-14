@@ -1149,6 +1149,7 @@ export function AdminQuestionStudio({
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) handleUploadImage(file, 'question');
+                      e.target.value = '';
                     }}
                   />
                   <button
