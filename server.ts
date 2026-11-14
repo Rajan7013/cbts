@@ -160,6 +160,7 @@ async function seedJoseForCommonJs() {
 let firebaseAdminApp: any = null;
 let firebaseAdminAuth: any = null;
 let firebaseAdminFirestore: any = null;
+let firebaseAdminFirestoreMod: any = null;
 let adminInitError: string | null = null;
 
 async function getAdminModules() {
@@ -196,6 +197,7 @@ async function getAdminModules() {
 
       firebaseAdminApp = app;
       firebaseAdminAuth = authMod.getAuth(app);
+      firebaseAdminFirestoreMod = firestoreMod;
 
       if (saJson) {
         try {
@@ -223,6 +225,7 @@ async function getAdminModules() {
     app: firebaseAdminApp,
     auth: firebaseAdminAuth,
     db: firebaseAdminFirestore,
+    firestoreMod: firebaseAdminFirestoreMod,
     error: adminInitError,
   };
 }
@@ -1076,6 +1079,211 @@ export async function createApp(options?: { skipStatic?: boolean }): Promise<Exp
       }
       res.json({ ok: true });
     } catch (err) {
+      res.status(500).json({ error: extractErrorMessage(err) });
+    }
+  });
+
+  // Resilient admin-level question save fallback (bypasses client-side permission issues and guarantees atomic vault sync)
+  app.post('/api/admin/save-question', requireAdmin, async (req: AuthedRequest, res: Response) => {
+    try {
+      const { testId, question, options } = req.body as {
+        testId?: string;
+        question?: any;
+        options?: any;
+      };
+
+      if (!testId || !question || !question.questionId) {
+        res.status(400).json({ error: 'testId and valid question object are required.' });
+        return;
+      }
+
+      const { db, firestoreMod } = await getAdminModules();
+      if (!db) {
+        res.status(500).json({ error: 'Server database is not initialized.' });
+        return;
+      }
+
+      const qId = String(question.questionId);
+      const cleanOptions = (Array.isArray(question.options) ? question.options : [])
+        .slice(0, 4)
+        .map((o: any) => {
+          const opt: Record<string, string> = {
+            id: String(o.id || 'A'),
+            text: String(o.text || '').slice(0, 1000),
+          };
+          if (o.imageUrl) opt.imageUrl = String(o.imageUrl).slice(0, 800000);
+          return opt;
+        });
+
+      const rawQuestionText = String(question.questionText || question.stem || '');
+      const rawQuestionImageUrl = String(question.questionImageUrl || question.imageUrl || '');
+      const safeQuestionText =
+        rawQuestionText.trim() ||
+        (rawQuestionImageUrl.trim() ? 'Refer to the diagram below.' : 'Question');
+
+      const safeShortExplanation = String(
+        question.shortExplanation || question.solution?.shortExplanation || ''
+      ).slice(0, 5000);
+      const rawSteps = question.stepByStepSolution || question.solution?.steps || [];
+      const safeSteps = (Array.isArray(rawSteps) ? rawSteps : [])
+        .slice(0, 50)
+        .map((s: any) => String(s).slice(0, 2000));
+
+      const qRef = db.collection('tests').doc(testId).collection('questions').doc(qId);
+      const existingSnap = await qRef.get();
+
+      const sanitizedPayload: Record<string, any> = {
+        questionId: qId,
+        testId: testId,
+        testStatus: question.testStatus || 'draft',
+        sectionId: String(question.sectionId || 'default').slice(0, 128),
+        orderIndex: Number(question.orderIndex ?? question.order ?? 0) || 0,
+        questionText: safeQuestionText.slice(0, 10000),
+        options: cleanOptions,
+        marks: Math.min(Math.max(Number(question.marks) || 4, 0.25), 100),
+        updatedAt: new Date(),
+      };
+
+      if (rawQuestionImageUrl.trim()) {
+        sanitizedPayload.questionImageUrl = rawQuestionImageUrl.trim().slice(0, 800000);
+      } else if (existingSnap.exists && existingSnap.data()?.questionImageUrl) {
+        if (firestoreMod?.FieldValue?.delete) {
+          sanitizedPayload.questionImageUrl = firestoreMod.FieldValue.delete();
+        }
+      }
+
+      if (!existingSnap.exists) {
+        sanitizedPayload.createdAt = new Date();
+        await qRef.set(sanitizedPayload);
+      } else {
+        await qRef.set(sanitizedPayload, { merge: true });
+      }
+
+      // Protected answerKey document
+      const rawSolutionImg = String(question.solutionImageUrl || question.solution?.imageUrl || '');
+      const kRef = db.collection('tests').doc(testId).collection('answerKeys').doc(qId);
+      const answerKeyPayload: Record<string, any> = {
+        questionId: qId,
+        testId: testId,
+        correctOptionId: question.correctOptionId || 'A',
+        shortExplanation: safeShortExplanation,
+        stepByStepSolution: safeSteps,
+        updatedAt: new Date(),
+      };
+      if (rawSolutionImg.trim()) {
+        answerKeyPayload.solutionImageUrl = rawSolutionImg.trim().slice(0, 800000);
+      } else if (firestoreMod?.FieldValue?.delete) {
+        answerKeyPayload.solutionImageUrl = firestoreMod.FieldValue.delete();
+      }
+      await kRef.set(answerKeyPayload, { merge: true });
+
+      // Sync to server vault
+      const vault = readVault();
+      if (!vault.byTest[testId]) vault.byTest[testId] = {};
+      vault.byTest[testId][qId] = {
+        questionId: qId,
+        testId: testId,
+        correctOptionId: ['A', 'B', 'C', 'D'].includes(question.correctOptionId)
+          ? question.correctOptionId
+          : 'A',
+        shortExplanation: safeShortExplanation,
+        solutionImageUrl: rawSolutionImg.trim() || undefined,
+        stepByStepSolution: safeSteps,
+        marks: question.marks,
+      };
+      writeVault(vault);
+
+      // Record question version if requested
+      if (options?.recordVersion !== false) {
+        try {
+          const vId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+          await qRef.collection('versions').doc(vId).set({
+            versionId: vId,
+            questionId: qId,
+            testId: testId,
+            sectionId: String(question.sectionId || 'default'),
+            source: options?.versionSource || (existingSnap.exists ? 'manual_save' : 'initial'),
+            summary: (
+              options?.versionSummary ||
+              (existingSnap.exists ? 'Saved question update' : 'Initial saved version')
+            ).slice(0, 200),
+            questionText: safeQuestionText.slice(0, 10000),
+            ...(rawQuestionImageUrl.trim()
+              ? { questionImageUrl: rawQuestionImageUrl.trim().slice(0, 800000) }
+              : {}),
+            ...(rawSolutionImg.trim()
+              ? { solutionImageUrl: rawSolutionImg.trim().slice(0, 800000) }
+              : {}),
+            options: cleanOptions,
+            correctOptionId: question.correctOptionId || 'A',
+            shortExplanation: safeShortExplanation,
+            stepByStepSolution: safeSteps,
+            marks: Math.min(Math.max(Number(question.marks) || 4, 0.25), 100),
+            createdBy: req.decodedUser?.uid || req.decodedUser?.sub || 'admin',
+            createdAt: new Date(),
+          });
+        } catch (vErr) {
+          console.warn('Could not record question version:', vErr);
+        }
+      }
+
+      res.json({
+        ok: true,
+        question: {
+          ...question,
+          questionId: qId,
+          testId: testId,
+          questionText: safeQuestionText,
+          questionImageUrl: rawQuestionImageUrl.trim() || undefined,
+          solutionImageUrl: rawSolutionImg.trim() || undefined,
+          options: cleanOptions,
+          shortExplanation: safeShortExplanation,
+          stepByStepSolution: safeSteps,
+          stem: safeQuestionText,
+          imageUrl: rawQuestionImageUrl.trim() || undefined,
+          solution: {
+            shortExplanation: safeShortExplanation,
+            imageUrl: rawSolutionImg.trim() || undefined,
+            steps: safeSteps,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Error saving question via admin API:', err);
+      res.status(500).json({ error: extractErrorMessage(err) });
+    }
+  });
+
+  app.post('/api/admin/delete-question', requireAdmin, async (req: AuthedRequest, res: Response) => {
+    try {
+      const { testId, questionId } = req.body as { testId?: string; questionId?: string };
+      if (!testId || !questionId) {
+        res.status(400).json({ error: 'testId and questionId are required.' });
+        return;
+      }
+
+      const vault = readVault();
+      if (vault.byTest[testId]) {
+        delete vault.byTest[testId][questionId];
+        writeVault(vault);
+      }
+
+      const { db } = await getAdminModules();
+      if (db) {
+        const qRef = db.collection('tests').doc(testId).collection('questions').doc(questionId);
+        const kRef = db.collection('tests').doc(testId).collection('answerKeys').doc(questionId);
+        const versionsSnap = await qRef.collection('versions').get().catch(() => ({ docs: [] }));
+
+        const batch = db.batch();
+        batch.delete(qRef);
+        batch.delete(kRef);
+        versionsSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
+        await batch.commit();
+      }
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Error deleting question via admin API:', err);
       res.status(500).json({ error: extractErrorMessage(err) });
     }
   });

@@ -1,4 +1,4 @@
-import type { OptionId, QuestionOption } from '../types';
+import type { OptionId, QuestionOption, TestQuestion } from '../types';
 
 export interface GeneratedQuestionDraft {
   questionText: string;
@@ -189,3 +189,26 @@ export async function askAiTutor(params: {
   const result = await postJson<{ reply: string }>('/api/ai/tutor', params);
   return result.reply;
 }
+
+export async function saveQuestionViaAdminServer(
+  bearerToken: string,
+  testId: string,
+  question: TestQuestion,
+  options?: unknown
+): Promise<TestQuestion> {
+  const result = await postJson<{ ok: boolean; question: TestQuestion }>(
+    '/api/admin/save-question',
+    { testId, question, options },
+    bearerToken
+  );
+  return result.question;
+}
+
+export async function deleteQuestionViaAdminServer(
+  bearerToken: string,
+  testId: string,
+  questionId: string
+): Promise<void> {
+  await postJson('/api/admin/delete-question', { testId, questionId }, bearerToken);
+}
+

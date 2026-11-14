@@ -23,8 +23,10 @@ import {
 } from './firebase';
 import {
   deleteAdminAnswerKey,
+  deleteQuestionViaAdminServer,
   fetchVerifiedServerRole,
   gradeExamOnServer,
+  saveQuestionViaAdminServer,
   syncAdminAnswerKeys,
   unlockSolutionsOnServer,
 } from './api';
@@ -768,7 +770,15 @@ export async function saveQuestion(
       },
     };
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, qPath);
+    console.warn('[saveQuestion] Client-side save failed, attempting admin API fallback:', err);
+    try {
+      const token = await getIdTokenOrThrow();
+      const saved = await saveQuestionViaAdminServer(token, question.testId, question, options);
+      return saved;
+    } catch (fallbackErr) {
+      console.error('[saveQuestion] Admin API fallback also failed:', fallbackErr);
+      handleFirestoreError(err, OperationType.WRITE, qPath);
+    }
   }
 }
 
@@ -795,7 +805,14 @@ export async function deleteQuestion(
     const token = await getIdTokenOrThrow();
     await deleteAdminAnswerKey(token, testId, questionId).catch(() => {});
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, qPath);
+    console.warn('[deleteQuestion] Client-side delete failed, attempting admin API fallback:', err);
+    try {
+      const token = await getIdTokenOrThrow();
+      await deleteQuestionViaAdminServer(token, testId, questionId);
+    } catch (fallbackErr) {
+      console.error('[deleteQuestion] Admin API fallback also failed:', fallbackErr);
+      handleFirestoreError(err, OperationType.DELETE, qPath);
+    }
   }
 }
 
