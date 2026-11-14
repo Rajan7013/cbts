@@ -372,6 +372,7 @@ export async function listSanitizedQuestions(
     return snap.docs
       .map((d) => {
         const data = d.data() as Record<string, unknown>;
+        const qImg = data.questionImageUrl ? String(data.questionImageUrl) : data.imageUrl ? String(data.imageUrl) : undefined;
         return {
           questionId: String(data.questionId || d.id),
           testId: String(data.testId || testId),
@@ -379,7 +380,8 @@ export async function listSanitizedQuestions(
           sectionId: String(data.sectionId || ''),
           orderIndex: Number(data.orderIndex || 0),
           questionText: String(data.questionText || ''),
-          questionImageUrl: data.questionImageUrl ? String(data.questionImageUrl) : undefined,
+          questionImageUrl: qImg,
+          imageUrl: qImg,
           options: Array.isArray(data.options) ? (data.options as SanitizedQuestion['options']) : [],
           marks: Number(data.marks ?? 4),
         };

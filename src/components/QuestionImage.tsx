@@ -1,10 +1,25 @@
 import { useEffect, useState } from 'react';
 import { ZoomIn, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import opticsDiagram from '../assets/images/diagram_physics_optics_1794574131101.jpg?inline';
+import circuitDiagram from '../assets/images/diagram_circuit_bridge_1794574130210.jpg?inline';
 
 export function normalizeQuestionImageUrl(raw?: string): string {
   if (!raw || typeof raw !== 'string') return '';
   const trimmed = raw.trim();
   if (!trimmed) return '';
+
+  // Embedded inline assets for built-in diagrams (guarantees zero 404s on Vercel)
+  if (trimmed.includes('diagram_physics_optics') || trimmed.includes('optics_1794574131101')) {
+    return opticsDiagram;
+  }
+  if (trimmed.includes('diagram_circuit_bridge') || trimmed.includes('circuit_bridge_1794574130210')) {
+    return circuitDiagram;
+  }
+
+  // If local /src/ path was stored, normalize to production static /assets/ path
+  if (trimmed.startsWith('/src/assets/images/')) {
+    return trimmed.replace('/src/assets/images/', '/assets/images/');
+  }
 
   // If raw XML SVG string was passed without data URL prefix
   if (trimmed.startsWith('<svg') || trimmed.startsWith('<?xml')) {
@@ -84,7 +99,6 @@ export function QuestionImage({
           alt={alt}
           loading="eager"
           referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
           onError={() => setLoadError(true)}
           className={`max-h-72 w-auto max-w-full rounded-lg object-contain transition-transform duration-200 ${
             allowZoom ? 'cursor-zoom-in group-hover:scale-[1.01]' : ''
@@ -134,7 +148,6 @@ export function QuestionImage({
                 src={normalized}
                 alt={alt}
                 referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
                 className="max-h-[78vh] max-w-full rounded-lg object-contain"
               />
             </div>

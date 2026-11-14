@@ -554,9 +554,9 @@ export function ExamResultsScreen({
                 className="text-[15px] leading-[1.7] text-slate-900"
               />
 
-              {q.questionImageUrl && (
+              {(q.questionImageUrl || q.imageUrl) && (
                 <QuestionImage
-                  src={q.questionImageUrl}
+                  src={q.questionImageUrl || q.imageUrl}
                   alt="Question reference diagram"
                 />
               )}
@@ -600,10 +600,10 @@ export function ExamResultsScreen({
                     'No short explanation provided.'
                   )}
                 </div>
-                {q.solutionImageUrl && (
+                {(q.solutionImageUrl || q.solution?.imageUrl) && (
                   <div className="pt-2">
                     <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
-                    <QuestionImage src={q.solutionImageUrl} alt="Solution diagram" />
+                    <QuestionImage src={q.solutionImageUrl || q.solution?.imageUrl} alt="Solution diagram" />
                   </div>
                 )}
               </div>

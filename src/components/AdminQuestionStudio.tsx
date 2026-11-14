@@ -1639,10 +1639,11 @@ export function AdminQuestionStudio({
                       </div>
                       {opt.imageUrl && (
                         <div className="pl-6">
-                          <img
+                          <QuestionImage
                             src={opt.imageUrl}
                             alt={`Option ${opt.id} preview`}
-                            className="max-h-20 rounded border border-slate-200 bg-white object-contain p-0.5"
+                            allowZoom={false}
+                            className="max-h-20"
                           />
                         </div>
                       )}

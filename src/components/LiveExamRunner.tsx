@@ -407,9 +407,9 @@ export function LiveExamRunner({
                 </div>
 
                 {/* Question Diagram Image if present */}
-                {currentQuestion.questionImageUrl && (
+                {(currentQuestion.questionImageUrl || currentQuestion.imageUrl) && (
                   <QuestionImage
-                    src={currentQuestion.questionImageUrl}
+                    src={currentQuestion.questionImageUrl || currentQuestion.imageUrl}
                     alt="Question diagram"
                   />
                 )}

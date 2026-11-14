@@ -228,9 +228,9 @@ export function QuestionPreviewModal({
                     className="text-[15.5px] leading-[1.75] text-slate-900"
                   />
 
-                  {currentQ.questionImageUrl && (
+                  {(currentQ.questionImageUrl || currentQ.imageUrl) && (
                     <QuestionImage
-                      src={currentQ.questionImageUrl}
+                      src={currentQ.questionImageUrl || currentQ.imageUrl}
                       alt={`Question ${currentIndex + 1} diagram`}
                     />
                   )}
@@ -293,11 +293,11 @@ export function QuestionPreviewModal({
                               )}
                             </div>
                             {opt.imageUrl && (
-                              <img
+                              <QuestionImage
                                 src={opt.imageUrl}
                                 alt={`Option ${opt.id}`}
-                                referrerPolicy="no-referrer"
-                                className="max-h-28 rounded border border-slate-200 bg-white object-contain p-1"
+                                className="max-h-28"
+                                allowZoom={false}
                               />
                             )}
                           </div>
@@ -325,10 +325,13 @@ export function QuestionPreviewModal({
                         </div>
                       )}
 
-                      {currentQ.solutionImageUrl && (
+                      {(currentQ.solutionImageUrl || currentQ.solution?.imageUrl) && (
                         <div className="pt-2">
                           <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
-                          <QuestionImage src={currentQ.solutionImageUrl} alt="Solution diagram" />
+                          <QuestionImage
+                            src={currentQ.solutionImageUrl || currentQ.solution?.imageUrl}
+                            alt="Solution diagram"
+                          />
                         </div>
                       )}
 

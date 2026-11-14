@@ -539,9 +539,9 @@ export function AdminResultsView({
                 <MathText text={currentReview.q.questionText} />
               </div>
 
-              {currentReview.q.questionImageUrl && (
+              {(currentReview.q.questionImageUrl || currentReview.q.imageUrl) && (
                 <QuestionImage
-                  src={currentReview.q.questionImageUrl}
+                  src={currentReview.q.questionImageUrl || currentReview.q.imageUrl}
                   alt="Question Diagram"
                 />
               )}
@@ -583,10 +583,11 @@ export function AdminResultsView({
                           <div className="space-y-1 min-w-0">
                             <MathText text={opt.text} className="text-xs sm:text-sm font-medium" />
                             {opt.imageUrl && (
-                              <img
+                              <QuestionImage
                                 src={opt.imageUrl}
                                 alt={`Option ${opt.id}`}
-                                className="max-h-20 rounded border border-slate-200 bg-white object-contain p-0.5"
+                                className="max-h-20"
+                                allowZoom={false}
                               />
                             )}
                           </div>
@@ -612,7 +613,7 @@ export function AdminResultsView({
               </div>
 
               {/* Explanation Card */}
-              {(currentReview.q.shortExplanation || currentReview.q.solutionImageUrl) && (
+              {(currentReview.q.shortExplanation || currentReview.q.solutionImageUrl || currentReview.q.solution?.imageUrl) && (
                 <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5 space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                     <Lightbulb className="h-4 w-4 text-blue-600" />
@@ -623,10 +624,13 @@ export function AdminResultsView({
                       <MathText text={currentReview.q.shortExplanation} />
                     </div>
                   )}
-                  {currentReview.q.solutionImageUrl && (
+                  {(currentReview.q.solutionImageUrl || currentReview.q.solution?.imageUrl) && (
                     <div className="pt-2">
                       <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
-                      <QuestionImage src={currentReview.q.solutionImageUrl} alt="Solution diagram" />
+                      <QuestionImage
+                        src={currentReview.q.solutionImageUrl || currentReview.q.solution?.imageUrl}
+                        alt="Solution diagram"
+                      />
                     </div>
                   )}
                 </div>

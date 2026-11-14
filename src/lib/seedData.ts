@@ -1,6 +1,6 @@
 import type { TestAttempt, TestExam, TestQuestion } from '../types';
-import opticsDiagram from '../assets/images/diagram_physics_optics_1794574131101.jpg';
-import circuitDiagram from '../assets/images/diagram_circuit_bridge_1794574130210.jpg';
+import opticsDiagram from '../assets/images/diagram_physics_optics_1794574131101.jpg?inline';
+import circuitDiagram from '../assets/images/diagram_circuit_bridge_1794574130210.jpg?inline';
 
 export function buildSampleTests(createdByUid: string): {
   tests: TestExam[];

@@ -107,7 +107,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'questionId', 'testId', 'testStatus', 'sectionId', 'orderIndex',
-          'questionText', 'questionImageUrl', 'options', 'marks', 'createdAt', 'updatedAt'
+          'questionText', 'questionImageUrl', 'imageUrl', 'options', 'marks', 'createdAt', 'updatedAt'
         ])
         && isValidId(data.questionId)
         && data.questionId == questionId
@@ -118,6 +118,7 @@ service cloud.firestore {
         && data.orderIndex is number && data.orderIndex >= 0 && data.orderIndex <= 500
         && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 10000
         && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 800000))
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 800000))
         && data.options is list && data.options.size() == 4
         && data.options[0] is map
         && data.marks is number && data.marks >= 0.25 && data.marks <= 100
@@ -154,7 +155,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'versionId', 'questionId', 'testId', 'sectionId', 'source', 'summary',
-          'questionText', 'questionImageUrl', 'solutionImageUrl', 'options', 'correctOptionId',
+          'questionText', 'questionImageUrl', 'solutionImageUrl', 'imageUrl', 'options', 'correctOptionId',
           'shortExplanation', 'stepByStepSolution', 'marks', 'createdBy', 'createdAt'
         ])
         && isValidId(data.versionId)
@@ -169,6 +170,7 @@ service cloud.firestore {
         && data.questionText is string && data.questionText.size() >= 1 && data.questionText.size() <= 10000
         && (!('questionImageUrl' in data) || (data.questionImageUrl is string && data.questionImageUrl.size() <= 800000))
         && (!('solutionImageUrl' in data) || (data.solutionImageUrl is string && data.solutionImageUrl.size() <= 800000))
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 800000))
         && data.options is list && data.options.size() == 4
         && data.options[0] is map
         && data.correctOptionId in ['A', 'B', 'C', 'D']
@@ -310,7 +312,7 @@ service cloud.firestore {
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly([
             'testStatus', 'sectionId', 'orderIndex', 'questionText',
-            'questionImageUrl', 'options', 'marks', 'updatedAt'
+            'questionImageUrl', 'imageUrl', 'options', 'marks', 'updatedAt'
           ]);
         allow delete: if isAdmin() && isValidId(testId) && isValidId(questionId);
 
