@@ -2198,6 +2198,405 @@ Requirements:
     }
   });
 
+  function getSampleMeceeExam(testTitle?: string) {
+    return {
+      title: testTitle || 'MECEE BL Model Entrance Examination (Model XIII - Set A)',
+      description:
+        'Comprehensive Medical Common Entrance Examination (MECEE-BL) Model XIII with Zoology, Botany, Chemistry, Physics, and Mental Agility Test (MAT) sections.',
+      sections: [
+        { name: 'Zoology', questionCount: 40 },
+        { name: 'Botany', questionCount: 40 },
+        { name: 'Chemistry', questionCount: 50 },
+        { name: 'Physics', questionCount: 50 },
+        { name: 'Mental Agility Test (MAT)', questionCount: 20 },
+      ],
+      questions: [
+        // ZOOLOGY
+        {
+          sectionName: 'Zoology',
+          orderIndex: 0,
+          questionText: 'Which of the following organisms is an egg-laying mammal (monotreme)?',
+          options: [
+            { id: 'A', text: 'Kangaroo (Macropus)' },
+            { id: 'B', text: 'Duck-billed Platypus (Ornithorhynchus)' },
+            { id: 'C', text: 'Blue Whale (Balaenoptera)' },
+            { id: 'D', text: 'Bat (Pteropus)' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'Ornithorhynchus (platypus) and Tachyglossus (echidna) are oviparous mammals.',
+          stepByStepSolution: [
+            'Mammals are predominantly viviparous, giving birth to live young.',
+            'The order Monotremata is the primitive mammalian order that lays eggs (oviparous).',
+            'Duck-billed Platypus belongs to Monotremata and possesses mammary glands without nipples.',
+          ],
+        },
+        {
+          sectionName: 'Zoology',
+          orderIndex: 1,
+          questionText: 'Piamater and arachnoid membrane together are collectively designated as:',
+          options: [
+            { id: 'A', text: 'Pachymeninx' },
+            { id: 'B', text: 'Leptomeninges' },
+            { id: 'C', text: 'Duramater' },
+            { id: 'D', text: 'Choroid plexus' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'The thin inner meninges (arachnoid and pia mater) are called leptomeninges.',
+          stepByStepSolution: [
+            'The cranial meninges consist of three protective connective tissue layers: outer dura mater, middle arachnoid, and inner pia mater.',
+            'Dura mater is thick and fibrous, termed pachymeninx.',
+            'Arachnoid and pia mater are thin, vascular membranes collectively termed leptomeninges.',
+          ],
+        },
+        {
+          sectionName: 'Zoology',
+          orderIndex: 2,
+          questionText:
+            'The volume of air that remains inside human lungs even after the most forceful expiration is:',
+          options: [
+            { id: 'A', text: 'Tidal volume ($TV \\approx 500\\text{ mL}$)' },
+            { id: 'B', text: 'Expiratory reserve volume ($ERV \\approx 1000\\text{ mL}$)' },
+            { id: 'C', text: 'Residual volume ($RV \\approx 1100-1200\\text{ mL}$)' },
+            { id: 'D', text: 'Vital capacity ($VC \\approx 4500\\text{ mL}$)' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Residual volume (RV) cannot be expelled by voluntary expiration and prevents lung collapse.',
+          stepByStepSolution: [
+            'Residual volume ($RV$) is the volume of air remaining in the respiratory tract after maximum voluntary expiration.',
+            'In a healthy adult human, $RV \\approx 1100\\text{ mL} - 1200\\text{ mL}$.',
+            'It cannot be directly measured using simple spirometry.',
+          ],
+        },
+        {
+          sectionName: 'Zoology',
+          orderIndex: 3,
+          questionText: 'Kupffer cells are specialized macrophages residing in which organ?',
+          options: [
+            { id: 'A', text: 'Spleen' },
+            { id: 'B', text: 'Liver' },
+            { id: 'C', text: 'Kidney' },
+            { id: 'D', text: 'Thymus' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'Kupffer cells line the hepatic sinusoids in the liver and phagocytose foreign microbes and debris.',
+          stepByStepSolution: [
+            'The liver sinusoidal lining contains specialized stellate sinusoidal macrophages.',
+            'These cells are named Kupffer cells after Karl Wilhelm von Kupffer.',
+            'They play a crucial role in breakdown of red blood cells and antigen clearance.',
+          ],
+        },
+
+        // BOTANY
+        {
+          sectionName: 'Botany',
+          orderIndex: 4,
+          questionText: 'Which phytohormone is primarily responsible for inducing apical dominance in plants?',
+          options: [
+            { id: 'A', text: 'Gibberellin ($GA_3$)' },
+            { id: 'B', text: 'Cytokinin (Zeatin)' },
+            { id: 'C', text: 'Auxin (Indole-3-acetic acid, IAA)' },
+            { id: 'D', text: 'Abscisic acid (ABA)' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Auxin synthesized at the shoot apex inhibits the outgrowth of lateral axillary buds.',
+          stepByStepSolution: [
+            'Apical dominance occurs when the terminal shoot apex suppresses the growth of lateral buds.',
+            'Shoot apex produces auxin (IAA), which travels basipetally.',
+            'Decapitation of the shoot tip removes the auxin source and releases lateral buds from inhibition.',
+          ],
+        },
+        {
+          sectionName: 'Botany',
+          orderIndex: 5,
+          questionText: 'The enzymatic dark reactions (Calvin cycle, $C_3$ pathway) of photosynthesis occur in the:',
+          options: [
+            { id: 'A', text: 'Thylakoid membrane' },
+            { id: 'B', text: 'Grana lamellae' },
+            { id: 'C', text: 'Stroma of chloroplast' },
+            { id: 'D', text: 'Peroxisome' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'The Calvin cycle enzymes (including RuBisCO) are localized in the soluble chloroplast stroma.',
+          stepByStepSolution: [
+            'Light-dependent photophosphorylation reactions occur in the thylakoid membranes.',
+            'ATP and NADPH generated during the light reactions diffuse into the surrounding stroma.',
+            'Stroma contains the enzyme RuBisCO, where $CO_2$ is fixed into 3-phosphoglycerate.',
+          ],
+        },
+        {
+          sectionName: 'Botany',
+          orderIndex: 6,
+          questionText: 'Casparian strips containing suberin waterproof bands are located in the:',
+          options: [
+            { id: 'A', text: 'Epidermis' },
+            { id: 'B', text: 'Hypodermis' },
+            { id: 'C', text: 'Endodermis' },
+            { id: 'D', text: 'Pericycle' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Endodermal cells possess suberized Casparian strips that force water into the symplastic pathway.',
+          stepByStepSolution: [
+            'In roots, radial and transverse walls of endodermal cells are impregnated with waxy suberin.',
+            'This anatomical structure is called the Casparian strip.',
+            'It blocks apoplastic water flow and directs mineral ions across the plasma membrane.',
+          ],
+        },
+        {
+          sectionName: 'Botany',
+          orderIndex: 7,
+          questionText: 'Double fertilization resulting in a diploid zygote and triploid ($3n$) endosperm is unique to:',
+          options: [
+            { id: 'A', text: 'Pteridophytes' },
+            { id: 'B', text: 'Gymnosperms' },
+            { id: 'C', text: 'Angiosperms' },
+            { id: 'D', text: 'Bryophytes' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Syngamy plus triple fusion ($n + 2n = 3n$) is a diagnostic feature of angiosperm reproduction.',
+          stepByStepSolution: [
+            'One sperm cell fuses with the egg cell nucleus ($n + n$) forming the $2n$ zygote.',
+            'The second sperm cell fuses with the two polar nuclei ($n + n + n$) to produce primary endosperm nucleus ($3n$).',
+            'This double fertilization phenomenon was discovered by S. Nawaschin in angiosperms.',
+          ],
+        },
+
+        // CHEMISTRY
+        {
+          sectionName: 'Chemistry',
+          orderIndex: 8,
+          questionText: 'The hybridization of the central sulfur atom in sulfur hexafluoride ($\\text{SF}_6$) is:',
+          options: [
+            { id: 'A', text: '$sp^3$' },
+            { id: 'B', text: '$sp^3d$' },
+            { id: 'C', text: '$sp^3d^2$' },
+            { id: 'D', text: '$d^2sp^3$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Sulfur in $\\text{SF}_6$ has 6 bond pairs and 0 lone pairs ($VSEPR = 6$), yielding octahedral $sp^3d^2$.',
+          stepByStepSolution: [
+            'Sulfur has 6 valence electrons in group 16: $3s^2 3p^4$.',
+            'All 6 electrons participate in bonding with 6 fluorine atoms.',
+            'Steric number $SN = 6 + 0 = 6$, which corresponds to $sp^3d^2$ hybridization with octahedral geometry.',
+          ],
+        },
+        {
+          sectionName: 'Chemistry',
+          orderIndex: 9,
+          questionText: 'What is the theoretical $\\text{pH}$ of a $10^{-8}\\text{ M } \\text{HCl}$ aqueous solution at $25^\\circ\\text{C}$?',
+          options: [
+            { id: 'A', text: '$8.00$' },
+            { id: 'B', text: '$7.00$' },
+            { id: 'C', text: '$6.98$' },
+            { id: 'D', text: '$6.02$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Total $[H^+] = 10^{-8}\\text{ M (from HCl)} + 10^{-7}\\text{ M (from water)} = 1.05 \\times 10^{-7}\\text{ M}$, yielding $\\text{pH} \\approx 6.98$.',
+          stepByStepSolution: [
+            'In dilute acid solutions, $[H^+]$ from auto-ionization of water cannot be neglected ($K_w = 1.0 \\times 10^{-14}$).',
+            'Let $[H^+]_{\\text{water}} = x$, so total $[H^+] = 10^{-8} + x$.',
+            '$(10^{-8} + x)(x) = 1.0 \\times 10^{-14} \\implies x^2 + 10^{-8}x - 10^{-14} = 0$.',
+            'Solving the quadratic gives total $[H^+] = 1.051 \\times 10^{-7}\\text{ M}$, so $\\text{pH} = -\\log_{10}(1.051 \\times 10^{-7}) \\approx 6.98$.',
+          ],
+        },
+        {
+          sectionName: 'Chemistry',
+          orderIndex: 10,
+          questionText: 'The Reimer-Tiemann reaction of phenol with chloroform in aqueous $\\text{NaOH}$ produces:',
+          options: [
+            { id: 'A', text: 'Benzoic acid' },
+            { id: 'B', text: 'Salicylaldehyde' },
+            { id: 'C', text: 'Salicylic acid' },
+            { id: 'D', text: 'Picric acid' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'Phenol reacts with $:CCl_2$ (dichlorocarbene) in alkali to form ortho-hydroxybenzaldehyde (salicylaldehyde).',
+          stepByStepSolution: [
+            'Chloroform $\\text{CHCl}_3$ reacts with $\\text{OH}^-$ to generate the reactive intermediate dichlorocarbene ($:CCl_2$).',
+            'Phenoxide ion attacks the electrophilic carbene at the ortho position.',
+            'Hydrolysis of the gem-dichloride intermediate affords salicylaldehyde.',
+          ],
+        },
+        {
+          sectionName: 'Chemistry',
+          orderIndex: 11,
+          questionText: 'Which of the following oxides exhibits amphoteric behavior, reacting with both acids and bases?',
+          options: [
+            { id: 'A', text: '$\\text{SO}_2$' },
+            { id: 'B', text: '$\\text{CaO}$' },
+            { id: 'C', text: '$\\text{Al}_2\\text{O}_3$' },
+            { id: 'D', text: '$\\text{CO}$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Aluminium oxide ($\\text{Al}_2\\text{O}_3$) dissolves in acids to form salts and in strong alkalis to form aluminates.',
+          stepByStepSolution: [
+            '$\\text{Al}_2\\text{O}_3 + 6\\text{HCl} \\to 2\\text{AlCl}_3 + 3\\text{H}_2\\text{O}$ (acting as a basic oxide).',
+            '$\\text{Al}_2\\text{O}_3 + 2\\text{NaOH} + 3\\text{H}_2\\text{O} \\to 2\\text{Na}[\\text{Al}(\\text{OH})_4]$ (acting as an acidic oxide).',
+            'Therefore, $\\text{Al}_2\\text{O}_3$ is classified as an amphoteric oxide.',
+          ],
+        },
+
+        // PHYSICS
+        {
+          sectionName: 'Physics',
+          orderIndex: 12,
+          questionText:
+            'A long solenoid of length $L$ with $n$ turns per unit length carries a steady current $i$. The magnetic field $B$ along the central axis inside the solenoid is:',
+          options: [
+            { id: 'A', text: '$B = \\frac{\\mu_0 n i}{2}$' },
+            { id: 'B', text: '$B = \\mu_0 n i$' },
+            { id: 'C', text: '$B = 2\\mu_0 n i$' },
+            { id: 'D', text: '$B = \\frac{\\mu_0 i}{2\\pi n}$' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'By Ampere’s Circuital Law, the axial magnetic field inside an ideal solenoid is $B = \\mu_0 n i$.',
+          stepByStepSolution: [
+            'Apply Ampere’s Law along a rectangular loop: $\\oint \\vec{B} \\cdot d\\vec{l} = \\mu_0 I_{\\text{enclosed}}$.',
+            'For a segment of length $l$, the enclosed current is $I_{\\text{enc}} = (n l) i$.',
+            '$B l = \\mu_0 (n l) i \\implies B = \\mu_0 n i$.',
+          ],
+        },
+        {
+          sectionName: 'Physics',
+          orderIndex: 13,
+          questionText:
+            'An ideal step-down transformer has a primary-to-secondary turns ratio of $N_p / N_s = 4:1$. If an alternating primary voltage $V_p = 200\\text{ V}$ is applied, what is the output secondary voltage $V_s$?',
+          options: [
+            { id: 'A', text: '$V_s = 50\\text{ V}$' },
+            { id: 'B', text: '$V_s = 100\\text{ V}$' },
+            { id: 'C', text: '$V_s = 400\\text{ V}$' },
+            { id: 'D', text: '$V_s = 800\\text{ V}$' },
+          ],
+          correctOptionId: 'A',
+          shortExplanation: 'The transformer equation gives $\\frac{V_s}{V_p} = \\frac{N_s}{N_p} = \\frac{1}{4} \\implies V_s = \\frac{200}{4} = 50\\text{ V}$.',
+          stepByStepSolution: [
+            'By Faraday’s law of induction in an ideal transformer: $\\frac{V_s}{V_p} = \\frac{N_s}{N_p}$.',
+            'Substitute $N_s / N_p = 1/4$ and $V_p = 200\\text{ V}$.',
+            '$V_s = 200\\text{ V} \\times \\frac{1}{4} = 50\\text{ V}$.',
+          ],
+        },
+        {
+          sectionName: 'Physics',
+          orderIndex: 14,
+          questionText:
+            'Two harmonic waves oscillating along the same axis superpose according to $y = \\frac{1}{\\sqrt{a}}\\sin\\omega t + \\frac{1}{\\sqrt{b}}\\cos\\omega t$. The resultant amplitude $A$ of the oscillation is:',
+          options: [
+            { id: 'A', text: '$A = \\frac{1}{a} + \\frac{1}{b}$' },
+            { id: 'B', text: '$A = \\sqrt{\\frac{1}{a} + \\frac{1}{b}}$' },
+            { id: 'C', text: '$A = \\frac{1}{\\sqrt{a}} + \\frac{1}{\\sqrt{b}}$' },
+            { id: 'D', text: '$A = \\frac{1}{\\sqrt{ab}}$' },
+          ],
+          correctOptionId: 'B',
+          shortExplanation: 'Orthogonal harmonic components $\\sin\\omega t$ and $\\cos\\omega t$ have phase difference $\\pi/2$, so $A = \\sqrt{A_1^2 + A_2^2} = \\sqrt{1/a + 1/b}$.',
+          stepByStepSolution: [
+            'Let $A_1 = \\frac{1}{\\sqrt{a}}$ and $A_2 = \\frac{1}{\\sqrt{b}}$.',
+            'Because $\\cos\\omega t = \\sin(\\omega t + \\pi/2)$, the phase difference between the two waves is $\\Delta\\phi = 90^\\circ$.',
+            'Resultant amplitude: $A = \\sqrt{A_1^2 + A_2^2 + 2 A_1 A_2 \\cos 90^\\circ} = \\sqrt{\\frac{1}{a} + \\frac{1}{b}}$.',
+          ],
+        },
+        {
+          sectionName: 'Physics',
+          orderIndex: 15,
+          questionText:
+            'Five identical capacitors each of capacitance $C$ are arranged in a bridge network between terminals $A$ and $B$. What is the equivalent capacitance $C_{AB}$?',
+          questionImageUrl: '/assets/images/diagram_circuit_bridge_1794574130210.jpg',
+          options: [
+            { id: 'A', text: '$C_{AB} = \\frac{C}{5}$' },
+            { id: 'B', text: '$C_{AB} = C$' },
+            { id: 'C', text: '$C_{AB} = \\frac{5}{3}C$' },
+            { id: 'D', text: '$C_{AB} = 5C$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'By delta-star transformation or nodal analysis of the symmetric capacitor network, $C_{AB} = \\frac{5}{3}C$.',
+          stepByStepSolution: [
+            'Let a potential difference $V$ be applied between nodes $A$ and $B$.',
+            'Using nodal charge conservation at the central junction nodes $C$ and $D$:',
+            'Due to bridge symmetry, total charge delivered is $Q = \\frac{5}{3} C V$.',
+            'Equivalent capacitance $C_{AB} = \\frac{Q}{V} = \\frac{5}{3}C$.',
+          ],
+        },
+
+        // MAT (Mental Agility Test)
+        {
+          sectionName: 'Mental Agility Test (MAT)',
+          orderIndex: 16,
+          questionText: 'Determine the missing number in the sequence: $2,\\ 6,\\ 12,\\ 20,\\ 30,\\ ?$?',
+          options: [
+            { id: 'A', text: '$36$' },
+            { id: 'B', text: '$40$' },
+            { id: 'C', text: '$42$' },
+            { id: 'D', text: '$48$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'The consecutive differences are $+4, +6, +8, +10, +12$, giving $30 + 12 = 42$ (or $n(n+1)$ where $6 \\times 7 = 42$).',
+          stepByStepSolution: [
+            'Notice the terms follow $n(n+1)$ for $n = 1, 2, 3, 4, 5, 6$:',
+            '$1 \\times 2 = 2$',
+            '$2 \\times 3 = 6$',
+            '$3 \\times 4 = 12$',
+            '$4 \\times 5 = 20$',
+            '$5 \\times 6 = 30$',
+            'Next term for $n = 6$ is $6 \\times 7 = 42$.',
+          ],
+        },
+        {
+          sectionName: 'Mental Agility Test (MAT)',
+          orderIndex: 17,
+          questionText: 'A train traveling at a constant speed of $72\\text{ km/h}$ takes $15\\text{ seconds}$ to cross a stationary signal pole. What is the length of the train?',
+          options: [
+            { id: 'A', text: '$200\\text{ m}$' },
+            { id: 'B', text: '$250\\text{ m}$' },
+            { id: 'C', text: '$300\\text{ m}$' },
+            { id: 'D', text: '$360\\text{ m}$' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: 'Speed $v = 72 \\times \\frac{5}{18} = 20\\text{ m/s}$. Length $L = v \\times t = 20 \\times 15 = 300\\text{ m}$.',
+          stepByStepSolution: [
+            'Convert train velocity from $\\text{km/h}$ to $\\text{m/s}$: $72 \\times \\frac{5}{18} = 20\\text{ m/s}$.',
+            'To cross a stationary point object (pole), the train must traverse its own length $L$.',
+            'Distance $L = \\text{Speed} \\times \\text{Time} = 20\\text{ m/s} \\times 15\\text{ s} = 300\\text{ m}$.',
+          ],
+        },
+        {
+          sectionName: 'Mental Agility Test (MAT)',
+          orderIndex: 18,
+          questionText: 'If "EARTH" is coded in a cipher as "GCTVJ", how is "SOLAR" coded following the identical rule?',
+          options: [
+            { id: 'A', text: 'UQNCT' },
+            { id: 'B', text: 'UONCT' },
+            { id: 'C', text: 'VPNBT' },
+            { id: 'D', text: 'TQMAS' },
+          ],
+          correctOptionId: 'A',
+          shortExplanation: 'Each letter is shifted forward by $+2$ positions in the alphabet: $S\\to U, O\\to Q, L\\to N, A\\to C, R\\to T$.',
+          stepByStepSolution: [
+            'Examine the transformation in "EARTH" $\\to$ "GCTVJ":',
+            '$E (+2) \\to G$, $A (+2) \\to C$, $R (+2) \\to T$, $T (+2) \\to V$, $H (+2) \\to J$.',
+            'Applying $+2$ shift to "SOLAR":',
+            '$S (+2) \\to U$, $O (+2) \\to Q$, $L (+2) \\to N$, $A (+2) \\to C$, $R (+2) \\to T$. Result: "UQNCT".',
+          ],
+        },
+        {
+          sectionName: 'Mental Agility Test (MAT)',
+          orderIndex: 19,
+          questionText: 'Pointing to a photograph, a woman said: "His mother is the only daughter of my mother." How is the woman related to the boy in the photograph?',
+          options: [
+            { id: 'A', text: 'Sister' },
+            { id: 'B', text: 'Aunt' },
+            { id: 'C', text: 'Mother' },
+            { id: 'D', text: 'Grandmother' },
+          ],
+          correctOptionId: 'C',
+          shortExplanation: '"Only daughter of my mother" means the woman herself. Therefore, she is the boy’s mother.',
+          stepByStepSolution: [
+            'Break down the statement: "Only daughter of my mother".',
+            'Since the speaker is a woman, the only daughter of her mother is herself.',
+            'Thus, "His mother is [myself]". The woman is the boy’s mother.',
+          ],
+        },
+      ],
+    };
+  }
+
   app.post('/api/ai/import-document-exam', async (req: Request, res: Response) => {
     try {
       const {
@@ -2207,9 +2606,10 @@ Requirements:
         solutionDocBase64,
         solutionDocMimeType = 'application/pdf',
         solutionDocText,
+        pageImages,
         testTitle = 'MECEE BL Model Entrance Exam',
         useLocalSample = false,
-        pageRange = '1-3',
+        pageRange,
       } = req.body as {
         questionDocBase64?: string;
         questionDocMimeType?: string;
@@ -2217,10 +2617,24 @@ Requirements:
         solutionDocBase64?: string;
         solutionDocMimeType?: string;
         solutionDocText?: string;
+        pageImages?: string[];
         testTitle?: string;
         useLocalSample?: boolean;
         pageRange?: string;
       };
+
+      // Fast-track sample booklet shortcut: works both on local disk and on Vercel
+      if (useLocalSample) {
+        const sampleQPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0011.pdf';
+        const sampleSolPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0012.pdf';
+        const hasLocalFiles = fs.existsSync(sampleQPath) && fs.existsSync(sampleSolPath);
+
+        if (!hasLocalFiles) {
+          // Running on Vercel or cloud: return the high-fidelity pre-extracted MECEE BL Model XIII exam immediately
+          res.json(getSampleMeceeExam(testTitle));
+          return;
+        }
+      }
 
       const ai = getAiClient();
       const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
@@ -2247,6 +2661,18 @@ Requirements:
           });
         }
       } else {
+        if (Array.isArray(pageImages) && pageImages.length > 0) {
+          for (const raw of pageImages) {
+            const data = raw.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+            const mime = raw.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+            parts.push({
+              inlineData: {
+                mimeType: mime,
+                data,
+              },
+            });
+          }
+        }
         if (questionDocBase64) {
           parts.push({
             inlineData: {

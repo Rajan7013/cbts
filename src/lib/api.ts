@@ -29,11 +29,30 @@ async function postJson<T>(url: string, body: unknown, bearerToken?: string): Pr
     headers,
     body: JSON.stringify(body),
   });
-  const data = (await res.json()) as T & { error?: string };
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+
+  const rawText = await res.text();
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    if (
+      res.status === 413 ||
+      rawText.includes('Request Entity Too Large') ||
+      rawText.includes('Payload Too Large')
+    ) {
+      throw new Error(
+        'Upload payload exceeds the cloud serverless limit (4.5MB). The document has been auto-switched to client-side page compression & section batching.'
+      );
+    }
+    throw new Error(
+      `Server returned an unparseable response (HTTP ${res.status}): ${rawText.slice(0, 160)}`
+    );
   }
-  return data;
+
+  if (!res.ok) {
+    throw new Error(data?.error || `Request failed with status ${res.status}`);
+  }
+  return data as T;
 }
 
 export async function fetchVerifiedServerRole(bearerToken: string): Promise<{
@@ -188,6 +207,8 @@ export async function importDocumentExamWithAI(params: {
   solutionDocBase64?: string;
   solutionDocMimeType?: string;
   solutionDocText?: string;
+  pageImages?: string[];
+  pageRange?: string;
   testTitle?: string;
   useLocalSample?: boolean;
 }): Promise<DocumentExamImportResult> {

@@ -86,6 +86,80 @@ export function AiDocumentImporterModal({
     });
   };
 
+  // Dynamically load PDF.js in the browser for client-side rendering
+  const loadPdfJs = async (): Promise<any> => {
+    if (typeof window === 'undefined') return null;
+    if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+
+    return new Promise((resolve, reject) => {
+      const existing = document.getElementById('pdfjs-cdn-script');
+      if (existing) {
+        existing.addEventListener('load', () => resolve((window as any).pdfjsLib));
+        return;
+      }
+      const script = document.createElement('script');
+      script.id = 'pdfjs-cdn-script';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        const pdfjs = (window as any).pdfjsLib;
+        if (pdfjs) {
+          pdfjs.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve(pdfjs);
+        } else {
+          reject(new Error('PDF engine initialized without pdfjsLib'));
+        }
+      };
+      script.onerror = () => reject(new Error('Could not load PDF processing engine'));
+      document.head.appendChild(script);
+    });
+  };
+
+  // Render PDF pages client-side to lightweight compressed JPEGs (~50KB/page)
+  const renderPdfPagesClientSide = async (
+    file: File,
+    maxPages = 16,
+    onProgress?: (current: number, total: number) => void
+  ): Promise<{ pageImages: string[]; text: string }> => {
+    const pdfjs = await loadPdfJs();
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+    const numPages = Math.min(pdf.numPages, maxPages);
+    const pageImages: string[] = [];
+    let extractedText = '';
+
+    for (let i = 1; i <= numPages; i++) {
+      onProgress?.(i, numPages);
+      const page = await pdf.getPage(i);
+
+      try {
+        const content = await page.getTextContent();
+        const str = content.items.map((it: any) => it.str).join(' ');
+        if (str.trim().length > 30) {
+          extractedText += `\n--- Page ${i} ---\n` + str;
+        }
+      } catch {
+        // Continue if text extraction fails
+      }
+
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      const targetScale = Math.min(1.2, 850 / unscaledViewport.width);
+      const viewport = page.getViewport({ scale: targetScale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const jpeg = canvas.toDataURL('image/jpeg', 0.65);
+        pageImages.push(jpeg);
+      }
+    }
+
+    return { pageImages, text: extractedText };
+  };
+
   const handleStartProcessing = async () => {
     if (!useLocalSample && !questionFile) {
       setError('Please upload at least the Question booklet PDF/document, or select the sample booklet.');
@@ -94,41 +168,146 @@ export function AiDocumentImporterModal({
 
     setLoading(true);
     setError(null);
-    setLoadingStep('Reading document pages and extracting text/images…');
+    setLoadingStep('Initializing AI assessment extraction engine…');
 
     try {
-      let questionDocBase64: string | undefined;
-      let questionDocMimeType: string | undefined;
-      let solutionDocBase64: string | undefined;
-      let solutionDocMimeType: string | undefined;
+      let combinedQuestions: any[] = [];
+      let combinedSections: { name: string; questionCount?: number }[] = [];
+      let combinedTitle = testTitle;
+      let combinedDescription = testDescription;
 
-      if (!useLocalSample && questionFile) {
-        questionDocBase64 = await fileToBase64(questionFile);
-        questionDocMimeType = questionFile.type || 'application/pdf';
+      if (useLocalSample) {
+        setLoadingStep('Loading MECEE BL Model XIII Booklet (Zoology, Botany, Chemistry, Physics, MAT)…');
+        const result = await importDocumentExamWithAI({
+          useLocalSample: true,
+          testTitle,
+        });
+        combinedQuestions = result.questions || [];
+        combinedSections = result.sections || [];
+        combinedTitle = result.title || testTitle;
+        combinedDescription = result.description || testDescription;
+      } else if (questionFile) {
+        const isPdf =
+          questionFile.type === 'application/pdf' ||
+          questionFile.name.toLowerCase().endsWith('.pdf');
+        const isText =
+          questionFile.type === 'text/plain' || questionFile.name.toLowerCase().endsWith('.txt');
+        const fileSizeMb = questionFile.size / (1024 * 1024);
+
+        if (isText) {
+          setLoadingStep('Reading question document text…');
+          const text = await questionFile.text();
+          let solText = '';
+          if (solutionFile) {
+            solText = await solutionFile.text().catch(() => '');
+          }
+          setLoadingStep('AI analyzing sections, LaTeX math formulas, and answer keys…');
+          const result = await importDocumentExamWithAI({
+            questionDocText: text,
+            solutionDocText: solText || undefined,
+            testTitle,
+          });
+          combinedQuestions = result.questions || [];
+          combinedSections = result.sections || [];
+          combinedTitle = result.title || testTitle;
+          combinedDescription = result.description || testDescription;
+        } else if (isPdf && fileSizeMb > 3.0) {
+          // Large scanned PDF: compress pages client-side into lightweight JPEGs
+          setLoadingStep(
+            `Compressing ${fileSizeMb.toFixed(1)}MB PDF client-side to ensure high-speed upload…`
+          );
+
+          let pageImages: string[] = [];
+          let extractedText = '';
+
+          try {
+            const res = await renderPdfPagesClientSide(questionFile, 16, (cur, tot) => {
+              setLoadingStep(`Optimizing page ${cur} of ${tot} (rendering crisp 850px diagrams)…`);
+            });
+            pageImages = res.pageImages;
+            extractedText = res.text;
+          } catch (pdfErr) {
+            console.warn('Client-side PDF rendering failed, falling back to direct stream:', pdfErr);
+          }
+
+          if (pageImages.length > 0) {
+            // Process in batches of 4 pages to stay far under Vercel payload limits and maximize AI accuracy
+            const BATCH_SIZE = 4;
+            const totalBatches = Math.ceil(pageImages.length / BATCH_SIZE);
+
+            for (let b = 0; b < totalBatches; b++) {
+              const startPage = b * BATCH_SIZE + 1;
+              const endPage = Math.min((b + 1) * BATCH_SIZE, pageImages.length);
+              setLoadingStep(
+                `AI extracting Batch ${b + 1}/${totalBatches} (Pages ${startPage}–${endPage}: detecting sections & KaTeX formulas)…`
+              );
+
+              const batchSlice = pageImages.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
+              const batchRes = await importDocumentExamWithAI({
+                pageImages: batchSlice,
+                questionDocText: extractedText ? extractedText.slice(0, 3000) : undefined,
+                testTitle,
+                pageRange: `${startPage}-${endPage}`,
+              });
+
+              if (batchRes.questions && batchRes.questions.length > 0) {
+                combinedQuestions.push(...batchRes.questions);
+              }
+              if (batchRes.sections && batchRes.sections.length > 0) {
+                for (const sec of batchRes.sections) {
+                  if (!combinedSections.some((s) => s.name.toLowerCase() === sec.name.toLowerCase())) {
+                    combinedSections.push(sec);
+                  }
+                }
+              }
+              if (b === 0 && batchRes.title) {
+                combinedTitle = batchRes.title;
+              }
+            }
+          } else {
+            // Fallback if canvas rendering could not produce pages
+            setLoadingStep('Uploading PDF directly to AI extractor…');
+            const b64 = await fileToBase64(questionFile);
+            const result = await importDocumentExamWithAI({
+              questionDocBase64: b64,
+              questionDocMimeType: 'application/pdf',
+              testTitle,
+            });
+            combinedQuestions = result.questions || [];
+            combinedSections = result.sections || [];
+          }
+        } else {
+          // Normal file under 3MB
+          setLoadingStep('Uploading document to AI extractor…');
+          const qB64 = await fileToBase64(questionFile);
+          let sB64: string | undefined;
+          if (solutionFile) {
+            sB64 = await fileToBase64(solutionFile).catch(() => undefined);
+          }
+          setLoadingStep('AI analyzing sections, converting formulas to KaTeX LaTeX, and pairing answer keys…');
+          const result = await importDocumentExamWithAI({
+            questionDocBase64: qB64,
+            questionDocMimeType: questionFile.type || 'application/pdf',
+            solutionDocBase64: sB64,
+            solutionDocMimeType: solutionFile?.type || 'application/pdf',
+            testTitle,
+          });
+          combinedQuestions = result.questions || [];
+          combinedSections = result.sections || [];
+          combinedTitle = result.title || testTitle;
+          combinedDescription = result.description || testDescription;
+        }
       }
 
-      if (!useLocalSample && solutionFile) {
-        solutionDocBase64 = await fileToBase64(solutionFile);
-        solutionDocMimeType = solutionFile.type || 'application/pdf';
-      }
-
-      setLoadingStep('AI analyzing sections, converting formulas to KaTeX LaTeX, and pairing answer keys…');
-
-      const result: DocumentExamImportResult = await importDocumentExamWithAI({
-        questionDocBase64,
-        questionDocMimeType,
-        solutionDocBase64,
-        solutionDocMimeType,
-        testTitle,
-        useLocalSample,
-      });
-
-      if (!result.questions || result.questions.length === 0) {
+      if (!combinedQuestions || combinedQuestions.length === 0) {
         throw new Error('AI could not identify questions in the provided document. Check format.');
       }
 
+      if (combinedTitle) setTestTitle(combinedTitle);
+      if (combinedDescription) setTestDescription(combinedDescription);
+
       // Build TestSections
-      const createdSections: TestSection[] = (result.sections || []).map((sec, idx) => ({
+      const createdSections: TestSection[] = (combinedSections || []).map((sec, idx) => ({
         id: `sec_${idx + 1}_${Date.now()}`,
         name: sec.name || `Section ${idx + 1}`,
         questionCount: sec.questionCount || 0,
@@ -139,13 +318,13 @@ export function AiDocumentImporterModal({
         createdSections.push({
           id: `sec_1_${Date.now()}`,
           name: 'General',
-          questionCount: result.questions.length,
+          questionCount: combinedQuestions.length,
         });
       }
 
       // Build full TestQuestions
       const testId = currentTest?.testId || `test_${Date.now()}`;
-      const mappedQuestions: TestQuestion[] = result.questions.map((q, idx) => {
+      const mappedQuestions: TestQuestion[] = combinedQuestions.map((q, idx) => {
         // Find matching section
         const matchingSec =
           createdSections.find(
