@@ -19,44 +19,66 @@ export async function optimizeImageFile(
     return `data:image/svg+xml;base64,${b64}`;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.onerror = () => resolve('');
     reader.onload = (e) => {
+      const rawDataUrl = String(e.target?.result || '');
       const img = new Image();
-      img.onerror = () => reject(new Error('Failed to decode image data.'));
+      img.onerror = () => resolve(rawDataUrl);
       img.onload = () => {
-        let { width, height } = img;
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-        }
+        try {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(String(e.target?.result || ''));
-          return;
-        }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(rawDataUrl);
+            return;
+          }
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
 
-        // Try modern WebP first; fallback to JPEG
-        let dataUrl = canvas.toDataURL('image/webp', quality);
-        if (!dataUrl.startsWith('data:image/webp')) {
-          dataUrl = canvas.toDataURL('image/jpeg', quality);
+          // Try modern WebP first; fallback to JPEG
+          let dataUrl = canvas.toDataURL('image/webp', quality);
+          if (!dataUrl.startsWith('data:image/webp')) {
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          resolve(dataUrl || rawDataUrl);
+        } catch {
+          resolve(rawDataUrl);
         }
-        resolve(dataUrl);
       };
-      img.src = String(e.target?.result || '');
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   });
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob {
+  try {
+    const parts = dataUrl.split(';base64,');
+    if (parts.length === 2) {
+      const contentType = parts[0].replace('data:', '') || 'image/webp';
+      const raw = atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      return new Blob([uInt8Array], { type: contentType });
+    }
+  } catch {}
+  return new Blob([], { type: 'image/webp' });
 }
 
 /**
@@ -77,14 +99,14 @@ export async function processAndUploadImage(
     try {
       const cleanPath = storagePath.replace(/^\/+/, '');
       const storageRef = ref(storage, cleanPath);
-      // Convert dataUrl to blob for storage upload
-      const res = await fetch(optimizedDataUrl);
-      const blob = await res.blob();
-      const snapshot = await uploadBytes(storageRef, blob, {
-        contentType: blob.type || file.type || 'image/webp',
-      });
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      if (downloadUrl) return downloadUrl;
+      const blob = dataUrlToBlob(optimizedDataUrl);
+      if (blob.size > 0) {
+        const snapshot = await uploadBytes(storageRef, blob, {
+          contentType: blob.type || file.type || 'image/webp',
+        });
+        const downloadUrl = await getDownloadURL(snapshot.ref);
+        if (downloadUrl) return downloadUrl;
+      }
     } catch (storageErr) {
       console.warn('Firebase Storage upload skipped/failed; falling back to self-contained data URL:', storageErr);
     }

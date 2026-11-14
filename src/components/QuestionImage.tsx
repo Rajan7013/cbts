@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ZoomIn, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ZoomIn, X, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export function normalizeQuestionImageUrl(raw?: string): string {
   if (!raw || typeof raw !== 'string') return '';
@@ -47,15 +47,44 @@ export function QuestionImage({
   const [isZoomed, setIsZoomed] = useState(false);
   const normalized = normalizeQuestionImageUrl(src);
 
-  if (!normalized || loadError) return null;
+  // Automatically reset loadError whenever src changes so new images always render
+  useEffect(() => {
+    setLoadError(false);
+  }, [src, normalized]);
+
+  if (!normalized) return null;
+
+  if (loadError) {
+    return (
+      <div className="my-2.5 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-2xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <div className="truncate">
+            <span className="font-semibold block">Image preview could not be loaded</span>
+            <span className="text-[10px] text-amber-700 truncate block">Check format or re-upload diagram</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setLoadError(false)}
+          className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 cursor-pointer shrink-0"
+        >
+          <RefreshCw className="h-3 w-3" />
+          <span>Retry</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
-      <div className="relative group my-3 inline-block overflow-hidden rounded-xl border border-slate-200/90 bg-white p-2 shadow-2xs">
+      <div className="relative group my-2.5 inline-block overflow-hidden rounded-xl border border-slate-200/90 bg-white p-2 shadow-2xs">
         <img
           src={normalized}
           alt={alt}
           loading="eager"
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
           onError={() => setLoadError(true)}
           className={`max-h-72 w-auto max-w-full rounded-lg object-contain transition-transform duration-200 ${
             allowZoom ? 'cursor-zoom-in group-hover:scale-[1.01]' : ''
@@ -104,6 +133,8 @@ export function QuestionImage({
               <img
                 src={normalized}
                 alt={alt}
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="max-h-[78vh] max-w-full rounded-lg object-contain"
               />
             </div>
