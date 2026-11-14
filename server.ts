@@ -619,6 +619,18 @@ function sendAiError(res: Response, err: unknown): void {
     raw.toLowerCase().includes('quota exceeded') ||
     raw.toLowerCase().includes('rate limit');
 
+  if (
+    raw.includes('Request Entity Too Large') ||
+    raw.includes("Unexpected token 'R'") ||
+    raw.includes('Payload Too Large')
+  ) {
+    res.status(413).json({
+      error:
+        'The uploaded document size exceeds AI model payload limits. Please compress pages or upload smaller section batches.',
+    });
+    return;
+  }
+
   if (isRateLimit) {
     res.status(429).json({
       error: `Gemini API rate limit reached (Free Tier allows 5 requests/minute). Please wait ${
@@ -2623,82 +2635,67 @@ Requirements:
         pageRange?: string;
       };
 
-      // Fast-track sample booklet shortcut: works both on local disk and on Vercel
+      // Fast-track sample booklet shortcut: returns complete MECEE BL Model XIII exam immediately
       if (useLocalSample) {
-        const sampleQPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0011.pdf';
-        const sampleSolPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0012.pdf';
-        const hasLocalFiles = fs.existsSync(sampleQPath) && fs.existsSync(sampleSolPath);
-
-        if (!hasLocalFiles) {
-          // Running on Vercel or cloud: return the high-fidelity pre-extracted MECEE BL Model XIII exam immediately
-          res.json(getSampleMeceeExam(testTitle));
-          return;
-        }
+        res.json(getSampleMeceeExam(testTitle));
+        return;
       }
 
       const ai = getAiClient();
       const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
 
-      if (useLocalSample) {
-        const sampleQPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0011.pdf';
-        const sampleSolPath = 'C:\\Users\\rajan\\Downloads\\DOC-20260921-WA0012.pdf';
-        if (fs.existsSync(sampleQPath)) {
-          const qBuf = fs.readFileSync(sampleQPath);
+      if (Array.isArray(pageImages) && pageImages.length > 0) {
+        for (const raw of pageImages) {
+          const data = raw.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
+          const mime = raw.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
           parts.push({
             inlineData: {
-              mimeType: 'application/pdf',
-              data: qBuf.toString('base64'),
+              mimeType: mime,
+              data,
             },
           });
         }
-        if (fs.existsSync(sampleSolPath)) {
-          const sBuf = fs.readFileSync(sampleSolPath);
-          parts.push({
-            inlineData: {
-              mimeType: 'application/pdf',
-              data: sBuf.toString('base64'),
-            },
-          });
-        }
-      } else {
-        if (Array.isArray(pageImages) && pageImages.length > 0) {
-          for (const raw of pageImages) {
-            const data = raw.replace(/^data:image\/[a-zA-Z]+;base64,/, '');
-            const mime = raw.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
-            parts.push({
-              inlineData: {
-                mimeType: mime,
-                data,
-              },
-            });
-          }
-        }
-        if (questionDocBase64) {
-          parts.push({
-            inlineData: {
-              mimeType: questionDocMimeType,
-              data: questionDocBase64,
-            },
-          });
-        }
-        if (solutionDocBase64) {
-          parts.push({
-            inlineData: {
-              mimeType: solutionDocMimeType,
-              data: solutionDocBase64,
-            },
-          });
-        }
-        if (questionDocText?.trim()) {
-          parts.push({ text: `Question Document Content:\n${questionDocText.trim()}` });
-        }
-        if (solutionDocText?.trim()) {
-          parts.push({ text: `Solution / Answer Key Document Content:\n${solutionDocText.trim()}` });
-        }
+      }
+      if (questionDocBase64) {
+        parts.push({
+          inlineData: {
+            mimeType: questionDocMimeType,
+            data: questionDocBase64,
+          },
+        });
+      }
+      if (solutionDocBase64) {
+        parts.push({
+          inlineData: {
+            mimeType: solutionDocMimeType,
+            data: solutionDocBase64,
+          },
+        });
+      }
+      if (questionDocText?.trim()) {
+        parts.push({ text: `Question Document Content:\n${questionDocText.trim()}` });
+      }
+      if (solutionDocText?.trim()) {
+        parts.push({ text: `Solution / Answer Key Document Content:\n${solutionDocText.trim()}` });
       }
 
       if (parts.length === 0) {
         res.status(400).json({ error: 'Please provide question booklet or solution document to import.' });
+        return;
+      }
+
+      // Guard against Google Gemini 8MB payload limit to prevent HTTP 413
+      let totalPayloadBytes = 0;
+      for (const p of parts) {
+        if ('inlineData' in p) {
+          totalPayloadBytes += p.inlineData.data.length;
+        }
+      }
+      if (totalPayloadBytes > 6 * 1024 * 1024) {
+        res.status(413).json({
+          error:
+            'The uploaded document pages are too large for Gemini AI (exceeds 6MB). Please upload pages in smaller section batches.',
+        });
         return;
       }
 

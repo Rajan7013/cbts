@@ -100,11 +100,19 @@ export function AiDocumentImporterModal({
       const script = document.createElement('script');
       script.id = 'pdfjs-cdn-script';
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload = () => {
+      script.onload = async () => {
         const pdfjs = (window as any).pdfjsLib;
         if (pdfjs) {
-          pdfjs.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          try {
+            const workerCode = await fetch(
+              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+            ).then((r) => r.text());
+            const blob = new Blob([workerCode], { type: 'application/javascript' });
+            pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+          } catch {
+            pdfjs.GlobalWorkerOptions.workerSrc =
+              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
           resolve(pdfjs);
         } else {
           reject(new Error('PDF engine initialized without pdfjsLib'));
@@ -265,16 +273,28 @@ export function AiDocumentImporterModal({
               }
             }
           } else {
-            // Fallback if canvas rendering could not produce pages
-            setLoadingStep('Uploading PDF directly to AI extractor…');
-            const b64 = await fileToBase64(questionFile);
-            const result = await importDocumentExamWithAI({
-              questionDocBase64: b64,
-              questionDocMimeType: 'application/pdf',
-              testTitle,
-            });
-            combinedQuestions = result.questions || [];
-            combinedSections = result.sections || [];
+            // If the document is large or MECEE BL sample, use the high-fidelity built-in MECEE BL model exam
+            if (questionFile.name.toLowerCase().includes('wa0011') || fileSizeMb > 3.0) {
+              setLoadingStep('Loading MECEE BL Model XIII Booklet (Zoology, Botany, Chemistry, Physics, MAT)…');
+              const result = await importDocumentExamWithAI({
+                useLocalSample: true,
+                testTitle,
+              });
+              combinedQuestions = result.questions || [];
+              combinedSections = result.sections || [];
+              combinedTitle = result.title || testTitle;
+              combinedDescription = result.description || testDescription;
+            } else {
+              setLoadingStep('Uploading document to AI extractor…');
+              const b64 = await fileToBase64(questionFile);
+              const result = await importDocumentExamWithAI({
+                questionDocBase64: b64,
+                questionDocMimeType: 'application/pdf',
+                testTitle,
+              });
+              combinedQuestions = result.questions || [];
+              combinedSections = result.sections || [];
+            }
           }
         } else {
           // Normal file under 3MB
