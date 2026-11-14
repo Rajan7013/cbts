@@ -606,9 +606,10 @@ function extractErrorMessage(err: unknown): string {
 
 const FALLBACK_MODELS = [
   'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
   'gemini-1.5-pro',
-  'gemini-4-hydrogen',
 ];
 
 async function callGeminiWithFallback(
@@ -625,10 +626,12 @@ async function callGeminiWithFallback(
 
   let lastError: any = null;
 
-  for (const model of modelsToTry) {
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const model = modelsToTry[i];
     try {
       const config = { ...params.config };
-      if (model.includes('1.5') && config.thinkingConfig) {
+      // Gemini 1.5 models do not support thinkingConfig in v1beta; remove to prevent HTTP 400
+      if (!model.includes('2.0') && !model.includes('2.5') && config.thinkingConfig) {
         delete config.thinkingConfig;
       }
       return await ai.models.generateContent({
@@ -649,9 +652,15 @@ async function callGeminiWithFallback(
         errMsg.includes('v1beta') ||
         errMsg.includes('not enabled for api version') ||
         errMsg.includes('404') ||
-        errMsg.includes('not found');
-      if (isRetriable) {
-        console.warn(`[AI Fallback] Model ${model} returned (${errMsg.slice(0, 90)}). Retrying with fallback model...`);
+        errMsg.includes('not found') ||
+        errMsg.includes('overloaded');
+
+      if (isRetriable && i < modelsToTry.length - 1) {
+        const nextModel = modelsToTry[i + 1];
+        console.warn(
+          `[AI Fallback] Model ${model} returned (${errMsg.slice(0, 80)}). Waiting 900ms and retrying with ${nextModel}...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 900));
         continue;
       }
       throw err;

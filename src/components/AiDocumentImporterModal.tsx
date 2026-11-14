@@ -225,10 +225,10 @@ export function AiDocumentImporterModal({
           combinedSections = result.sections || [];
           combinedTitle = result.title || testTitle;
           combinedDescription = result.description || testDescription;
-        } else if (isPdf && fileSizeMb > 3.0) {
-          // Large scanned PDF: compress pages client-side into lightweight JPEGs
+        } else if (isPdf) {
+          // All PDFs: render & compress pages client-side to ensure rapid 1-page streaming without 504 timeouts or 413 limits
           setLoadingStep(
-            `Compressing ${fileSizeMb.toFixed(1)}MB PDF client-side to ensure high-speed upload…`
+            `Rendering ${fileSizeMb.toFixed(1)}MB PDF client-side into lightweight page stream…`
           );
 
           let pageImages: string[] = [];
@@ -245,7 +245,7 @@ export function AiDocumentImporterModal({
           }
 
           if (pageImages.length > 0) {
-            // Process 1 page at a time so every single serverless call finishes in ~3 seconds (well under Vercel's 10s limit)
+            // Process 1 page at a time so every single serverless call finishes in ~2-3s (well under Vercel's 10s limit)
             const BATCH_SIZE = 1;
             const totalBatches = Math.ceil(pageImages.length / BATCH_SIZE);
 
@@ -257,37 +257,56 @@ export function AiDocumentImporterModal({
               );
 
               const batchSlice = pageImages.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
-              try {
-                const batchRes = await importDocumentExamWithAI({
-                  pageImages: batchSlice,
-                  questionDocText: extractedText ? extractedText.slice(0, 3000) : undefined,
-                  testTitle,
-                  pageRange: `${startPage}-${endPage}`,
-                });
+              let success = false;
+              let lastPageErr: any = null;
 
-                if (batchRes.questions && batchRes.questions.length > 0) {
-                  combinedQuestions.push(...batchRes.questions);
-                }
-                if (batchRes.sections && batchRes.sections.length > 0) {
-                  for (const sec of batchRes.sections) {
-                    if (!combinedSections.some((s) => s.name.toLowerCase() === sec.name.toLowerCase())) {
-                      combinedSections.push(sec);
+              // Automatic retry with exponential backoff if temporary 503 or 429 spike occurs
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                  const batchRes = await importDocumentExamWithAI({
+                    pageImages: batchSlice,
+                    questionDocText: extractedText ? extractedText.slice(0, 3000) : undefined,
+                    testTitle,
+                    pageRange: `${startPage}-${endPage}`,
+                  });
+
+                  if (batchRes.questions && batchRes.questions.length > 0) {
+                    combinedQuestions.push(...batchRes.questions);
+                  }
+                  if (batchRes.sections && batchRes.sections.length > 0) {
+                    for (const sec of batchRes.sections) {
+                      if (!combinedSections.some((s) => s.name.toLowerCase() === sec.name.toLowerCase())) {
+                        combinedSections.push(sec);
+                      }
                     }
                   }
+                  if (b === 0 && batchRes.title) {
+                    combinedTitle = batchRes.title;
+                  }
+                  success = true;
+                  break;
+                } catch (pageErr: any) {
+                  lastPageErr = pageErr;
+                  const errMsg = pageErr?.message || String(pageErr);
+                  const isSpike = errMsg.includes('503') || errMsg.includes('demand') || errMsg.includes('429');
+                  if (attempt < 2 && isSpike) {
+                    setLoadingStep(`Temporary demand spike on page ${startPage}. Waiting 2.5s and retrying (attempt 2/2)…`);
+                    await new Promise((resolve) => setTimeout(resolve, 2500));
+                  }
                 }
-                if (b === 0 && batchRes.title) {
-                  combinedTitle = batchRes.title;
-                }
-              } catch (pageErr) {
-                console.warn(`Page ${startPage} extraction notice:`, pageErr);
-                // If it was the first page and failed, attempt one quick retry before continuing
+              }
+
+              if (!success) {
+                console.warn(`Page ${startPage} extraction notice:`, lastPageErr);
+                // If it was the first page and no questions extracted yet, throw so user knows;
+                // but if questions were already extracted from other pages, proceed with what was collected!
                 if (b === 0 && combinedQuestions.length === 0) {
-                  throw pageErr;
+                  throw lastPageErr;
                 }
               }
             }
           } else {
-            // If the document is large or MECEE BL sample, use the high-fidelity built-in MECEE BL model exam
+            // If PDF rendering had no pages, use the high-fidelity built-in MECEE BL model exam if it matches sample or fallback
             if (questionFile.name.toLowerCase().includes('wa0011') || fileSizeMb > 3.0) {
               setLoadingStep('Loading MECEE BL Model XIII Booklet (Zoology, Botany, Chemistry, Physics, MAT)…');
               const result = await importDocumentExamWithAI({
@@ -311,7 +330,7 @@ export function AiDocumentImporterModal({
             }
           }
         } else {
-          // Normal file under 3MB
+          // Word (.docx) or other non-PDF file under 3MB
           setLoadingStep('Uploading document to AI extractor…');
           const qB64 = await fileToBase64(questionFile);
           let sB64: string | undefined;
@@ -321,9 +340,9 @@ export function AiDocumentImporterModal({
           setLoadingStep('AI analyzing sections, converting formulas to KaTeX LaTeX, and pairing answer keys…');
           const result = await importDocumentExamWithAI({
             questionDocBase64: qB64,
-            questionDocMimeType: questionFile.type || 'application/pdf',
+            questionDocMimeType: questionFile.type || 'application/octet-stream',
             solutionDocBase64: sB64,
-            solutionDocMimeType: solutionFile?.type || 'application/pdf',
+            solutionDocMimeType: solutionFile?.type || 'application/octet-stream',
             testTitle,
           });
           combinedQuestions = result.questions || [];
