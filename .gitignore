@@ -5,6 +5,8 @@ coverage/
 .vercel/
 .DS_Store
 *.log
+__pycache__/
+*.py[cod]
 .env*
 !.env.example
 *-firebase-adminsdk-*.json
