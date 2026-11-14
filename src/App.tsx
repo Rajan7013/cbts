@@ -443,6 +443,15 @@ export default function App() {
     try {
       const att = activeAttempt || (await createAttempt(user, selectedTest));
       setActiveAttempt(att);
+      setAttempts((prev) => {
+        const idx = prev.findIndex((a) => a.attemptId === att.attemptId);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = att;
+          return next;
+        }
+        return [...prev, att];
+      });
       setScreen('exam-runner');
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : 'Failed to initialize exam session.');
@@ -544,6 +553,15 @@ export default function App() {
               status
             );
             setActiveAttempt(finalized);
+            setAttempts((prev) => {
+              const idx = prev.findIndex((a) => a.attemptId === finalized.attemptId);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = finalized;
+                return next;
+              }
+              return [...prev, finalized];
+            });
             setUnlockedResultQuestions(unlockedQuestions);
             setScreen('exam-results');
           } catch (submitErr) {
@@ -565,6 +583,15 @@ export default function App() {
               stepByStepSolution: [],
             }));
             setActiveAttempt(fallbackFinalized);
+            setAttempts((prev) => {
+              const idx = prev.findIndex((a) => a.attemptId === fallbackFinalized.attemptId);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = fallbackFinalized;
+                return next;
+              }
+              return [...prev, fallbackFinalized];
+            });
             setUnlockedResultQuestions(fallbackUnlocked);
             setScreen('exam-results');
           }

@@ -413,6 +413,10 @@ export function MathText({ text, className = '', inline = false }: MathTextProps
         return (
           <Fragment key={idx}>
             {lines.map((line, lIdx) => {
+              const trimmed = line.trim();
+              if (trimmed === '•' || trimmed === '.' || trimmed === '*' || trimmed === '-') {
+                return null;
+              }
               const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
               if (headingMatch) {
                 return (
@@ -424,7 +428,7 @@ export function MathText({ text, className = '', inline = false }: MathTextProps
                   </span>
                 );
               }
-              const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+              const bulletMatch = line.match(/^[-*•]\s+(.+)$/);
               if (bulletMatch && lIdx > 0) {
                 return (
                   <span key={lIdx} className="block pl-3.5 relative mt-0.5">

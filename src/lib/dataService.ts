@@ -908,10 +908,13 @@ export async function batchSaveQuestions(
     }
   }
 
-  // Bulk sync all answer keys with server in a single call
+  // Bulk sync all answer keys with server in a single call (with 8s safety timeout so UI never hangs)
   try {
     const token = await getIdTokenOrThrow();
-    await syncAdminAnswerKeys(token, testId, answerKeysToSync);
+    await Promise.race([
+      syncAdminAnswerKeys(token, testId, answerKeysToSync),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Server key sync timeout')), 8000)),
+    ]);
   } catch (syncErr) {
     console.warn('[batchSaveQuestions] Server-side bulk key sync notice:', syncErr);
   }

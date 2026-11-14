@@ -670,34 +670,46 @@ export function LiveExamRunner({
       {/* ======================================================== */}
       {/* 2. MAIN BODY (UNSTOP 2-COLUMN SPLIT SCREEN)             */}
       {/* ======================================================== */}
-      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-120px)] overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-120px)] overflow-hidden overflow-x-hidden">
         {/* LEFT COLUMN: Question & Context (approx 52%) */}
-        <div className="w-full lg:w-[52%] h-full overflow-y-auto p-5 sm:p-8 relative border-r border-slate-200 bg-white">
-          {/* Background Watermark matching Unstop Image 1, 2, 3 */}
-          <div className="pointer-events-none select-none absolute inset-0 overflow-hidden opacity-[0.035] leading-loose text-xs font-mono font-bold rotate-[-15deg] flex flex-wrap content-center gap-12 p-8">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <span key={i} className="whitespace-nowrap">
-                {attempt.userEmail || 'Candidate'} {attempt.userId ? `· ${attempt.userId.slice(0, 10)}` : ''}
-              </span>
-            ))}
+        <div className="w-full lg:w-[52%] h-full overflow-y-auto overflow-x-hidden p-5 sm:p-8 relative border-r border-slate-200 bg-white">
+          {/* Background Watermark (Clipped SVG pattern, zero overflow, zero scrollbars) */}
+          <div className="pointer-events-none select-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <svg className="absolute inset-0 h-full w-full opacity-[0.035]" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="wm-pat" width="280" height="140" patternTransform="rotate(-25 0 0)" patternUnits="userSpaceOnUse">
+                  <text x="10" y="35" fontSize="12" fontWeight="bold" fontFamily="monospace" fill="currentColor">
+                    {attempt.userEmail || 'Candidate'}
+                  </text>
+                  <text x="10" y="65" fontSize="10" fontWeight="bold" fontFamily="monospace" fill="currentColor">
+                    {attempt.userName || (attempt.userId ? `ID: ${attempt.userId.slice(0, 10)}` : 'ExamPulse')}
+                  </text>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#wm-pat)" />
+            </svg>
           </div>
 
           <div className="relative z-10 space-y-4 max-w-3xl">
-            {/* Top Row: Question number + Re-visit toggle + Marks */}
+            {/* Top Row: Question number + Mark for Review button + Marks */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <span className="font-display text-base sm:text-lg font-bold text-slate-900">
                   Question {currentIndex + 1}.
                 </span>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-purple-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(currentResp?.markedForReview)}
-                    onChange={handleToggleMark}
-                    className="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
-                  />
-                  <span>Re-visit</span>
-                </label>
+                <button
+                  type="button"
+                  onClick={handleToggleMark}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-semibold cursor-pointer transition-colors shadow-2xs ${
+                    currentResp?.markedForReview
+                      ? 'border-purple-300 bg-purple-50 text-purple-700 font-bold'
+                      : 'border-slate-200 bg-white hover:bg-purple-50 hover:text-purple-700 text-slate-600'
+                  }`}
+                  title="Mark for later review"
+                >
+                  <Bookmark className="h-3.5 w-3.5 text-purple-600" />
+                  <span>{currentResp?.markedForReview ? 'Marked for Review ✓' : 'Mark for Review'}</span>
+                </button>
               </div>
 
               <div className="text-xs sm:text-sm font-bold text-slate-700 font-mono">
@@ -724,12 +736,12 @@ export function LiveExamRunner({
         </div>
 
         {/* RIGHT COLUMN: Answer & Options (approx 48%) */}
-        <div className="w-full lg:w-[48%] h-full overflow-y-auto p-5 sm:p-8 bg-slate-50/50">
+        <div className="w-full lg:w-[48%] h-full overflow-y-auto overflow-x-hidden p-5 sm:p-8 bg-slate-50/50">
           <div className="max-w-2xl space-y-4">
             <div>
               <h3 className="font-display text-base font-bold text-slate-900">Answer</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Click on &quot;Submit&quot; button to proceed.
+                Click on &quot;Next&quot; button to proceed.
               </p>
             </div>
 
@@ -782,22 +794,44 @@ export function LiveExamRunner({
       {/* 3. BOTTOM ACTION BAR (UNSTOP FIXED FOOTER)              */}
       {/* ======================================================== */}
       <footer className="h-16 border-t border-slate-200 bg-white px-4 sm:px-8 flex items-center justify-between shrink-0 z-20 shadow-xs">
-        {/* Left: Finish button (Red/Orange-red matching Unstop) */}
+        {/* Left: Submit Test button (formerly Finish) */}
         <button
           type="button"
           onClick={() => setShowSubmitConfirm(true)}
-          className="px-6 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-xs sm:text-sm font-bold text-white shadow-xs cursor-pointer transition-colors"
+          className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-xs sm:text-sm font-bold text-white shadow-xs cursor-pointer transition-colors"
         >
-          Finish
+          Submit Test
         </button>
 
-        {/* Right: Previous, Skip, Submit (Matching Unstop Image 1 & 3) */}
+        {/* Right: Mark for Review, Clear Response, Previous, Skip, Next */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={handleToggleMark}
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-semibold cursor-pointer transition-colors shadow-2xs ${
+              currentResp?.markedForReview
+                ? 'border-purple-300 bg-purple-50 text-purple-700 font-bold'
+                : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+            }`}
+          >
+            <Bookmark className="h-3.5 w-3.5 text-purple-600" />
+            <span>{currentResp?.markedForReview ? 'Marked for Review ✓' : 'Mark for Review'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearResponse}
+            disabled={!currentResp?.selectedOptionId}
+            className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          >
+            Clear Response
+          </button>
+
           <button
             type="button"
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
           >
             <ChevronLeft className="h-4 w-4" />
             <span>Previous</span>
@@ -806,17 +840,18 @@ export function LiveExamRunner({
           <button
             type="button"
             onClick={handleSkip}
-            className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
+            className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
           >
             Skip
           </button>
 
+          {/* Next button (formerly Submit) */}
           <button
             type="button"
             onClick={handleSaveAndNext}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm font-bold text-white shadow-xs cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm font-bold text-white shadow-xs cursor-pointer transition-colors"
           >
-            <span>Submit</span>
+            <span>Next</span>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
