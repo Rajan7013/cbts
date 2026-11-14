@@ -88,6 +88,7 @@ export default function App() {
   const [sanitizedQuestions, setSanitizedQuestions] = useState<SanitizedQuestion[]>([]);
   const [adminQuestions, setAdminQuestions] = useState<TestQuestion[]>([]);
   const [unlockedResultQuestions, setUnlockedResultQuestions] = useState<TestQuestion[]>([]);
+  const [resultInitialMode, setResultInitialMode] = useState<'summary' | 'review'>('summary');
   const [adminTestAttempts, setAdminTestAttempts] = useState<TestAttempt[]>([]);
   const [activeAttempt, setActiveAttempt] = useState<TestAttempt | null>(null);
   const [dashboardPreview, setDashboardPreview] = useState<{
@@ -385,7 +386,11 @@ export default function App() {
     }
   };
 
-  const handleViewResult = async (test: TestExam, attempt: TestAttempt) => {
+  const handleViewResult = async (
+    test: TestExam,
+    attempt: TestAttempt,
+    initialMode: 'summary' | 'review' = 'summary'
+  ) => {
     if (!user) return;
     setLoadingData(true);
     try {
@@ -394,6 +399,7 @@ export default function App() {
       setSelectedTest(test);
       setUnlockedResultQuestions(unlocked);
       setActiveAttempt(attempt);
+      setResultInitialMode(initialMode);
       setScreen('exam-results');
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : 'Failed to unlock exam result.');
@@ -499,6 +505,72 @@ export default function App() {
           }
         }}
       />
+    );
+  }
+
+  // Candidate screens render cleanly in their dedicated ambient portal (matching design specifications 100%)
+  if (screen === 'candidate-dashboard') {
+    return (
+      <CandidateDashboard
+        user={user}
+        tests={tests}
+        attempts={attempts}
+        loading={loadingData}
+        onStartOrResumeTest={handleStartOrResumeBriefing}
+        onViewResult={(t, att, mode) => handleViewResult(t, att, mode)}
+        onSwitchToAdmin={
+          user.role === 'admin'
+            ? () => {
+                setPortalMode('admin');
+                setScreen('admin-dashboard');
+              }
+            : undefined
+        }
+      />
+    );
+  }
+
+  if (screen === 'exam-results' && selectedTest && activeAttempt) {
+    return (
+      <ExamResultsScreen
+        user={user}
+        test={selectedTest}
+        questions={unlockedResultQuestions}
+        attempt={activeAttempt}
+        allAttempts={attempts.filter((a) => a.testId === selectedTest.testId)}
+        initialMode={resultInitialMode}
+        onSelectAttempt={async (att) => {
+          setActiveAttempt(att);
+          const sanitized = await listSanitizedQuestions(user, selectedTest.testId);
+          const unlocked = await unlockQuestionsForReview(selectedTest.testId, sanitized, att.status);
+          setUnlockedResultQuestions(unlocked);
+        }}
+        onRetakeTest={() => {
+          handleStartOrResumeBriefing(selectedTest, undefined);
+        }}
+        onBackToDashboard={() => setScreen('candidate-dashboard')}
+        onSwitchToAdmin={
+          user.role === 'admin'
+            ? () => {
+                setPortalMode('admin');
+                setScreen('admin-dashboard');
+              }
+            : undefined
+        }
+      />
+    );
+  }
+
+  if (screen === 'exam-briefing' && selectedTest) {
+    return (
+      <div className="min-h-screen bg-slate-50 py-8 px-4">
+        <ExamBriefingScreen
+          test={selectedTest}
+          resumingAttempt={activeAttempt || undefined}
+          onBack={() => setScreen('candidate-dashboard')}
+          onLaunchExam={handleLaunchExam}
+        />
+      </div>
     );
   }
 
@@ -656,44 +728,6 @@ export default function App() {
           loading={loadingData}
           onSelectTest={(t) => handleViewAdminResults(t)}
           onBack={() => setScreen('admin-dashboard')}
-        />
-      )}
-
-      {screen === 'candidate-dashboard' && (
-        <CandidateDashboard
-          tests={tests}
-          attempts={attempts}
-          loading={loadingData}
-          onStartOrResumeTest={handleStartOrResumeBriefing}
-          onViewResult={handleViewResult}
-        />
-      )}
-
-      {screen === 'exam-briefing' && selectedTest && (
-        <ExamBriefingScreen
-          test={selectedTest}
-          resumingAttempt={activeAttempt || undefined}
-          onBack={() => setScreen('candidate-dashboard')}
-          onLaunchExam={handleLaunchExam}
-        />
-      )}
-
-      {screen === 'exam-results' && selectedTest && activeAttempt && (
-        <ExamResultsScreen
-          test={selectedTest}
-          questions={unlockedResultQuestions}
-          attempt={activeAttempt}
-          allAttempts={attempts.filter((a) => a.testId === selectedTest.testId)}
-          onSelectAttempt={async (att) => {
-            setActiveAttempt(att);
-            const sanitized = await listSanitizedQuestions(user, selectedTest.testId);
-            const unlocked = await unlockQuestionsForReview(selectedTest.testId, sanitized, att.status);
-            setUnlockedResultQuestions(unlocked);
-          }}
-          onRetakeTest={() => {
-            handleStartOrResumeBriefing(selectedTest, undefined);
-          }}
-          onBackToDashboard={() => setScreen('candidate-dashboard')}
         />
       )}
 

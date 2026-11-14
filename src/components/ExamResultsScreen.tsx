@@ -1,43 +1,37 @@
 import { useState } from 'react';
 import {
-  ArrowLeft,
+  ClipboardList,
+  BarChart2,
+  ExternalLink,
   CheckCircle2,
   XCircle,
-  ShieldAlert,
-  Sparkles,
-  Languages,
-  Send,
-  X,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
+  HelpCircle,
+  ArrowRight,
+  ArrowLeft,
+  FileText,
+  Info,
   Check,
-  Clock,
+  X,
+  ChevronRight,
+  ChevronLeft,
   RotateCcw,
 } from 'lucide-react';
+import { DonutScoreGauge } from './DonutScoreGauge';
 import { MathText } from './MathText';
 import { QuestionImage } from './QuestionImage';
-import { askAiTutor, translateTextsWithAI } from '../lib/api';
-import type { TestAttempt, TestExam, TestQuestion } from '../types';
+import type { TestAttempt, TestExam, TestQuestion, UserProfile } from '../types';
 
 interface ExamResultsScreenProps {
   test: TestExam;
   questions: TestQuestion[];
   attempt: TestAttempt;
   allAttempts?: TestAttempt[];
+  user?: UserProfile;
   onSelectAttempt?: (att: TestAttempt) => void;
   onRetakeTest?: () => void;
   onBackToDashboard: () => void;
-}
-
-type ReviewFilter = 'all' | 'wrong' | 'marked';
-
-const LANGUAGES = ['Hindi', 'Tamil', 'Bengali', 'Bahasa Indonesia', 'Japanese'];
-
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}m ${String(s).padStart(2, '0')}s`;
+  onSwitchToAdmin?: () => void;
+  initialMode?: 'summary' | 'review';
 }
 
 export function ExamResultsScreen({
@@ -45,692 +39,613 @@ export function ExamResultsScreen({
   questions,
   attempt,
   allAttempts,
+  user,
   onSelectAttempt,
   onRetakeTest,
   onBackToDashboard,
+  onSwitchToAdmin,
+  initialMode = 'summary',
 }: ExamResultsScreenProps) {
-  const [viewState, setViewState] = useState<'success_summary' | 'detailed_results'>('success_summary');
-  const [filter, setFilter] = useState<ReviewFilter>('all');
-  const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
-  const [translatedByQ, setTranslatedByQ] = useState<
-    Record<string, { lang: string; shortExplanation: string; steps: string[] }>
-  >({});
-  const [translatingQId, setTranslatingQId] = useState<string | null>(null);
-  const [targetLang, setTargetLang] = useState('Hindi');
+  const [mode, setMode] = useState<'summary' | 'review'>(initialMode);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  // AI Tutor Drawer state
-  const [tutorQuestion, setTutorQuestion] = useState<TestQuestion | null>(null);
-  const [tutorHistory, setTutorHistory] = useState<Array<{ role: 'user' | 'model'; text: string }>>(
-    []
-  );
-  const [tutorInput, setTutorInput] = useState('');
-  const [tutorLoading, setTutorLoading] = useState(false);
+  const isAdmin = user?.role === 'admin';
 
   const percentage =
     attempt.maxScore > 0 ? Math.max(0, Math.round((attempt.score / attempt.maxScore) * 100)) : 0;
-  const passed = percentage >= test.passPercentage;
+  const passed = percentage >= (test.passPercentage || 50);
 
-  const sectionPerformance = test.sections.map((sec) => {
-    const secQs = questions.filter((q) => q.sectionId === sec.id);
-    const correct = secQs.filter(
-      (q) => attempt.responses[q.questionId]?.selectedOptionId === q.correctOptionId
-    ).length;
-    const pct = secQs.length > 0 ? Math.round((correct / secQs.length) * 100) : 0;
-    return { ...sec, total: secQs.length, correct, pct };
-  });
+  const totalQuestions =
+    test.totalQuestions || questions.length || 10;
+  const answeredCount = (attempt.correctCount || 0) + (attempt.wrongCount || 0);
+  const unansweredCount = Math.max(0, totalQuestions - answeredCount);
 
-  const filteredQuestions = questions.filter((q) => {
-    const resp = attempt.responses[q.questionId];
-    if (filter === 'wrong') {
-      return Boolean(resp?.selectedOptionId) && resp?.selectedOptionId !== q.correctOptionId;
-    }
-    if (filter === 'marked') {
-      return Boolean(resp?.markedForReview);
-    }
-    return true;
-  });
+  const currentQ: TestQuestion | undefined = questions[currentQuestionIndex];
+  const currentResp = currentQ ? attempt.responses[currentQ.questionId] : undefined;
+  const userSelectedOptId = currentResp?.selectedOptionId;
 
-  const handleTranslateSolution = async (q: TestQuestion) => {
-    setTranslatingQId(q.questionId);
-    try {
-      const inputs = [q.shortExplanation || '', ...(q.stepByStepSolution || [])];
-      const out = await translateTextsWithAI(inputs, targetLang);
-      setTranslatedByQ((prev) => ({
-        ...prev,
-        [q.questionId]: {
-          lang: targetLang,
-          shortExplanation: out[0] || q.shortExplanation,
-          steps: out.slice(1),
-        },
-      }));
-      setExpandedSteps((prev) => ({ ...prev, [q.questionId]: true }));
-    } catch {
-      // Keep original text on failure
-    } finally {
-      setTranslatingQId(null);
-    }
-  };
+  const currentAttemptNumber = attempt.attemptNumber || 1;
+  const maxAttempts = test.maxAttempts || 1;
 
-  const openTutor = (q: TestQuestion) => {
-    setTutorQuestion(q);
-    const resp = attempt.responses[q.questionId];
-    const introPrompt = resp?.selectedOptionId
-      ? resp.selectedOptionId === q.correctOptionId
-        ? `I answered ${resp.selectedOptionId} correctly, can you reinforce the key intuition?`
-        : `I selected option ${resp.selectedOptionId}, but the correct answer is ${q.correctOptionId}. Explain why my choice is wrong and how to get it right.`
-      : `I skipped this question. Walk me through how to approach and solve it.`;
-    setTutorHistory([]);
-    setTutorInput(introPrompt);
-  };
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
+      {/* Top Bar matching Images 1, 2, 3, 4, 5 */}
+      <div className="w-full max-w-7xl mx-auto flex items-center gap-2.5 pb-4 px-1 shrink-0">
+        <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+          EP
+        </div>
+        <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
+        <span className="text-slate-300">|</span>
+        <span className="font-bold text-slate-800 text-sm">My Results</span>
+      </div>
 
-  const sendTutorMessage = async (customText?: string) => {
-    if (!tutorQuestion) return;
-    const msg = (customText ?? tutorInput).trim();
-    if (!msg) return;
-
-    setTutorInput('');
-    const nextHistory = [...tutorHistory, { role: 'user' as const, text: msg }];
-    setTutorHistory(nextHistory);
-    setTutorLoading(true);
-    try {
-      const resp = attempt.responses[tutorQuestion.questionId];
-      const reply = await askAiTutor({
-        attemptStatus: attempt.status,
-        questionText: tutorQuestion.questionText,
-        options: tutorQuestion.options,
-        correctOptionId: tutorQuestion.correctOptionId,
-        selectedOptionId: resp?.selectedOptionId ?? null,
-        shortExplanation: tutorQuestion.shortExplanation,
-        stepByStepSolution: tutorQuestion.stepByStepSolution,
-        history: tutorHistory,
-        message: msg,
-      });
-      setTutorHistory([...nextHistory, { role: 'model', text: reply }]);
-    } catch (err) {
-      setTutorHistory([
-        ...nextHistory,
-        {
-          role: 'model',
-          text:
-            err instanceof Error
-              ? `Unable to reach Gemini Tutor: ${err.message}`
-              : 'Unable to reach Gemini Tutor right now.',
-        },
-      ]);
-    } finally {
-      setTutorLoading(false);
-    }
-  };
-
-  const answeredCount = Object.values(attempt.responses).filter((r) => Boolean(r.selectedOptionId)).length;
-  const unansweredCount = Math.max(0, questions.length - answeredCount);
-  const markedCount = Object.values(attempt.responses).filter((r) => Boolean(r.markedForReview)).length;
-
-  const formatRemainingClock = (s: number) => {
-    const sec = Math.max(0, Math.floor(s));
-    const mins = Math.floor(sec / 60);
-    const remainder = sec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
-  };
-
-  // Screen 5: Test Submitted Successfully Hero View (Matching Image 5)
-  if (viewState === 'success_summary') {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-lg rounded-3xl border border-slate-200/90 bg-white p-7 sm:p-9 shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
-          {/* Green Checkmark Circle */}
-          <div className="text-center space-y-3">
-            <div className="h-16 w-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
-              <Check className="h-9 w-9 stroke-[3]" />
-            </div>
-
-            <h1 className="font-display text-2xl font-bold text-slate-900">
-              Test submitted successfully
-            </h1>
-
-            <div className="inline-flex items-center gap-2">
-              <span className="rounded-full border border-blue-200 bg-blue-50 px-4 py-1 text-xs font-bold text-blue-700">
-                {test.title}
-              </span>
-              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                Attempt #{attempt.attemptNumber || 1} of {test.maxAttempts || 1}
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-500">
-              Your responses have been submitted.
-            </p>
-          </div>
-
-          {/* Attempt summary container (Matching Image 5) */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-5 space-y-3.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>Attempt summary</span>
-              <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
-                <Clock className="h-3.5 w-3.5 text-blue-600" />
-                <span>Time remaining at submission {formatRemainingClock(attempt.remainingSeconds || 272)}</span>
-              </div>
-            </div>
-
-            <div className="text-xs text-slate-500">
-              Total questions: <strong className="text-slate-800 font-bold">{questions.length}</strong>
-            </div>
-
-            {/* 3 Status Boxes */}
-            <div className="grid grid-cols-3 gap-2.5">
-              {/* Answered */}
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Check className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-emerald-800 block font-medium">Answered</span>
-                  <span className="text-base font-bold text-emerald-900 tabular-nums">{answeredCount}</span>
-                </div>
-              </div>
-
-              {/* Unanswered */}
-              <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-3 flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <div className="h-3.5 w-3.5 border-2 border-blue-600 rounded-xs" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-blue-800 block font-medium">Unanswered</span>
-                  <span className="text-base font-bold text-blue-900 tabular-nums">{unansweredCount}</span>
-                </div>
-              </div>
-
-              {/* Marked for review */}
-              <div className="rounded-xl border border-purple-200 bg-purple-50/80 p-3 flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-purple-800 block font-medium">Marked for review</span>
-                  <span className="text-base font-bold text-purple-900 tabular-nums">{markedCount}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
-              <span className="text-blue-600 font-bold">ℹ</span>
-              <span>Results will be available according to the test's result settings.</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+      {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
+      <div className="w-full max-w-7xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
+        {/* Left Sidebar */}
+        <aside className="w-full md:w-60 lg:w-64 border-b md:border-b-0 md:border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex flex-col justify-between shrink-0">
+          <nav className="space-y-2">
             <button
               type="button"
               onClick={onBackToDashboard}
-              className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition-colors text-center"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all cursor-pointer"
             >
-              Back to assessments
+              <ClipboardList className="h-4 w-4 shrink-0" />
+              <span>Available Tests</span>
             </button>
-
-            {onRetakeTest && (allAttempts ? allAttempts.length < (test.maxAttempts || 1) : false) && (
-              <button
-                type="button"
-                onClick={onRetakeTest}
-                className="flex-1 rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-xs font-bold text-blue-700 hover:bg-blue-100 shadow-2xs cursor-pointer transition-colors text-center"
-              >
-                Retake Assessment
-              </button>
-            )}
 
             <button
               type="button"
-              onClick={() => setViewState('detailed_results')}
-              className="flex-1 rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors text-center"
+              onClick={() => setMode('summary')}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold bg-blue-100/70 text-blue-700 shadow-2xs transition-all cursor-pointer"
             >
-              View my results
+              <BarChart2 className="h-4 w-4 shrink-0" />
+              <span>My Results</span>
             </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+          </nav>
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBackToDashboard}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to Candidate Portal</span>
-        </button>
+          {/* Bottom Back to Admin Studio if Admin */}
+          {isAdmin && onSwitchToAdmin && (
+            <div className="pt-4 border-t border-slate-100 mt-auto">
+              <button
+                type="button"
+                onClick={onSwitchToAdmin}
+                className="w-full inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer p-2 rounded-xl hover:bg-white/70"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                <span>Back to Admin Studio</span>
+              </button>
+            </div>
+          )}
+        </aside>
 
-        {onRetakeTest && (allAttempts ? allAttempts.length < (test.maxAttempts || 1) : false) && (
-          <button
-            type="button"
-            onClick={onRetakeTest}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span>Take Test Again (Attempt #{(allAttempts ? allAttempts.length : 1) + 1} of {test.maxAttempts || 1})</span>
-          </button>
-        )}
-      </div>
+        {/* Right Main Content Area */}
+        <main className="flex-1 p-5 sm:p-7 lg:p-8 overflow-y-auto bg-white/40">
+          {/* ======================================================== */}
+          {/* VIEW 1: YOUR RESULT SUMMARY (Matching Image 2)           */}
+          {/* ======================================================== */}
+          {mode === 'summary' && (
+            <div className="space-y-6">
+              {/* Header Title with Right Pill matching Image 2 */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                <div>
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                    Your result
+                  </h1>
+                  {/* Test Title & Status Badge */}
+                  <div className="flex flex-wrap items-center gap-2.5 mt-2">
+                    <h2 className="font-display text-lg font-bold text-slate-900">
+                      {test.title}
+                    </h2>
+                    <span className="text-slate-300">|</span>
+                    {passed ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-0.5 text-xs font-semibold">
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Passed</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-3 py-0.5 text-xs font-semibold">
+                        <X className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Failed</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-      {/* Score Hero Card */}
-      <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-8">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-200 pb-5 sm:pb-6">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-100">
-                Attempt #{attempt.attemptNumber || 1} of {test.maxAttempts || 1}
-              </span>
-              <span className="text-slate-400">·</span>
-              {attempt.status === 'auto_submitted_strike' ? (
-                <span className="inline-flex items-center gap-1.5 text-red-700">
-                  <ShieldAlert className="h-4 w-4" /> Auto-Submitted ({attempt.strikeCount} Strikes)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" /> Submitted Normally
-                </span>
-              )}
-              <span className="text-slate-400">·</span>
-              <span className={passed ? 'text-emerald-700' : 'text-amber-700'}>
-                {passed ? 'Passed Threshold' : `Below ${test.passPercentage}% Threshold`}
-              </span>
-            </div>
-            <h1 className="mt-2 font-display text-xl sm:text-2xl font-bold text-slate-900">{test.title}</h1>
-          </div>
-
-          <div className="text-left sm:text-right shrink-0">
-            <div className="text-xs text-slate-500">Final Score</div>
-            <div className="font-mono text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums">
-              {attempt.score} / {attempt.maxScore}{' '}
-              <span className="text-base sm:text-lg text-blue-700">({percentage}%)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-5">
-          <div>
-            <div className="text-xs text-slate-500">Correct</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-emerald-700 tabular-nums">
-              {attempt.correctCount}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">Wrong</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-red-700 tabular-nums">
-              {attempt.wrongCount}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">Unattempted</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-slate-600 tabular-nums">
-              {attempt.unattemptedCount}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">Time Taken</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-slate-900 tabular-nums">
-              {formatDuration(attempt.timeTakenSeconds)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-500">Strikes Logged</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-amber-700 tabular-nums">
-              {attempt.strikeCount} / {test.maxStrikes || '∞'}
-            </div>
-          </div>
-        </div>
-
-        {/* Section-Wise Performance Bars */}
-        <div className="mt-8 border-t border-slate-200 pt-6">
-          <h2 className="font-display text-sm font-semibold text-slate-900 mb-4">
-            Section-Wise Performance
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {sectionPerformance.map((sec) => (
-              <div key={sec.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
-                  <span>{sec.name}</span>
-                  <span className="font-mono tabular-nums">
-                    {sec.correct}/{sec.total} ({sec.pct}%)
+                {/* Attempt # Pill on right matching Image 2 */}
+                <div className="shrink-0 self-start sm:self-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60 px-3.5 py-1 text-xs font-semibold">
+                    <Info className="h-3.5 w-3.5 text-purple-600" />
+                    <span>
+                      Attempt #{currentAttemptNumber} of {maxAttempts}
+                    </span>
                   </span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-blue-700 transition-all"
-                    style={{ width: `${sec.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* All Attempts Switcher (Candidate Attempt History) */}
-        {allAttempts && allAttempts.length > 1 && (
-          <div className="mt-8 border-t border-slate-200 pt-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-slate-800">
-                Review Other Attempts ({allAttempts.length} of {test.maxAttempts || 1} taken)
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Click any attempt to inspect its answers and explanations
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {allAttempts.map((att) => {
-                const isSelected = att.attemptId === attempt.attemptId;
-                const pct = att.maxScore > 0 ? (att.score / att.maxScore) * 100 : att.accuracy;
-                return (
-                  <button
-                    key={att.attemptId}
-                    type="button"
-                    onClick={() => onSelectAttempt?.(att)}
-                    className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-white hover:border-slate-300'
-                    }`}
-                  >
-                    <span>Attempt #{att.attemptNumber || 1}</span>
-                    <span className={isSelected ? 'text-blue-100' : 'text-slate-500 tabular-nums'}>
-                      {att.score}/{att.maxScore} ({pct.toFixed(0)}%)
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Question Review Header */}
-      <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        <div className="flex w-full sm:w-auto flex-wrap items-center gap-1 rounded-lg bg-slate-200/70 p-1">
-          {(
-            [
-              { id: 'all', label: `All (${questions.length})` },
-              { id: 'wrong', label: `Wrong (${attempt.wrongCount})` },
-              { id: 'marked', label: 'Marked' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilter(tab.id)}
-              className={`flex-1 sm:flex-initial rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                filter === tab.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <Languages className="h-4 w-4 text-slate-500 shrink-0" />
-          <span className="text-slate-600">Translate Solutions:</span>
-          <select
-            value={targetLang}
-            onChange={(e) => setTargetLang(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800"
-          >
-            {LANGUAGES.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Detailed Solutions List */}
-      <div className="mt-5 space-y-5">
-        {filteredQuestions.map((q, idx) => {
-          const resp = attempt.responses[q.questionId];
-          const chosen = resp?.selectedOptionId;
-          const isCorrect = chosen === q.correctOptionId;
-          const isStepsOpen = Boolean(expandedSteps[q.questionId]);
-          const translated = translatedByQ[q.questionId];
-          const displayShort = translated?.shortExplanation || q.shortExplanation;
-          const displaySteps = translated?.steps || q.stepByStepSolution;
-
-          return (
-            <article
-              key={q.questionId}
-              className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs font-mono font-semibold">
-                  <span className="text-slate-500">Q{idx + 1}</span>
-                  <span>·</span>
-                  {!chosen ? (
-                    <span className="text-slate-500">Unattempted</span>
-                  ) : isCorrect ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Correct (+{q.marks})
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-red-700">
-                      <XCircle className="h-3.5 w-3.5" /> Incorrect (Selected {chosen})
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={translatingQId === q.questionId}
-                    onClick={() => handleTranslateSolution(q)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                  >
-                    {translatingQId === q.questionId ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Languages className="h-3.5 w-3.5 text-blue-700" />
-                    )}
-                    <span>
-                      {translated ? `Translated (${translated.lang})` : `Translate (${targetLang})`}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openTutor(q)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 cursor-pointer"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>Ask AI Tutor</span>
-                  </button>
-                </div>
               </div>
 
-              <MathText
-                text={q.questionText}
-                className="text-[15px] leading-[1.7] text-slate-900"
-              />
-
-              {(q.questionImageUrl || q.imageUrl) && (
-                <QuestionImage
-                  src={q.questionImageUrl || q.imageUrl}
-                  alt="Question reference diagram"
-                />
-              )}
-
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {q.options.map((opt) => {
-                  const isCorrectOpt = opt.id === q.correctOptionId;
-                  const isUserOpt = opt.id === chosen;
-                  let optStyle = 'border-slate-200 bg-white text-slate-700';
-                  if (isCorrectOpt) {
-                    optStyle = 'border-emerald-300 bg-emerald-50 text-emerald-950 font-semibold';
-                  } else if (isUserOpt && !isCorrectOpt) {
-                    optStyle = 'border-red-300 bg-red-50 text-red-950';
-                  }
-                  return (
-                    <div key={opt.id} className={`rounded-lg border p-3.5 text-xs leading-relaxed ${optStyle}`}>
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono font-bold shrink-0">{opt.id})</span>
-                        <MathText text={opt.text} inline className="min-w-0" />
-                      </div>
-                      {opt.imageUrl && (
-                        <QuestionImage
-                          src={opt.imageUrl}
-                          alt={`Option ${opt.id}`}
-                          className="max-h-24"
-                          allowZoom={false}
-                        />
-                      )}
+              {/* Top 2-Column Grid: Score Card + Question Breakdown matching Image 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left Card: Score Summary */}
+                <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs font-semibold text-slate-500 block">Score</span>
+                    <div className="font-display font-bold text-2xl sm:text-3xl text-slate-900 leading-tight">
+                      {attempt.score} / {attempt.maxScore}
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Short Explanation */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700 space-y-2">
-                <div>
-                  <span className="font-semibold text-slate-900">Short Explanation: </span>
-                  {displayShort ? (
-                    <MathText text={displayShort} inline />
-                  ) : (
-                    'No short explanation provided.'
-                  )}
-                </div>
-                {(q.solutionImageUrl || q.solution?.imageUrl) && (
-                  <div className="pt-2">
-                    <div className="text-[11px] font-semibold text-slate-600 mb-1">Solution Diagram:</div>
-                    <QuestionImage src={q.solutionImageUrl || q.solution?.imageUrl} alt="Solution diagram" />
+                    <div className="text-xs font-semibold text-slate-500">
+                      ({percentage}%)
+                    </div>
+                    <div className="text-[11px] text-slate-400 pt-2">
+                      Passing score: {test.passPercentage}%
+                    </div>
                   </div>
-                )}
+
+                  <DonutScoreGauge percentage={percentage} size={88} strokeWidth={8} />
+                </div>
+
+                {/* Right Card: Question Breakdown matching Image 2 */}
+                <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-3">
+                  <span className="text-xs font-semibold text-slate-700 block">
+                    Question breakdown
+                  </span>
+
+                  <div className="space-y-2">
+                    {/* Correct */}
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <div className="h-5 w-5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                          <Check className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="font-medium">Correct</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">
+                        {attempt.correctCount || 0}
+                      </span>
+                    </div>
+
+                    {/* Incorrect */}
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <div className="h-5 w-5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center">
+                          <X className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="font-medium">Incorrect</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">
+                        {attempt.wrongCount || 0}
+                      </span>
+                    </div>
+
+                    {/* Unanswered */}
+                    <div className="flex items-center justify-between text-xs py-1">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        <div className="h-5 w-5 rounded-md border border-slate-300 bg-white flex items-center justify-center" />
+                        <span className="font-medium">Unanswered</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">
+                        {unansweredCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Step-by-Step Solution */}
-              {displaySteps.length > 0 && (
-                <div>
+              {/* Middle Card: Attempt Summary matching Image 2 */}
+              <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+                <span className="text-xs font-semibold text-slate-700 block">
+                  Attempt summary
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Total questions */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Total questions</span>
+                      <span className="font-display font-bold text-base text-slate-900">
+                        {totalQuestions}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Answered */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Answered</span>
+                      <span className="font-display font-bold text-base text-slate-900">
+                        {answeredCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Unanswered */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl border-2 border-slate-300 flex items-center justify-center shrink-0" />
+                    <div>
+                      <span className="text-[11px] text-slate-500 block">Unanswered</span>
+                      <span className="font-display font-bold text-base text-slate-900">
+                        {unansweredCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Marking scheme line */}
+                <div className="flex items-center gap-2 text-xs text-slate-600 pt-1">
+                  <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                  <span>
+                    Marking scheme: +{test.marksPerQuestion || 4} marks for each correct answer,{' '}
+                    {test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks for a wrong answer.
+                  </span>
+                </div>
+              </div>
+
+              {/* Bottom Action Bar matching Image 2 */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={onBackToDashboard}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to My Results</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {onRetakeTest && currentAttemptNumber < maxAttempts && (
+                    <button
+                      type="button"
+                      onClick={onRetakeTest}
+                      className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      <span>Retake Test</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() =>
-                      setExpandedSteps((prev) => ({
-                        ...prev,
-                        [q.questionId]: !isStepsOpen,
-                      }))
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
+                    onClick={() => {
+                      setCurrentQuestionIndex(0);
+                      setMode('review');
+                    }}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs transition-colors cursor-pointer"
                   >
-                    {isStepsOpen ? (
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    )}
-                    <span>
-                      {isStepsOpen
-                        ? 'Hide Step-by-Step Solution'
-                        : `View Step-by-Step Solution (${displaySteps.length} steps)`}
-                    </span>
+                    <FileText className="h-4 w-4" />
+                    <span>Review answers</span>
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  {isStepsOpen && (
-                    <ol className="mt-3 space-y-2.5 rounded-lg border border-blue-100 bg-blue-50/40 p-4 text-xs leading-relaxed text-slate-800 list-decimal pl-7">
-                      {displaySteps.map((step, sIdx) => (
-                        <li key={sIdx}>
-                          <MathText text={step} inline />
-                        </li>
-                      ))}
-                    </ol>
+          {/* ======================================================== */}
+          {/* VIEW 2: ANSWER REVIEW (Matching Images 3 & 4)            */}
+          {/* ======================================================== */}
+          {mode === 'review' && currentQ && (
+            <div className="space-y-6">
+              {/* Header Title with Subtitle & Back to Result matching Images 3 & 4 */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                <div>
+                  <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                    Answer review
+                  </h1>
+                  <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                    <span className="font-display text-base font-bold text-slate-900">
+                      {test.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMode('summary')}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                    >
+                      <ArrowLeft className="h-3 w-3" />
+                      <span>Back to result</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Attempt # Pill on right */}
+                <div className="shrink-0 self-start sm:self-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60 px-3.5 py-1 text-xs font-semibold">
+                    <Info className="h-3.5 w-3.5 text-purple-600" />
+                    <span>
+                      Attempt #{currentAttemptNumber} of {maxAttempts}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Two-Column Grid: Left 70% Question, Right 30% Navigator matching Images 3 & 4 */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left Column (Question Area) */}
+                <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-7 shadow-xs space-y-5">
+                  {/* Question Counter */}
+                  <div className="text-xs font-bold text-slate-800">
+                    Question {currentQuestionIndex + 1} of {questions.length}
+                  </div>
+
+                  {/* Question Stem with LaTeX support */}
+                  <div className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
+                    <MathText text={currentQ.questionText} />
+                  </div>
+
+                  {/* Question Reference Diagram if present */}
+                  {(currentQ.questionImageUrl || currentQ.imageUrl) && (
+                    <QuestionImage
+                      src={currentQ.questionImageUrl || currentQ.imageUrl}
+                      alt={`Question ${currentQuestionIndex + 1} diagram`}
+                    />
                   )}
+
+                  {/* 4 Options matching Images 3 & 4 */}
+                  <div className="space-y-3 pt-1">
+                    {currentQ.options.map((opt) => {
+                      const isCorrect = opt.id === currentQ.correctOptionId;
+                      const isUserChoice = opt.id === userSelectedOptId;
+
+                      // Exact styling states matching Images 3 & 4
+                      let containerStyle = 'border-slate-200 bg-white text-slate-800';
+                      let radioStyle = 'border-slate-300 bg-white';
+                      let isRadioFilled = false;
+
+                      if (isCorrect && isUserChoice) {
+                        // Candidate was correct (Image 4 Option B)
+                        containerStyle = 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold';
+                        radioStyle = 'border-emerald-600 bg-emerald-500';
+                        isRadioFilled = true;
+                      } else if (isCorrect && !isUserChoice) {
+                        // Correct answer (Image 3 Option C)
+                        containerStyle = 'border-emerald-300 bg-emerald-50/70 text-emerald-950 font-semibold';
+                        radioStyle = 'border-emerald-500 bg-white';
+                      } else if (isUserChoice && !isCorrect) {
+                        // Candidate was incorrect (Image 3 Option B)
+                        containerStyle = 'border-purple-300 bg-purple-50/70 text-purple-950 font-semibold';
+                        radioStyle = 'border-purple-600 bg-purple-600';
+                        isRadioFilled = true;
+                      }
+
+                      return (
+                        <div
+                          key={opt.id}
+                          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${containerStyle}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {/* Radio circle */}
+                            <div
+                              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${radioStyle}`}
+                            >
+                              {isRadioFilled && (
+                                <div className="h-2 w-2 rounded-full bg-white" />
+                              )}
+                            </div>
+
+                            {/* Option Text */}
+                            <div className="text-xs sm:text-sm min-w-0">
+                              <MathText text={opt.text} />
+                            </div>
+
+                            {/* Option image if present */}
+                            {opt.imageUrl && (
+                              <QuestionImage
+                                src={opt.imageUrl}
+                                alt={`Option ${opt.id}`}
+                                className="max-h-16"
+                                allowZoom={false}
+                              />
+                            )}
+                          </div>
+
+                          {/* Right Badges matching Images 3 & 4 */}
+                          <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+                            {/* If User Answered Correctly (Both badges shown side-by-side in Image 4) */}
+                            {isCorrect && isUserChoice && (
+                              <>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
+                                  <Check className="h-3 w-3" />
+                                  <span>Your answer</span>
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
+                                  <Check className="h-3 w-3" />
+                                  <span>Correct answer</span>
+                                </span>
+                              </>
+                            )}
+
+                            {/* If User Answered Incorrectly (Image 3 Option B) */}
+                            {isUserChoice && !isCorrect && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-3 py-1 text-[11px] font-bold">
+                                <X className="h-3 w-3" />
+                                <span>Your answer (Incorrect)</span>
+                              </span>
+                            )}
+
+                            {/* If Correct Answer not picked (Image 3 Option C) */}
+                            {isCorrect && !isUserChoice && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
+                                <Check className="h-3 w-3" />
+                                <span>Correct answer</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Explanation Box matching Images 3 & 4 */}
+                  <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-5 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                      <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span>Explanation</span>
+                    </div>
+
+                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                      <MathText text={currentQ.shortExplanation || 'No explanation provided.'} />
+                    </div>
+
+                    {/* Solution Diagram if present */}
+                    {(currentQ.solutionImageUrl || currentQ.solution?.imageUrl) && (
+                      <div className="pt-2">
+                        <QuestionImage
+                          src={currentQ.solutionImageUrl || currentQ.solution?.imageUrl}
+                          alt="Solution diagram"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Navigation Buttons matching Images 3 & 4 */}
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex === 0}
+                      onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                      className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>Previous Question</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex === questions.length - 1}
+                      onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
+                    >
+                      <span>Next Question</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              )}
-            </article>
-          );
-        })}
+
+                {/* Right Column: Score Card & Question Navigator matching Images 3 & 4 */}
+                <div className="lg:col-span-4 space-y-4">
+                  {/* Score Card with Donut Gauge */}
+                  <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 block">
+                          Score
+                        </span>
+                        <div className="font-display font-bold text-2xl text-slate-900 leading-tight">
+                          {attempt.score} / {attempt.maxScore}
+                        </div>
+                        <span className="text-xs font-semibold text-slate-500">
+                          ({percentage}%)
+                        </span>
+                      </div>
+                      <DonutScoreGauge percentage={percentage} size={74} strokeWidth={7} />
+                    </div>
+
+                    {/* Breakdown counts */}
+                    <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <div className="h-4 w-4 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
+                            <Check className="h-3 w-3" />
+                          </div>
+                          <span>Correct</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">
+                          {attempt.correctCount || 0}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <div className="h-4 w-4 rounded bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center">
+                            <X className="h-3 w-3" />
+                          </div>
+                          <span>Incorrect</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">
+                          {attempt.wrongCount || 0}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <div className="h-4 w-4 rounded border border-slate-300 bg-white" />
+                          <span>Unanswered</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">
+                          {unansweredCount}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Question Navigator matching Images 3 & 4 */}
+                  <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3.5">
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Question navigator
+                    </span>
+
+                    {/* Grid of buttons 1..N */}
+                    <div className="grid grid-cols-5 gap-2">
+                      {questions.map((q, idx) => {
+                        const isCurrent = idx === currentQuestionIndex;
+                        const resp = attempt.responses[q.questionId];
+                        const isUserAnswered = Boolean(resp?.selectedOptionId);
+                        const isUserCorrect = isUserAnswered && resp?.selectedOptionId === q.correctOptionId;
+                        const isUserWrong = isUserAnswered && resp?.selectedOptionId !== q.correctOptionId;
+
+                        let btnStyle = 'border border-blue-200 bg-blue-50/50 text-blue-800';
+                        let symbol = '–';
+
+                        if (isUserCorrect) {
+                          btnStyle = 'border border-emerald-300 bg-emerald-50/80 text-emerald-800';
+                          symbol = '✓';
+                        } else if (isUserWrong) {
+                          btnStyle = 'border border-purple-300 bg-purple-50/80 text-purple-800';
+                          symbol = '✕';
+                        }
+
+                        return (
+                          <button
+                            key={q.questionId}
+                            type="button"
+                            onClick={() => setCurrentQuestionIndex(idx)}
+                            className={`h-11 rounded-xl flex flex-col items-center justify-center font-bold text-xs transition-all cursor-pointer ${btnStyle} ${
+                              isCurrent ? 'ring-2 ring-blue-600 shadow-xs' : 'hover:opacity-90'
+                            }`}
+                          >
+                            <span className="leading-none">{idx + 1}</span>
+                            <span className="text-[10px] leading-tight font-extrabold mt-0.5">
+                              {symbol}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Legend matching Images 3 & 4 */}
+                    <div className="pt-2 border-t border-slate-100 space-y-1 text-[11px] font-semibold text-slate-600">
+                      <div className="flex items-center gap-1.5 text-emerald-800">
+                        <span>✓</span>
+                        <span>Correct ({attempt.correctCount || 0})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-purple-800">
+                        <span>✕</span>
+                        <span>Incorrect ({attempt.wrongCount || 0})</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-blue-700">
+                        <span>–</span>
+                        <span>Unanswered ({unansweredCount})</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
-
-      {/* Gemini AI Tutor Drawer */}
-      {tutorQuestion && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/50">
-          <div className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-700" />
-                <h2 className="font-display text-sm font-bold text-slate-900">
-                  Gemini AI Doubt Tutor
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTutorQuestion(null)}
-                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs text-slate-700">
-              <div className="font-semibold text-slate-900 line-clamp-2">
-                <MathText text={tutorQuestion.questionText} inline />
-              </div>
-              <div className="mt-1 font-mono text-slate-500">
-                Correct: {tutorQuestion.correctOptionId} · Your Choice:{' '}
-                {attempt.responses[tutorQuestion.questionId]?.selectedOptionId || 'Skipped'}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {tutorHistory.length === 0 && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 leading-relaxed">
-                  Ask why your chosen option was incorrect, request a simpler analogy, or ask about
-                  any step in the solution.
-                </div>
-              )}
-              {tutorHistory.map((m, idx) => (
-                <div
-                  key={idx}
-                  className={`rounded-xl px-4 py-3 text-xs leading-relaxed ${
-                    m.role === 'user'
-                      ? 'ml-8 bg-blue-700 text-white whitespace-pre-wrap'
-                      : 'mr-6 border border-slate-200 bg-slate-50 text-slate-800'
-                  }`}
-                >
-                  {m.role === 'user' ? m.text : <MathText text={m.text} />}
-                </div>
-              ))}
-              {tutorLoading && (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-700" />
-                  <span>Gemini Tutor is thinking…</span>
-                </div>
-              )}
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                sendTutorMessage();
-              }}
-              className="border-t border-slate-200 p-4 flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={tutorInput}
-                onChange={(e) => setTutorInput(e.target.value)}
-                placeholder="Ask a doubt about this question..."
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={tutorLoading || !tutorInput.trim()}
-                className="inline-flex items-center justify-center rounded-lg bg-blue-700 p-2 text-white hover:bg-blue-800 disabled:opacity-40 cursor-pointer"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
