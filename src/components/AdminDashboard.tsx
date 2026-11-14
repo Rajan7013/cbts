@@ -161,9 +161,10 @@ export function AdminDashboard({
             type="button"
             onClick={() => setShowDocImporterModal(true)}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-linear-to-r from-indigo-50 to-blue-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-indigo-700 hover:from-indigo-100 hover:to-blue-100 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+            title="Bulk import 500+ questions via CSV spreadsheet, text, or PDF"
           >
             <Sparkles className="h-4 w-4 text-indigo-600" />
-            <span>Import PDF / Booklet (AI)</span>
+            <span>Universal Importer (CSV / PDF / AI)</span>
           </button>
 
           <button

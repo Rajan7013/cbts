@@ -995,10 +995,10 @@ export function AdminQuestionStudio({
             type="button"
             onClick={() => setShowDocImporterModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer shadow-xs"
-            title="Import questions and solutions from PDF/Booklet"
+            title="Bulk import 500+ questions via CSV spreadsheet, text, or PDF"
           >
             <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-            <span>Import PDF / Booklet (AI)</span>
+            <span>Universal Importer (CSV / PDF / AI)</span>
           </button>
 
           <button
