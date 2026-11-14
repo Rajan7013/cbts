@@ -2809,7 +2809,7 @@ CRITICAL EXTRACTION GUIDELINES:
         preferredModel: 'gemini-2.0-flash',
         contents: { parts },
         config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,

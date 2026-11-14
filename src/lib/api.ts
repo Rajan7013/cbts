@@ -44,6 +44,16 @@ async function postJson<T>(url: string, body: unknown, bearerToken?: string): Pr
         'Upload payload exceeds the cloud serverless limit (4.5MB). The document has been auto-switched to client-side page compression & section batching.'
       );
     }
+    if (
+      res.status === 504 ||
+      rawText.includes('FUNCTION_INVOCATION_TIMEOUT') ||
+      rawText.includes('504 Gateway') ||
+      rawText.includes('Gateway Timeout')
+    ) {
+      throw new Error(
+        'Vercel serverless function timed out. Document extraction has been optimized to 1-page streaming batches to finish within 4 seconds.'
+      );
+    }
     throw new Error(
       `Server returned an unparseable response (HTTP ${res.status}): ${rawText.slice(0, 160)}`
     );

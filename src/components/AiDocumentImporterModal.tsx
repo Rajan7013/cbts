@@ -104,14 +104,20 @@ export function AiDocumentImporterModal({
         const pdfjs = (window as any).pdfjsLib;
         if (pdfjs) {
           try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
             const workerCode = await fetch(
-              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+              { signal: controller.signal }
             ).then((r) => r.text());
+            clearTimeout(timeoutId);
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
           } catch {
-            pdfjs.GlobalWorkerOptions.workerSrc =
-              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            try {
+              pdfjs.GlobalWorkerOptions.workerSrc =
+                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            } catch {}
           }
           resolve(pdfjs);
         } else {
@@ -239,37 +245,45 @@ export function AiDocumentImporterModal({
           }
 
           if (pageImages.length > 0) {
-            // Process in batches of 4 pages to stay far under Vercel payload limits and maximize AI accuracy
-            const BATCH_SIZE = 4;
+            // Process 1 page at a time so every single serverless call finishes in ~3 seconds (well under Vercel's 10s limit)
+            const BATCH_SIZE = 1;
             const totalBatches = Math.ceil(pageImages.length / BATCH_SIZE);
 
             for (let b = 0; b < totalBatches; b++) {
               const startPage = b * BATCH_SIZE + 1;
               const endPage = Math.min((b + 1) * BATCH_SIZE, pageImages.length);
               setLoadingStep(
-                `AI extracting Batch ${b + 1}/${totalBatches} (Pages ${startPage}–${endPage}: detecting sections & KaTeX formulas)…`
+                `Extracting Page ${startPage}/${pageImages.length} (${combinedQuestions.length} questions collected)…`
               );
 
               const batchSlice = pageImages.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
-              const batchRes = await importDocumentExamWithAI({
-                pageImages: batchSlice,
-                questionDocText: extractedText ? extractedText.slice(0, 3000) : undefined,
-                testTitle,
-                pageRange: `${startPage}-${endPage}`,
-              });
+              try {
+                const batchRes = await importDocumentExamWithAI({
+                  pageImages: batchSlice,
+                  questionDocText: extractedText ? extractedText.slice(0, 3000) : undefined,
+                  testTitle,
+                  pageRange: `${startPage}-${endPage}`,
+                });
 
-              if (batchRes.questions && batchRes.questions.length > 0) {
-                combinedQuestions.push(...batchRes.questions);
-              }
-              if (batchRes.sections && batchRes.sections.length > 0) {
-                for (const sec of batchRes.sections) {
-                  if (!combinedSections.some((s) => s.name.toLowerCase() === sec.name.toLowerCase())) {
-                    combinedSections.push(sec);
+                if (batchRes.questions && batchRes.questions.length > 0) {
+                  combinedQuestions.push(...batchRes.questions);
+                }
+                if (batchRes.sections && batchRes.sections.length > 0) {
+                  for (const sec of batchRes.sections) {
+                    if (!combinedSections.some((s) => s.name.toLowerCase() === sec.name.toLowerCase())) {
+                      combinedSections.push(sec);
+                    }
                   }
                 }
-              }
-              if (b === 0 && batchRes.title) {
-                combinedTitle = batchRes.title;
+                if (b === 0 && batchRes.title) {
+                  combinedTitle = batchRes.title;
+                }
+              } catch (pageErr) {
+                console.warn(`Page ${startPage} extraction notice:`, pageErr);
+                // If it was the first page and failed, attempt one quick retry before continuing
+                if (b === 0 && combinedQuestions.length === 0) {
+                  throw pageErr;
+                }
               }
             }
           } else {
