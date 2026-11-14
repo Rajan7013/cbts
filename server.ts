@@ -603,6 +603,59 @@ function extractErrorMessage(err: unknown): string {
   return String(err);
 }
 
+const FALLBACK_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-4-hydrogen',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+];
+
+async function callGeminiWithFallback(
+  ai: GoogleGenAI,
+  params: {
+    contents: any;
+    config?: any;
+    preferredModel?: string;
+  }
+) {
+  const modelsToTry = params.preferredModel
+    ? [params.preferredModel, ...FALLBACK_MODELS.filter((m) => m !== params.preferredModel)]
+    : FALLBACK_MODELS;
+
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const config = { ...params.config };
+      if (model.includes('1.5') && config.thinkingConfig) {
+        delete config.thinkingConfig;
+      }
+      return await ai.models.generateContent({
+        model,
+        contents: params.contents,
+        config,
+      });
+    } catch (err: any) {
+      lastError = err;
+      const errMsg = extractErrorMessage(err);
+      const isTemporary =
+        errMsg.includes('503') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('UNAVAILABLE') ||
+        errMsg.includes('temporarily') ||
+        errMsg.includes('RESOURCE_EXHAUSTED') ||
+        errMsg.includes('429');
+      if (isTemporary) {
+        console.warn(`[AI Fallback] Model ${model} temporarily unavailable. Retrying with fallback model...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
 function sendAiError(res: Response, err: unknown): void {
   const raw = extractErrorMessage(err);
   let retrySeconds: number | undefined;
@@ -619,6 +672,11 @@ function sendAiError(res: Response, err: unknown): void {
     raw.toLowerCase().includes('quota exceeded') ||
     raw.toLowerCase().includes('rate limit');
 
+  const isHighDemand =
+    raw.includes('503') ||
+    raw.toLowerCase().includes('high demand') ||
+    raw.includes('UNAVAILABLE');
+
   if (
     raw.includes('Request Entity Too Large') ||
     raw.includes("Unexpected token 'R'") ||
@@ -627,6 +685,14 @@ function sendAiError(res: Response, err: unknown): void {
     res.status(413).json({
       error:
         'The uploaded document size exceeds AI model payload limits. Please compress pages or upload smaller section batches.',
+    });
+    return;
+  }
+
+  if (isHighDemand) {
+    res.status(503).json({
+      error:
+        'Google Gemini API is currently experiencing a temporary demand spike. Please try again in a few moments, or select the instant sample booklet.',
     });
     return;
   }
@@ -1485,8 +1551,8 @@ Requirements:
       }
       parts.push({ text: promptText });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: imageBase64 ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW },
@@ -1658,8 +1724,8 @@ Your task:
 
       parts.push({ text: instruction });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: { parts },
         config: {
           thinkingConfig: {
@@ -1762,8 +1828,8 @@ Requirements:
 3. Use clean modern styling, crisp dark lines (#1e293b), light backgrounds, labels, arrows, and scientific symbols suitable for test questions.
 4. No markdown ticks, no html wrappers, only pure SVG.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: diagramPrompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -1828,8 +1894,8 @@ Each question in the array must strictly have:
 
 Input notes/markdown:
 ${trimmed}`;
-            const mdResponse = await ai.models.generateContent({
-              model: 'gemini-4-hydrogen',
+            const mdResponse = await callGeminiWithFallback(ai, {
+              preferredModel: 'gemini-2.5-flash',
               contents: mdPrompt,
               config: {
                 thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -1954,8 +2020,8 @@ Requirements for EVERY item returned in "questions":
 7. Formatting rules: Write clean exam prose with zero conversational filler ("Wait—", "Actually,"). Only reference "shown below" / "diagram" if an image is actually attached to that item. Wrap ALL math variables, subscripts, squares/exponents, equations, and compound units in balanced $...$ / $$...$$ KaTeX LaTeX delimiters (e.g., $m_1$, $T_2$, $\\text{m/s}^2$, $m_2 g = m_2 a$ — never raw m/s^2, m1, or * multiplication asterisks).`,
           });
 
-          const response = await ai.models.generateContent({
-            model: 'gemini-4-hydrogen',
+          const response = await callGeminiWithFallback(ai, {
+            preferredModel: 'gemini-2.5-flash',
             contents: { parts },
             config: {
               thinkingConfig: {
@@ -2121,8 +2187,8 @@ Requirements:
 - Each question must have a clear questionText, exactly 4 distinct options (A, B, C, D), one accurate correctOptionId ('A', 'B', 'C', or 'D'), a crisp 1-2 sentence shortExplanation, and 2-5 ordered steps in stepByStepSolution.`,
       });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: topImgPart ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW },
@@ -2734,8 +2800,8 @@ CRITICAL EXTRACTION GUIDELINES:
 
       parts.push({ text: promptText });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
@@ -2818,8 +2884,8 @@ CRITICAL EXTRACTION GUIDELINES:
       }
 
       const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: `Translate every string in the following JSON array accurately into ${targetLanguage} for a student taking an exam. Preserve ALL LaTeX delimiters ($...$, $$...$$, \\(...\\), \\[...\\]) and mathematical formulas, numbers, units, and symbols untouched. Return a JSON object with a "translations" array of the exact same length (${texts.length}).\n\nInput strings:\n${JSON.stringify(texts)}`,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -2904,8 +2970,8 @@ Keep explanations concise, encouraging, and focused on why the correct answer wo
         ? `${transcript}\nStudent: ${message.trim()}`
         : `Student: ${message.trim()}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+      const response = await callGeminiWithFallback(ai, {
+        preferredModel: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           systemInstruction: systemContext,
