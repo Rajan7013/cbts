@@ -591,6 +591,7 @@ function getAiClient(): GoogleGenAI {
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
+      apiVersion: 'v1beta',
       headers: {
         'User-Agent': 'aistudio-build',
       },
@@ -604,10 +605,10 @@ function extractErrorMessage(err: unknown): string {
 }
 
 const FALLBACK_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-4-hydrogen',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-4-hydrogen',
 ];
 
 async function callGeminiWithFallback(
@@ -638,15 +639,19 @@ async function callGeminiWithFallback(
     } catch (err: any) {
       lastError = err;
       const errMsg = extractErrorMessage(err);
-      const isTemporary =
+      const isRetriable =
         errMsg.includes('503') ||
         errMsg.includes('high demand') ||
         errMsg.includes('UNAVAILABLE') ||
         errMsg.includes('temporarily') ||
         errMsg.includes('RESOURCE_EXHAUSTED') ||
-        errMsg.includes('429');
-      if (isTemporary) {
-        console.warn(`[AI Fallback] Model ${model} temporarily unavailable. Retrying with fallback model...`);
+        errMsg.includes('429') ||
+        errMsg.includes('v1beta') ||
+        errMsg.includes('not enabled for api version') ||
+        errMsg.includes('404') ||
+        errMsg.includes('not found');
+      if (isRetriable) {
+        console.warn(`[AI Fallback] Model ${model} returned (${errMsg.slice(0, 90)}). Retrying with fallback model...`);
         continue;
       }
       throw err;
@@ -1552,7 +1557,7 @@ Requirements:
       parts.push({ text: promptText });
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: imageBase64 ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW },
@@ -1725,7 +1730,7 @@ Your task:
       parts.push({ text: instruction });
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: { parts },
         config: {
           thinkingConfig: {
@@ -1829,7 +1834,7 @@ Requirements:
 4. No markdown ticks, no html wrappers, only pure SVG.`;
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: diagramPrompt,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -1895,7 +1900,7 @@ Each question in the array must strictly have:
 Input notes/markdown:
 ${trimmed}`;
             const mdResponse = await callGeminiWithFallback(ai, {
-              preferredModel: 'gemini-2.5-flash',
+              preferredModel: 'gemini-2.0-flash',
               contents: mdPrompt,
               config: {
                 thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -2021,7 +2026,7 @@ Requirements for EVERY item returned in "questions":
           });
 
           const response = await callGeminiWithFallback(ai, {
-            preferredModel: 'gemini-2.5-flash',
+            preferredModel: 'gemini-2.0-flash',
             contents: { parts },
             config: {
               thinkingConfig: {
@@ -2188,7 +2193,7 @@ Requirements:
       });
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: topImgPart ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW },
@@ -2801,7 +2806,7 @@ CRITICAL EXTRACTION GUIDELINES:
       parts.push({ text: promptText });
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: { parts },
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
@@ -2885,7 +2890,7 @@ CRITICAL EXTRACTION GUIDELINES:
 
       const ai = getAiClient();
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: `Translate every string in the following JSON array accurately into ${targetLanguage} for a student taking an exam. Preserve ALL LaTeX delimiters ($...$, $$...$$, \\(...\\), \\[...\\]) and mathematical formulas, numbers, units, and symbols untouched. Return a JSON object with a "translations" array of the exact same length (${texts.length}).\n\nInput strings:\n${JSON.stringify(texts)}`,
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -2971,7 +2976,7 @@ Keep explanations concise, encouraging, and focused on why the correct answer wo
         : `Student: ${message.trim()}`;
 
       const response = await callGeminiWithFallback(ai, {
-        preferredModel: 'gemini-2.5-flash',
+        preferredModel: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           systemInstruction: systemContext,
