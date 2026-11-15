@@ -749,7 +749,9 @@ export function LiveExamRunner({
               {currentQuestion?.options.map((opt) => {
                 const isSelected = currentResp?.selectedOptionId === opt.id;
                 const rawText = (opt.text || '').trim();
-                const isPlaceholder = /^see\s*(structural\s*formula\s*in\s*)?option[a-d]?imageurl\.?$/i.test(rawText);
+                const isPlaceholder =
+                  /^(see\s*)?(the\s*)?(structural\s*formula\s*in\s*)?option[a-d0-9_\s]*image(url)?\.?$/i.test(rawText) ||
+                  /^(see\s*)?(image|figure|diagram|option\s*image|below\s*image)\.?$/i.test(rawText);
                 const displayText = isPlaceholder ? '' : rawText;
 
                 return (

@@ -283,11 +283,20 @@ export function QuestionPreviewModal({
                           </span>
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-start justify-between gap-2">
-                              <MathText
-                                text={opt.text}
-                                inline
-                                className="leading-relaxed"
-                              />
+                              {(() => {
+                                const rawText = (opt.text || '').trim();
+                                const isPlaceholder =
+                                  /^(see\s*)?(the\s*)?(structural\s*formula\s*in\s*)?option[a-d0-9_\s]*image(url)?\.?$/i.test(rawText) ||
+                                  /^(see\s*)?(image|figure|diagram|option\s*image|below\s*image)\.?$/i.test(rawText);
+                                const displayText = isPlaceholder ? '' : rawText;
+                                return displayText ? (
+                                  <MathText
+                                    text={displayText}
+                                    inline
+                                    className="leading-relaxed"
+                                  />
+                                ) : null;
+                              })()}
                               {showGreen && (
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                               )}

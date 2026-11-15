@@ -582,7 +582,16 @@ export function AdminResultsView({
                             {opt.id}
                           </span>
                           <div className="space-y-1 min-w-0">
-                            <MathText text={opt.text} className="text-xs sm:text-sm font-medium" />
+                            {(() => {
+                              const rawText = (opt.text || '').trim();
+                              const isPlaceholder =
+                                /^(see\s*)?(the\s*)?(structural\s*formula\s*in\s*)?option[a-d0-9_\s]*image(url)?\.?$/i.test(rawText) ||
+                                /^(see\s*)?(image|figure|diagram|option\s*image|below\s*image)\.?$/i.test(rawText);
+                              const displayText = isPlaceholder ? '' : rawText;
+                              return displayText ? (
+                                <MathText text={displayText} className="text-xs sm:text-sm font-medium" />
+                              ) : null;
+                            })()}
                             {opt.imageUrl && (
                               <QuestionImage
                                 src={opt.imageUrl}
