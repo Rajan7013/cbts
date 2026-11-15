@@ -153,21 +153,6 @@ export function PwaInstallPrompt() {
           </button>
         </div>
       </div>
-          >
-            <Download className="h-3.5 w-3.5 shrink-0" />
-            <span>Install</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDismiss}
-            aria-label="Dismiss"
-            className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
 
       {/* iOS Instructions Modal */}
       {showIosGuide && (
