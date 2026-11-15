@@ -45,6 +45,7 @@ import { CandidateDashboard } from './components/CandidateDashboard';
 import { ExamBriefingScreen } from './components/ExamBriefingScreen';
 import { LiveExamRunner } from './components/LiveExamRunner';
 import { ExamResultsScreen } from './components/ExamResultsScreen';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import type {
   AppScreen,
   SanitizedQuestion,
@@ -531,6 +532,7 @@ export default function App() {
           onContinueToPortal={() => {}}
           onEnterDemo={handleEnterDemo}
         />
+        <PwaInstallPrompt />
       </div>
     );
   }
@@ -625,33 +627,36 @@ export default function App() {
 
   if (screen === 'exam-results' && selectedTest && activeAttempt) {
     return (
-      <ExamResultsScreen
-        user={user}
-        test={selectedTest}
-        questions={unlockedResultQuestions}
-        attempt={activeAttempt}
-        allAttempts={attempts.filter((a) => a.testId === selectedTest.testId)}
-        initialMode={resultInitialMode}
-        onSelectAttempt={async (att) => {
-          setActiveAttempt(att);
-          const sanitized = await listSanitizedQuestions(user, selectedTest.testId);
-          const unlocked = await unlockQuestionsForReview(selectedTest.testId, sanitized, att.status);
-          setUnlockedResultQuestions(unlocked);
-        }}
-        onRetakeTest={() => {
-          handleStartOrResumeBriefing(selectedTest, undefined);
-        }}
-        onBackToDashboard={() => setScreen('candidate-dashboard')}
-        onSwitchToAdmin={
-          user.role === 'admin'
-            ? () => {
-                setPortalMode('admin');
-                setScreen('admin-dashboard');
-              }
-            : undefined
-        }
-        onSignOut={handleSignOut}
-      />
+      <>
+        <ExamResultsScreen
+          user={user}
+          test={selectedTest}
+          questions={unlockedResultQuestions}
+          attempt={activeAttempt}
+          allAttempts={attempts.filter((a) => a.testId === selectedTest.testId)}
+          initialMode={resultInitialMode}
+          onSelectAttempt={async (att) => {
+            setActiveAttempt(att);
+            const sanitized = await listSanitizedQuestions(user, selectedTest.testId);
+            const unlocked = await unlockQuestionsForReview(selectedTest.testId, sanitized, att.status);
+            setUnlockedResultQuestions(unlocked);
+          }}
+          onRetakeTest={() => {
+            handleStartOrResumeBriefing(selectedTest, undefined);
+          }}
+          onBackToDashboard={() => setScreen('candidate-dashboard')}
+          onSwitchToAdmin={
+            user.role === 'admin'
+              ? () => {
+                  setPortalMode('admin');
+                  setScreen('admin-dashboard');
+                }
+              : undefined
+          }
+          onSignOut={handleSignOut}
+        />
+        <PwaInstallPrompt />
+      </>
     );
   }
 
@@ -664,6 +669,7 @@ export default function App() {
           onBack={() => setScreen('candidate-dashboard')}
           onLaunchExam={handleLaunchExam}
         />
+        <PwaInstallPrompt />
       </div>
     );
   }
@@ -852,6 +858,7 @@ export default function App() {
           }}
         />
       )}
+      <PwaInstallPrompt />
     </AppSidebarLayout>
   );
 }
