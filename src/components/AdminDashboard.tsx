@@ -126,12 +126,12 @@ export function AdminDashboard({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* Green Published Success Banner if triggered */}
           {publishedSuccessMessage && showToast && (
             <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-xs animate-in fade-in duration-200">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>{publishedSuccessMessage}</span>
+              <span className="truncate max-w-[180px] sm:max-w-none">{publishedSuccessMessage}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -150,7 +150,7 @@ export function AdminDashboard({
             <button
               type="button"
               onClick={onSeedSample}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-slate-300 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap cursor-pointer shadow-xs shrink-0"
             >
               <Database className="h-4 w-4 text-slate-500" />
               <span>Load Samples</span>
@@ -160,73 +160,80 @@ export function AdminDashboard({
           <button
             type="button"
             onClick={() => setShowDocImporterModal(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-linear-to-r from-indigo-50 to-blue-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-indigo-700 hover:from-indigo-100 hover:to-blue-100 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-indigo-200 bg-linear-to-r from-indigo-50 to-blue-50 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold text-indigo-700 hover:from-indigo-100 hover:to-blue-100 transition-colors cursor-pointer shadow-xs min-w-0"
             title="Bulk import 500+ questions via CSV spreadsheet, text, or PDF"
           >
-            <Sparkles className="h-4 w-4 text-indigo-600" />
-            <span>Universal Importer (CSV / PDF / AI)</span>
+            <Sparkles className="h-4 w-4 text-indigo-600 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Import (AI/PDF)</span>
+              <span className="hidden sm:inline">Universal Importer (CSV / PDF / AI)</span>
+            </span>
           </button>
 
           <button
             type="button"
             onClick={onCreateNew}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-blue-600 px-3.5 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-blue-700 transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
+            title="Create a new test from scratch"
           >
-            <Plus className="h-4 w-4" />
-            <span>Create New Test</span>
+            <Plus className="h-4 w-4 shrink-0" />
+            <span>
+              <span className="sm:hidden">New Test</span>
+              <span className="hidden sm:inline">Create New Test</span>
+            </span>
           </button>
         </div>
       </div>
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+      {/* 4 Stats Cards: 2x2 grid on mobile, 4 columns on large screens */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         {/* Card 1: Total Tests */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <Layers className="h-6 w-6" />
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3 sm:gap-4">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Layers className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Total Tests</div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] sm:text-xs font-medium text-slate-500 truncate leading-tight">Total Tests</div>
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {tests.length}
             </div>
           </div>
         </div>
 
         {/* Card 2: Active Live Windows */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <Radio className="h-6 w-6 text-emerald-600" />
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3 sm:gap-4">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Radio className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
           </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Active Live Windows</div>
-            <div className="text-2xl font-bold text-emerald-600 tabular-nums mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] sm:text-xs font-medium text-slate-500 truncate leading-tight">Active Live</div>
+            <div className="text-lg sm:text-2xl font-bold text-emerald-600 tabular-nums mt-0.5">
               {liveCount}
             </div>
           </div>
         </div>
 
         {/* Card 3: Draft Assessments */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3 sm:gap-4">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center shrink-0">
             <FileText className="h-5 w-5 text-blue-600" />
           </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Draft Assessments</div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] sm:text-xs font-medium text-slate-500 truncate leading-tight">Drafts</div>
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {draftCount}
             </div>
           </div>
         </div>
 
         {/* Card 4: Configured Question Slots */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <Layers className="h-6 w-6" />
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3 sm:gap-4">
+          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <Layers className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Configured Question Slots</div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[11px] sm:text-xs font-medium text-slate-500 truncate leading-tight">Question Slots</div>
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {totalQConfigured}
             </div>
           </div>
@@ -249,18 +256,18 @@ export function AdminDashboard({
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             {/* Status Dropdown */}
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                 <Filter className="h-3.5 w-3.5" />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-xl border border-slate-200/80 bg-white pl-8 pr-8 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer"
+                className="w-full sm:w-auto rounded-xl border border-slate-200/80 bg-white pl-8 pr-7 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer"
               >
-                <option value="all">Status: All Statuses</option>
+                <option value="all">All Statuses</option>
                 <option value="live">Live Only</option>
                 <option value="scheduled">Scheduled Only</option>
                 <option value="draft">Drafts</option>
@@ -269,30 +276,32 @@ export function AdminDashboard({
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center rounded-xl border border-slate-200/80 bg-white p-1 shadow-xs">
+            <div className="flex items-center rounded-xl border border-slate-200/80 bg-white p-1 shadow-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode('cards')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   viewMode === 'cards'
                     ? 'bg-blue-50 text-blue-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Card View"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Card View</span>
+                <span className="hidden sm:inline">Card View</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   viewMode === 'table'
                     ? 'bg-blue-50 text-blue-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="List View"
               >
                 <List className="h-3.5 w-3.5" />
-                <span>List View</span>
+                <span className="hidden sm:inline">List View</span>
               </button>
             </div>
           </div>

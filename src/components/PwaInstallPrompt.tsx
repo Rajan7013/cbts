@@ -108,13 +108,13 @@ export function PwaInstallPrompt() {
     <>
       {/* Floating PWA Install Banner (Mobile optimized bottom bar) */}
       <div
-        className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-5 sm:bottom-5 sm:max-w-md z-50 bg-slate-900/95 backdrop-blur-xl border border-blue-500/30 text-white p-3.5 sm:p-4 rounded-3xl shadow-2xl shadow-blue-900/30 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-5"
-        style={{ paddingBottom: 'max(0.85rem, env(safe-area-inset-bottom, 0px))' }}
+        className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-5 sm:bottom-5 sm:max-w-md z-50 bg-slate-900/95 backdrop-blur-xl border border-blue-500/30 text-white p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-2xl shadow-blue-900/30 flex items-center justify-between gap-2.5 sm:gap-3 animate-in fade-in slide-in-from-bottom-5"
+        style={{ paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0px))' }}
       >
         {/* App Icon */}
-        <div className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0 border border-white/20">
+        <div className="relative h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md shrink-0 border border-white/20">
           <span>EP</span>
-          <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 bg-emerald-500 rounded-full border-2 border-slate-900" />
+          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-emerald-500 rounded-full border-2 border-slate-900" />
         </div>
 
         {/* Text Info */}
@@ -123,21 +123,36 @@ export function PwaInstallPrompt() {
             <h4 className="font-display font-bold text-xs sm:text-sm text-white leading-tight truncate">
               Install ExamPulse App
             </h4>
-            <span className="px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-200 text-[10px] font-semibold border border-blue-400/20">
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-500/30 text-blue-200 text-[9px] sm:text-[10px] font-semibold border border-blue-400/20 shrink-0">
               Full Screen
             </span>
           </div>
-          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug line-clamp-1">
-            Remove browser bars & run as a pure full-screen app
+          <p className="text-[10px] sm:text-[11px] text-slate-300 mt-0.5 leading-snug line-clamp-1">
+            Pure full-screen app with zero browser bars
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={handleInstallClick}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+            className="inline-flex items-center gap-1 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[11px] sm:text-xs font-bold transition-all shadow-md cursor-pointer"
+          >
+            <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+            <span>Install</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDismiss}
+            aria-label="Dismiss"
+            className="p-1 sm:p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
           >
             <Download className="h-3.5 w-3.5 shrink-0" />
             <span>Install</span>
