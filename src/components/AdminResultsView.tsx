@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  ArrowDown,
   ArrowLeft,
   Calendar,
   Clock,
@@ -427,7 +428,7 @@ export function AdminResultsView({
         : '0.0';
 
     return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -815,7 +816,7 @@ export function AdminResultsView({
     });
 
     return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -1077,34 +1078,30 @@ export function AdminResultsView({
     );
   }
 
-  // Primary Candidate Results Cohort View (Matching Images 3 & 4)
+  // Primary Candidate Results Cohort View (Matching Images 3 & 4 and Mobile Screenshot)
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer mb-2.5"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
-            <span>Back to Tests</span>
-          </button>
+      <div>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors cursor-pointer mb-2.5"
+        >
+          <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+          <span>Back to Tests</span>
+        </button>
+
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Candidate Results
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500">
-            View and manage candidate attempts, scores, and submission details for a test.
-          </p>
-        </div>
 
-        {/* Sample Data Toggle Pill */}
-        <div className="flex items-center gap-2">
+          {/* Sample Data Toggle Pill */}
           <button
             type="button"
             onClick={() => setUseSampleData(!useSampleData)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-colors cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold shadow-2xs transition-colors cursor-pointer ${
               useSampleData
                 ? 'border-blue-300 bg-blue-50 text-blue-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -1115,23 +1112,27 @@ export function AdminResultsView({
             <span>Sample data</span>
           </button>
         </div>
+
+        <p className="mt-1 text-xs sm:text-sm text-slate-500">
+          View and manage candidate attempts, scores, and submission details for a test.
+        </p>
       </div>
 
-      {/* Selected Test & Schedule Banner (Matching Images 3 & 4) */}
+      {/* Selected Test & Schedule Banner */}
       {test && (
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <span className="text-[11px] font-medium text-slate-400 block mb-0.5">Test</span>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="w-full sm:w-auto">
+              <span className="text-[11px] font-medium text-slate-400 block mb-1">Test</span>
               <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-blue-600" />
+                <Layers className="h-4 w-4 text-blue-600 shrink-0" />
                 <select
                   value={test.testId}
                   onChange={(e) => {
                     const found = tests.find((t) => t.testId === e.target.value);
                     if (found && onSelectTest) onSelectTest(found);
                   }}
-                  className="rounded-xl border border-slate-200 bg-white py-1.5 pl-2.5 pr-8 text-xs font-bold text-slate-900 shadow-2xs focus:outline-hidden focus:border-blue-500 cursor-pointer"
+                  className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white py-1.5 pl-2.5 pr-8 text-xs font-bold text-slate-900 shadow-2xs focus:outline-hidden focus:border-blue-500 cursor-pointer"
                 >
                   {tests.map((t) => (
                     <option key={t.testId} value={t.testId}>
@@ -1143,41 +1144,31 @@ export function AdminResultsView({
             </div>
 
             {/* Status Badge */}
-            <div className="mt-4 sm:mt-3">
-              {useSampleData ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                  <Check className="h-3.5 w-3.5" /> Completed
-                </span>
-              ) : test.status === 'published' ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                  <Calendar className="h-3.5 w-3.5" /> Scheduled
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                  Draft
-                </span>
-              )}
+            <div className="pt-0.5 sm:pt-4">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <Calendar className="h-3.5 w-3.5" /> Scheduled
+              </span>
             </div>
 
             {/* Schedule Range */}
-            <div className="mt-4 sm:mt-3 flex items-center gap-2 text-xs font-semibold text-slate-700">
-              <Calendar className="h-3.5 w-3.5 text-blue-600" />
+            <div className="pt-0.5 sm:pt-4 flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+              <Calendar className="h-3.5 w-3.5 text-blue-600 shrink-0" />
               <span>Schedule:</span>
-              <span className="text-slate-900">
-                {formatDisplayDate(test.startTime)} → {formatDisplayDate(test.endTime)}
+              <span className="text-slate-900 font-bold">
+                {formatDisplayDate(test.startTime)} – {formatDisplayDate(test.endTime)}
               </span>
             </div>
           </div>
 
           {/* Switch Test button */}
-          <div className="shrink-0">
+          <div className="pt-1 sm:pt-0 shrink-0">
             <button
               type="button"
               onClick={() => {
                 const nextIdx = (tests.findIndex((t) => t.testId === test.testId) + 1) % tests.length;
                 if (tests[nextIdx] && onSelectTest) onSelectTest(tests[nextIdx]);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
+              className="w-fit inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors cursor-pointer"
             >
               <RotateCw className="h-3.5 w-3.5 text-slate-500" />
               <span>Switch Test</span>
@@ -1186,71 +1177,71 @@ export function AdminResultsView({
         </div>
       )}
 
-      {/* 4 Stat Cards Row (Matching Images 3 & 4) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+      {/* 4 Stat Cards Row (2x2 on Mobile, 4-col on Desktop) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3.5">
+          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <User className="h-5 w-5" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">Total Attempts</div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
+            <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {activeAttemptsList.length}
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3.5">
+          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <CheckCircle2 className="h-5 w-5" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">Completed</div>
-            <div className="text-2xl font-bold text-emerald-600 tabular-nums mt-0.5">
+            <div className="text-xl sm:text-2xl font-bold text-emerald-600 tabular-nums mt-0.5">
               {completedAttempts.length}
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3.5">
+          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <RotateCw className="h-5 w-5 text-blue-600" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">In Progress</div>
-            <div className="text-2xl font-bold text-blue-600 tabular-nums mt-0.5">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600 tabular-nums mt-0.5">
               {inProgressAttempts.length}
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-5 shadow-xs flex items-center gap-3.5">
+          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
             <BarChart3 className="h-5 w-5" />
           </div>
           <div>
             <div className="text-xs font-medium text-slate-500">Average Score</div>
-            <div className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
+            <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums mt-0.5">
               {averageScorePercent !== '—' ? `${averageScorePercent}%` : '—'}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter Row & Export (Matching Images 3 & 4) */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-md">
+      {/* Filter Row & Export (Matching Mobile Screenshot) */}
+      <div className="space-y-3">
+        <div className="relative w-full">
           <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search candidate (name, ID, or email)"
-            className="w-full rounded-xl border border-slate-200/80 bg-white pl-10 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 shadow-xs transition-all"
+            className="w-full rounded-xl border border-slate-200/80 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 shadow-xs transition-all"
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <div className="relative">
             <select
               value={statusFilter}
@@ -1268,23 +1259,25 @@ export function AdminResultsView({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
-              <Download className="h-3.5 w-3.5 text-slate-500" />
+              <Download className="h-3.5 w-3.5" />
               <span>Export Results</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Results Table or Empty State */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+      {/* Main Results: Mobile Cards (Mobile) + Desktop Table (Desktop) */}
+      <div>
         {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400">Loading attempts...</div>
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center text-xs text-slate-400 shadow-xs">
+            Loading attempts...
+          </div>
         ) : filteredAttempts.length === 0 ? (
           /* Empty State (Matching Image 3) */
-          <div>
-            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-3 text-xs font-semibold text-slate-500 grid grid-cols-7">
+          <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+            <div className="hidden sm:grid border-b border-slate-200/80 bg-slate-50/70 px-4 py-3 text-xs font-semibold text-slate-500 grid-cols-7">
               <span>Candidate</span>
               <span className="text-center">Attempt</span>
               <span className="text-center">Score</span>
@@ -1316,126 +1309,233 @@ export function AdminResultsView({
             </div>
           </div>
         ) : (
-          /* Populated Candidates Table (Matching Image 4) */
           <div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200/80 bg-slate-50/70 text-slate-500 font-semibold">
-                    <th className="py-3.5 px-4">Candidate</th>
-                    <th className="py-3.5 px-4 text-center">Attempt</th>
-                    <th className="py-3.5 px-4 text-center">Score</th>
-                    <th className="py-3.5 px-4 text-center">Percentage</th>
-                    <th className="py-3.5 px-4 text-center">Status</th>
-                    <th className="py-3.5 px-4 text-center">Submitted</th>
-                    <th className="py-3.5 px-4 text-center w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredAttempts.map((attempt) => {
-                    const isCompleted = attempt.status !== 'in_progress';
-                    const passPct = test?.passPercentage || 50;
-                    const pct = attempt.maxScore > 0 ? (attempt.score / attempt.maxScore) * 100 : attempt.accuracy;
-                    const isPassed = pct >= passPct;
+            {/* 1. MOBILE CARDS VIEW (Matching Mobile Screenshot Exactly) */}
+            <div className="space-y-3 md:hidden">
+              {filteredAttempts.map((attempt) => {
+                const isCompleted = attempt.status !== 'in_progress';
+                const passPct = test?.passPercentage || 50;
+                const pct = attempt.maxScore > 0 ? (attempt.score / attempt.maxScore) * 100 : attempt.accuracy;
+                const isPassed = pct >= passPct;
 
-                    return (
-                      <tr key={attempt.attemptId} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
-                              {getInitials(attempt.userName)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-slate-900 truncate">
-                                {attempt.userName}
-                              </div>
-                              <div className="text-[11px] text-slate-500 truncate">
-                                {attempt.userEmail}
-                              </div>
-                            </div>
+                return (
+                  <div
+                    key={attempt.attemptId}
+                    className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-3"
+                  >
+                    {/* Header: Candidate Info & Attempt Badge */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                          {getInitials(attempt.userName)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900 text-sm truncate">
+                            {attempt.userName}
                           </div>
-                        </td>
+                          <div className="text-xs text-slate-500 truncate">
+                            {attempt.userEmail}
+                          </div>
+                        </div>
+                      </div>
 
-                        <td className="py-3.5 px-4 text-center font-medium text-slate-700 tabular-nums">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                            Attempt #{attempt.attemptNumber || 1}
-                          </span>
-                        </td>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100 shrink-0">
+                        Attempt #{attempt.attemptNumber || 1}
+                      </span>
+                    </div>
 
-                        <td className="py-3.5 px-4 text-center font-semibold text-slate-800 tabular-nums">
+                    {/* Inner Score/Percentage/Status Box */}
+                    <div className="rounded-xl bg-slate-50/80 border border-slate-100 p-2.5 grid grid-cols-3 divide-x divide-slate-200/80 text-center">
+                      <div className="px-1">
+                        <span className="text-[11px] text-slate-500 font-medium block mb-0.5">Score</span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 tabular-nums">
                           {isCompleted ? `${attempt.score} / ${attempt.maxScore}` : '—'}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center font-bold text-blue-700 tabular-nums">
+                        </span>
+                      </div>
+                      <div className="px-1">
+                        <span className="text-[11px] text-slate-500 font-medium block mb-0.5">Percentage</span>
+                        <span className="text-xs sm:text-sm font-bold text-blue-600 tabular-nums">
                           {isCompleted ? `${pct.toFixed(1)}%` : '—'}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          {isCompleted ? (
-                            isPassed ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                <Check className="h-3 w-3" /> Passed
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
-                                <X className="h-3 w-3" /> Failed
-                              </span>
-                            )
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
-                              <RotateCw className="h-3 w-3 animate-spin" /> In Progress
+                        </span>
+                      </div>
+                      <div className="px-1 flex flex-col items-center justify-center">
+                        <span className="text-[11px] text-slate-500 font-medium block mb-0.5">Status</span>
+                        {isCompleted ? (
+                          isPassed ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              <Check className="h-3 w-3" /> Passed
                             </span>
-                          )}
-                        </td>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                              <X className="h-3 w-3" /> Failed
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                            <RotateCw className="h-3 w-3 animate-spin" /> In Progress
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                        <td className="py-3.5 px-4 text-center text-slate-600 whitespace-nowrap">
-                          {attempt.submittedAtIso ? formatDisplayDate(attempt.submittedAtIso) : '—'}
-                        </td>
+                    {/* Footer: Date & View Button */}
+                    <div className="flex items-center justify-between pt-0.5">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span>
+                          Submitted: {attempt.submittedAtIso ? formatDisplayDate(attempt.submittedAtIso) : 'In Progress'}
+                        </span>
+                      </div>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAttempt(attempt)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer font-medium"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>View</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAttempt(attempt)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-blue-600" />
+                        <span>View</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+            {/* 2. DESKTOP TABLE VIEW */}
+            <div className="hidden md:block rounded-2xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200/80 bg-slate-50/70 text-slate-500 font-semibold">
+                      <th className="py-3.5 px-4">Candidate</th>
+                      <th className="py-3.5 px-4 text-center">Attempt</th>
+                      <th className="py-3.5 px-4 text-center">Score</th>
+                      <th className="py-3.5 px-4 text-center">Percentage</th>
+                      <th className="py-3.5 px-4 text-center">Status</th>
+                      <th className="py-3.5 px-4 text-center">Submitted</th>
+                      <th className="py-3.5 px-4 text-center w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredAttempts.map((attempt) => {
+                      const isCompleted = attempt.status !== 'in_progress';
+                      const passPct = test?.passPercentage || 50;
+                      const pct = attempt.maxScore > 0 ? (attempt.score / attempt.maxScore) * 100 : attempt.accuracy;
+                      const isPassed = pct >= passPct;
+
+                      return (
+                        <tr key={attempt.attemptId} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                {getInitials(attempt.userName)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 truncate">
+                                  {attempt.userName}
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {attempt.userEmail}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-medium text-slate-700 tabular-nums">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                              Attempt #{attempt.attemptNumber || 1}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-semibold text-slate-800 tabular-nums">
+                            {isCompleted ? `${attempt.score} / ${attempt.maxScore}` : '—'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-bold text-blue-700 tabular-nums">
+                            {isCompleted ? `${pct.toFixed(1)}%` : '—'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            {isCompleted ? (
+                              isPassed ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                  <Check className="h-3 w-3" /> Passed
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700">
+                                  <X className="h-3 w-3" /> Failed
+                                </span>
+                              )
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                                <RotateCw className="h-3 w-3 animate-spin" /> In Progress
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center text-slate-600 whitespace-nowrap">
+                            {attempt.submittedAtIso ? formatDisplayDate(attempt.submittedAtIso) : '—'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAttempt(attempt)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1 text-slate-700 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 transition-colors cursor-pointer font-medium"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Desktop Pagination Footer */}
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+                <div>
+                  Showing 1–{filteredAttempts.length} of {activeAttemptsList.length} candidates
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled
+                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="h-7 w-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
+                    1
+                  </span>
+                  <button
+                    type="button"
+                    disabled
+                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Footer (Matching Mobile Screenshot) */}
+            <div className="flex items-center justify-between pt-2 px-1 text-xs text-slate-500 md:hidden">
               <div>
                 Showing 1–{filteredAttempts.length} of {activeAttemptsList.length} candidates
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled
-                  className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <span className="h-7 w-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                  1
-                </span>
-                <button
-                  type="button"
-                  disabled
-                  className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 disabled:opacity-50"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
+              <div className="inline-flex items-center gap-1 text-xs text-slate-600 bg-slate-100/80 rounded-lg px-2.5 py-1">
+                <ArrowDown className="h-3 w-3 text-blue-600" />
+                <span>Scroll for more</span>
               </div>
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
     </div>
   );
 }

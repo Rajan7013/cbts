@@ -72,8 +72,19 @@ export function TopBar({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 sm:gap-6 px-3 sm:px-6 py-2.5 sm:py-3">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          {/* Mobile Menu Toggle on Left matching Screenshot */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
+            className="inline-flex md:hidden items-center justify-center rounded-lg p-1 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -82,9 +93,10 @@ export function TopBar({
                 user ? (portalMode === 'admin' ? 'admin-dashboard' : 'candidate-dashboard') : 'landing'
               );
             }}
-            className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 hover:text-blue-700 transition-colors cursor-pointer"
+            className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 hover:text-blue-700 transition-colors cursor-pointer flex items-center gap-1"
           >
-            ExamPulse AI
+            <span>ExamPulse</span>
+            <span className="text-blue-600">AI</span>
           </button>
         </div>
 
@@ -169,31 +181,38 @@ export function TopBar({
               {authLoading ? 'Signing in…' : 'Sign in'}
             </button>
           ) : (
-            <div ref={menuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setAccountMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                aria-expanded={accountMenuOpen}
-                aria-haspopup="menu"
-              >
-                {user.photoUrl ? (
-                  <img
-                    src={user.photoUrl}
-                    alt={user.name}
-                    referrerPolicy="no-referrer"
-                    className="h-5 w-5 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-800 shrink-0">
-                    {getInitials(user.name)}
-                  </span>
-                )}
-                <span className="max-w-[100px] sm:max-w-[150px] truncate">
-                  {user.name.split(' ')[0]}
+            <>
+              {/* Admin Badge (Matching Mobile Screenshot) */}
+              {user.role === 'admin' && (
+                <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold shrink-0">
+                  Admin
                 </span>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              </button>
+              )}
+
+              <div ref={menuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((v) => !v)}
+                  className="relative inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  aria-expanded={accountMenuOpen}
+                  aria-haspopup="menu"
+                  title={user.name}
+                >
+                  {user.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt={user.name}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs font-bold text-slate-700">
+                      {getInitials(user.name)}
+                    </span>
+                  )}
+                  {/* Online Green Indicator Dot */}
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                </button>
 
               {accountMenuOpen && (
                 <div
@@ -312,20 +331,10 @@ export function TopBar({
                 </div>
               )}
             </div>
-          )}
-
-          {/* Mobile Menu Toggle */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileMenuOpen}
-            className="inline-flex md:hidden items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-50 cursor-pointer"
-          >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-        </div>
+          </>
+        )}
       </div>
+    </div>
 
       {/* Mobile Navigation Drawer */}
       {mobileMenuOpen && (
