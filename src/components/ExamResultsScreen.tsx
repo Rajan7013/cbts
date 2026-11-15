@@ -770,33 +770,82 @@ export function ExamResultsScreen({
           {/* ======================================================== */}
           {mode === 'review' && currentQ && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Mobile Compact Sticky Top Bar for Answer Review */}
-              <div className="md:hidden sticky -top-3.5 sm:-top-7 z-20 -mx-3.5 sm:-mx-7 -mt-3.5 sm:-mt-7 mb-3 bg-white/95 backdrop-blur-md px-3.5 py-2.5 border-b border-slate-200/90 flex items-center justify-between gap-2 shadow-2xs">
+              {/* Mobile Header Bar for Answer Review matching Reference Screenshot */}
+              <div className="md:hidden -mx-3.5 sm:-mx-7 -mt-3.5 sm:-mt-7 mb-3 bg-blue-600 px-4 py-3 shadow-md flex items-center justify-between text-white">
                 <button
                   type="button"
                   onClick={() => setMode('summary')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-50/90 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-blue-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-500/80 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   <span>Result</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-900">
-                    Q {currentQuestionIndex + 1} of {questions.length}
-                  </span>
-                  <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200/60 px-2 py-0.5 rounded-full">
-                    Att #{currentAttemptNumber}
+                <div className="text-center">
+                  <h1 className="font-display font-bold text-sm leading-tight text-white">
+                    Answer Review
+                  </h1>
+                  <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-full bg-blue-700/60 text-[11px] font-semibold text-white">
+                    Attempt #{currentAttemptNumber}
                   </span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowMobileNavigator(true)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-slate-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/30 bg-blue-500/40 hover:bg-blue-500/60 text-white text-xs font-bold transition-colors cursor-pointer"
                 >
+                  <Grid className="h-3.5 w-3.5" />
                   <span>Grid</span>
                 </button>
+              </div>
+
+              {/* Mobile Subheader: Question Counter & Section Pills matching Reference Screenshot */}
+              <div className="md:hidden space-y-2 text-center pb-1">
+                <div className="font-display font-bold text-sm text-slate-800">
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </div>
+
+                {/* Horizontally scrollable section pills with counts */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSectionFilter('all')}
+                    className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
+                      selectedSectionFilter === 'all'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>All</div>
+                    <div className="text-[10px] font-normal opacity-90">({questions.length})</div>
+                  </button>
+
+                  {sectionStats.map((stat) => {
+                    const isFilterSelected = selectedSectionFilter === stat.section.id;
+                    const cleanName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                    return (
+                      <button
+                        key={stat.section.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSectionFilter(stat.section.id);
+                          setCurrentQuestionIndex(stat.firstQuestionIndex);
+                        }}
+                        className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
+                          isFilterSelected
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div>{cleanName}</div>
+                        <div className="text-[10px] font-normal opacity-90">
+                          ({stat.correct}/{stat.totalQuestions})
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Desktop Header Title with Subtitle & Back to Result matching Images 3 & 4 */}
@@ -1122,85 +1171,74 @@ export function ExamResultsScreen({
                       return (
                         <div
                           key={opt.id}
-                          className={`rounded-2xl border p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${containerStyle}`}
+                          className={`rounded-2xl border p-3.5 sm:p-4 flex items-center justify-between gap-3 transition-colors ${containerStyle}`}
                         >
-                          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             {/* Radio circle */}
                             <div
-                              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${radioStyle}`}
+                              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${radioStyle}`}
                             >
                               {isRadioFilled && (
                                 <div className="h-2 w-2 rounded-full bg-white" />
                               )}
                             </div>
 
-                            {/* Option Text & Option Image */}
-                            <div className="flex-1 min-w-0">
+                            {/* Option Text & Inline Badges matching Reference Design */}
+                            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
                               {displayText && (
-                                <div className="text-xs sm:text-sm min-w-0 leading-relaxed font-medium">
+                                <div className="text-xs sm:text-sm min-w-0 leading-relaxed font-semibold text-slate-900">
                                   <MathText text={displayText} />
                                 </div>
                               )}
 
                               {/* Option image if present */}
                               {opt.imageUrl && (
-                                <div className={`${displayText ? 'mt-2.5' : ''} inline-block`}>
+                                <div className="inline-block">
                                   <QuestionImage
                                     src={opt.imageUrl}
                                     alt={`Option ${opt.id} diagram`}
-                                    className="max-h-24 sm:max-h-36 w-auto rounded-xl object-contain border border-slate-200/80 p-1.5 bg-white shadow-2xs"
+                                    className="max-h-20 sm:max-h-32 w-auto rounded-xl object-contain border border-slate-200/80 p-1 bg-white shadow-2xs"
                                     allowZoom={true}
                                   />
                                 </div>
                               )}
-                            </div>
-                          </div>
 
-                          {/* Right Badges matching Images 3 & 4 */}
-                          <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center pl-8 sm:pl-0">
-                            {/* If User Answered Correctly (Both badges shown side-by-side in Image 4) */}
-                            {isCorrect && isUserChoice && (
-                              <>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
+                              {/* Badges placed inline matching Reference Design */}
+                              {isCorrect && isUserChoice && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-semibold shrink-0">
                                   <Check className="h-3 w-3" />
-                                  <span>Your answer</span>
+                                  <span>Your answer • Correct</span>
                                 </span>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
+                              )}
+
+                              {isUserChoice && !isCorrect && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-2.5 py-0.5 text-xs font-semibold shrink-0">
+                                  <X className="h-3 w-3" />
+                                  <span>Your answer • Incorrect</span>
+                                </span>
+                              )}
+
+                              {isCorrect && !isUserChoice && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-semibold shrink-0">
                                   <Check className="h-3 w-3" />
                                   <span>Correct answer</span>
                                 </span>
-                              </>
-                            )}
-
-                            {/* If User Answered Incorrectly (Image 3 Option B) */}
-                            {isUserChoice && !isCorrect && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 text-purple-800 px-3 py-1 text-[11px] font-bold">
-                                <X className="h-3 w-3" />
-                                <span>Your answer (Incorrect)</span>
-                              </span>
-                            )}
-
-                            {/* If Correct Answer not picked (Image 3 Option C) */}
-                            {isCorrect && !isUserChoice && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-[11px] font-bold">
-                                <Check className="h-3 w-3" />
-                                <span>Correct answer</span>
-                              </span>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Explanation Box matching Images 3 & 4 */}
-                  <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:p-5 space-y-2">
+                  {/* Explanation Box matching Reference Screenshot */}
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 sm:p-5 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                       <Info className="h-4 w-4 text-blue-600 shrink-0" />
                       <span>Explanation</span>
                     </div>
 
-                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+                    <div className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
                       <MathText text={currentQ.shortExplanation || 'No explanation provided.'} />
                     </div>
 
@@ -1217,7 +1255,7 @@ export function ExamResultsScreen({
                     )}
                   </div>
 
-                  {/* Bottom Navigation Buttons matching Images 3 & 4 (Desktop view) */}
+                  {/* Bottom Navigation Buttons (Desktop view) */}
                   <div className="hidden sm:flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
                     <button
                       type="button"
@@ -1241,8 +1279,121 @@ export function ExamResultsScreen({
                   </div>
                 </div>
 
-                {/* Right Column: Score Card & Question Navigator matching Images 3 & 4 */}
-                <div className="lg:col-span-4 space-y-4">
+                {/* Mobile Mini Score Card + Navigator Preview matching Reference Screenshot */}
+                <div className="md:hidden space-y-4">
+                  {/* Mini Score Card */}
+                  <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-xs flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-500 block">Score</span>
+                      <div className="font-display font-bold text-2xl text-slate-900 leading-tight">
+                        {attempt.score} / {attempt.maxScore}
+                      </div>
+                      <span className="text-xs font-semibold text-slate-500">
+                        ({percentage}%)
+                      </span>
+                    </div>
+
+                    <div className="h-10 w-px bg-slate-200 mx-2" />
+
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Correct</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">{attempt.correctCount || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <X className="h-3.5 w-3.5 text-purple-600" />
+                          <span>Incorrect</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">{attempt.wrongCount || 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <div className="h-3 w-3 rounded-xs border border-slate-300" />
+                          <span>Unanswered</span>
+                        </div>
+                        <span className="font-mono font-bold text-slate-900">{unansweredCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Question Navigator Preview */}
+                  <div className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-blue-600" />
+                        <span className="text-xs font-bold text-slate-900">Question Navigator (Preview)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowMobileNavigator(true)}
+                        className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <ChevronDown className="h-4 w-4 rotate-180" />
+                      </button>
+                    </div>
+
+                    {/* Horizontal preview of question numbers */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      {questions.map((q, idx) => {
+                        const resp = attempt.responses[q.questionId];
+                        const isAns = Boolean(resp?.selectedOptionId);
+                        const isCor = isAns && resp?.selectedOptionId === q.correctOptionId;
+                        const isWr = isAns && resp?.selectedOptionId !== q.correctOptionId;
+                        const isCur = idx === currentQuestionIndex;
+
+                        let borderStyle = 'border-slate-200 bg-white text-slate-700';
+                        let symbol = '–';
+                        let symColor = 'text-slate-400';
+
+                        if (isCor) {
+                          borderStyle = 'border-emerald-300 bg-emerald-50 text-emerald-800';
+                          symbol = '✓';
+                          symColor = 'text-emerald-600';
+                        } else if (isWr) {
+                          borderStyle = 'border-purple-300 bg-purple-50 text-purple-800';
+                          symbol = '✕';
+                          symColor = 'text-purple-600';
+                        }
+
+                        if (isCur) {
+                          borderStyle = 'border-2 border-purple-600 bg-purple-50 text-purple-900 shadow-xs ring-1 ring-purple-400';
+                        }
+
+                        return (
+                          <button
+                            key={q.questionId}
+                            type="button"
+                            onClick={() => setCurrentQuestionIndex(idx)}
+                            className={`h-12 w-11 rounded-xl border flex flex-col items-center justify-center shrink-0 cursor-pointer transition-all ${borderStyle}`}
+                          >
+                            <span className="font-mono font-bold text-xs">{idx + 1}</span>
+                            <span className={`text-[10px] font-bold ${symColor}`}>{symbol}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex items-center justify-around pt-2 border-t border-slate-100 text-[11px] font-semibold">
+                      <span className="text-emerald-700 flex items-center gap-1">
+                        <Check className="h-3 w-3" /> Correct ({attempt.correctCount || 0})
+                      </span>
+                      <span className="text-purple-700 flex items-center gap-1">
+                        <X className="h-3 w-3" /> Incorrect ({attempt.wrongCount || 0})
+                      </span>
+                      <span className="text-slate-500 flex items-center gap-1">
+                        – Unanswered ({unansweredCount})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Desktop Score Card & Navigator */}
+                <div className="hidden lg:block lg:col-span-4 space-y-4">
                   {/* Score Card with Donut Gauge */}
                   <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
                     <div className="flex items-center justify-between gap-3">
@@ -1413,67 +1564,38 @@ export function ExamResultsScreen({
         </main>
       </div>
 
-      {/* Mobile Fixed Bottom Navigation for Answer Review */}
+      {/* Mobile Fixed Bottom Navigation for Answer Review matching Reference Screenshot */}
       {mode === 'review' && (
         <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
-          style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
           <button
             type="button"
             disabled={currentQuestionIndex === 0}
             onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full border border-slate-200 bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
           >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <ArrowLeft className="h-3.5 w-3.5" />
             <span>Previous</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowMobileNavigator(true)}
-            className="h-10 px-4 rounded-2xl border border-blue-200 bg-blue-50/90 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+            className="px-5 py-2 rounded-full bg-blue-100 text-blue-700 font-bold text-xs cursor-pointer shadow-2xs hover:bg-blue-200 transition-colors"
           >
-            <span>{currentQuestionIndex + 1} / {questions.length}</span>
+            {currentQuestionIndex + 1} / {questions.length}
           </button>
 
           <button
             type="button"
             disabled={currentQuestionIndex === questions.length - 1}
             onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
           >
             <span>Next</span>
-            <ArrowRight className="h-4 w-4 shrink-0" />
-          </button>
-        </div>
-      )}
-
-      {/* Mobile Bottom Bar for Summary Mode */}
-      {mode === 'summary' && (
-        <div
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 pt-2.5 shadow-2xl flex items-center justify-between gap-3"
-          style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))' }}
-        >
-          <button
-            type="button"
-            onClick={onBackToDashboard}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer shadow-2xs"
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span>Back to Tests</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setCurrentQuestionIndex(0);
-              setMode('review');
-            }}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer shadow-xs"
-          >
-            <FileText className="h-4 w-4 shrink-0" />
-            <span>Review answers</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
