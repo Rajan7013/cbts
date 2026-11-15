@@ -201,7 +201,7 @@ export function ExamResultsScreen({
     >
       {/* Top Bar matching Images 1, 2, 3, 4, 5 (Desktop persistent, clean on mobile) */}
       <div
-        className={`w-full max-w-7xl mx-auto flex items-center justify-between pb-3 sm:pb-4 px-1 shrink-0 ${
+        className={`w-full max-w-5xl mx-auto flex items-center justify-between pb-3 sm:pb-4 px-1 shrink-0 ${
           mode === 'review' ? 'hidden md:flex' : 'flex'
         }`}
       >
@@ -239,14 +239,14 @@ export function ExamResultsScreen({
 
       {/* Main Container Card */}
       <div
-        className={`w-full max-w-7xl mx-auto flex flex-col md:flex-row min-h-[82vh] flex-1 ${
+        className={`w-full max-w-5xl mx-auto flex flex-col md:flex-row min-h-[82vh] flex-1 ${
           mode === 'review'
             ? 'rounded-none sm:rounded-3xl border-0 sm:border border-white/90 bg-transparent sm:bg-white/80 shadow-none sm:shadow-xl sm:shadow-blue-900/5'
             : 'rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5'
         } backdrop-blur-xl overflow-hidden`}
       >
         {/* Left Sidebar on Desktop */}
-        <aside className="hidden md:flex md:w-60 lg:w-64 border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex-col justify-between shrink-0">
+        <aside className="hidden md:flex md:w-52 lg:w-56 border-r border-slate-100 bg-white/60 p-3.5 sm:p-4 flex-col justify-between shrink-0">
           <nav className="space-y-2">
             <button
               type="button"

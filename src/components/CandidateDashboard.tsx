@@ -170,7 +170,7 @@ export function CandidateDashboard({
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none pb-28 md:pb-8">
       {/* Top Bar matching Images 1, 2, 3, 4, 5 */}
-      <div className="w-full max-w-7xl mx-auto flex items-center justify-between pb-4 px-1 shrink-0">
+      <div className="w-full max-w-5xl mx-auto flex items-center justify-between pb-4 px-1 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
             EP
@@ -208,9 +208,9 @@ export function CandidateDashboard({
       </div>
 
       {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
-      <div className="w-full max-w-7xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
+      <div className="w-full max-w-5xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
         {/* Left Sidebar on Desktop */}
-        <aside className="hidden md:flex md:w-60 lg:w-64 border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex-col justify-between shrink-0">
+        <aside className="hidden md:flex md:w-52 lg:w-56 border-r border-slate-100 bg-white/60 p-3.5 sm:p-4 flex-col justify-between shrink-0">
           <nav className="space-y-2">
             <button
               type="button"
