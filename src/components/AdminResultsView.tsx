@@ -1536,6 +1536,4 @@ export function AdminResultsView({
       </div>
     </div>
   );
-    </div>
-  );
 }
