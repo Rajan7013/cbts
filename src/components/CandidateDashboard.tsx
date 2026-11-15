@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   LogOut,
 } from 'lucide-react';
 import { DonutScoreGauge } from './DonutScoreGauge';
@@ -175,24 +176,21 @@ export function CandidateDashboard({
             EP
           </div>
           <span className="font-bold text-slate-900 text-sm">ExamPulse</span>
-          <span className="text-slate-300">|</span>
-          <span className="font-bold text-slate-800 text-sm">{pageTitle}</span>
+          {activeTab === 'my-results' && (
+            <>
+              <span className="text-slate-300">|</span>
+              <span className="font-bold text-slate-800 text-sm">My Results</span>
+            </>
+          )}
         </div>
 
         {/* Right side: Student Profile + Log Out button */}
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-2xl bg-white/90 border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-slate-200/80 shadow-2xs">
             <div className="h-6 w-6 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">
-              {(user?.displayName || user?.email || 'S').slice(0, 1).toUpperCase()}
+              {(user?.displayName || user?.email || 'R').slice(0, 1).toUpperCase()}
             </div>
-            <div className="text-left hidden sm:block">
-              <div className="text-xs font-bold text-slate-800 leading-tight">
-                {user?.displayName || 'Student'}
-              </div>
-              <div className="text-[10px] text-slate-400 leading-tight truncate max-w-[150px]">
-                {user?.email || ''}
-              </div>
-            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
           </div>
 
           {onSignOut && (
@@ -354,111 +352,112 @@ export function CandidateDashboard({
                     return (
                       <div
                         key={t.testId}
-                        className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all hover:border-blue-200 space-y-4"
+                        className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all hover:border-blue-200 space-y-3"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h2 className="font-display text-base sm:text-lg font-bold text-slate-900">
-                                {t.title}
-                              </h2>
-                              {item.isLive && (
-                                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-                                  Live Now
-                                </span>
-                              )}
-                              {item.isUpcoming && (
-                                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200">
-                                  Upcoming
-                                </span>
-                              )}
-                            </div>
-                            {t.description && (
-                              <p className="text-xs text-slate-600 line-clamp-2 max-w-2xl">
-                                {t.description}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Action Button */}
-                          <div className="shrink-0 pt-1">
-                            {item.isUpcoming ? (
-                              <button
-                                type="button"
-                                disabled
-                                className="rounded-xl border border-slate-200 bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-500 cursor-not-allowed"
-                              >
-                                Upcoming
-                              </button>
-                            ) : item.inProgressAttempt ? (
-                              <button
-                                type="button"
-                                onClick={() => onStartOrResumeTest(t, item.inProgressAttempt)}
-                                className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-2 text-xs font-bold text-white hover:bg-amber-700 shadow-xs cursor-pointer transition-colors"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                                <span>Resume Attempt #{item.inProgressAttempt.attemptNumber || 1}</span>
-                              </button>
-                            ) : item.canAttemptAgain ? (
-                              item.userAttempts.length === 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onStartOrResumeTest(t, undefined)}
-                                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
-                                >
-                                  <span>Start Test</span>
-                                  <ArrowRight className="h-3.5 w-3.5" />
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => onStartOrResumeTest(t, undefined)}
-                                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-xs cursor-pointer transition-colors"
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                    <span>Retake (Attempt #{item.userAttempts.length + 1})</span>
-                                  </button>
-                                  {item.latestAttempt && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onViewResult(t, item.latestAttempt!)}
-                                      className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
-                                    >
-                                      <span>View Result</span>
-                                    </button>
-                                  )}
-                                </div>
-                              )
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => onViewResult(t, item.latestAttempt || item.userAttempts[0])}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-5 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100 cursor-pointer transition-colors"
-                              >
-                                <span>View Result</span>
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
+                        {/* Title & Status Badge */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h2 className="font-display text-base sm:text-lg font-bold text-slate-900">
+                            {t.title}
+                          </h2>
+                          {item.isLive && (
+                            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200 shrink-0">
+                              Live Now
+                            </span>
+                          )}
+                          {item.isUpcoming && (
+                            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200 shrink-0">
+                              Upcoming
+                            </span>
+                          )}
                         </div>
 
-                        {/* Stats Row */}
-                        <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                        {/* Description */}
+                        {t.description && (
+                          <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                            {t.description}
+                          </p>
+                        )}
+
+                        {/* Metadata Row with | dividers */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
                           <div className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                             <span>{t.durationMins} minutes</span>
                           </div>
+                          <span className="text-slate-300">|</span>
                           <div className="flex items-center gap-1.5">
                             <HelpCircle className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                             <span>{t.totalQuestions} Questions</span>
                           </div>
+                          <span className="text-slate-300">|</span>
                           <div className="flex items-center gap-1.5">
                             <RotateCcw className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                             <span>
                               Attempts: {item.userAttempts.length} of {item.maxAttempts} used
                             </span>
                           </div>
+                        </div>
+
+                        {/* Action Buttons at the Bottom */}
+                        <div className="pt-1 flex flex-wrap items-center gap-3">
+                          {item.isUpcoming ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="rounded-xl border border-slate-200 bg-slate-100 px-5 py-2 text-xs font-semibold text-slate-500 cursor-not-allowed"
+                            >
+                              Upcoming
+                            </button>
+                          ) : item.inProgressAttempt ? (
+                            <button
+                              type="button"
+                              onClick={() => onStartOrResumeTest(t, item.inProgressAttempt)}
+                              className="inline-flex items-center gap-2 rounded-xl bg-[#ea580c] hover:bg-orange-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs cursor-pointer transition-colors"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>Resume Attempt #{item.inProgressAttempt.attemptNumber || 1}</span>
+                            </button>
+                          ) : item.canAttemptAgain ? (
+                            item.userAttempts.length === 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => onStartOrResumeTest(t, undefined)}
+                                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs cursor-pointer transition-colors"
+                              >
+                                <span>Start Test</span>
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              </button>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onStartOrResumeTest(t, undefined)}
+                                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs cursor-pointer transition-colors"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                  <span>Retake (Attempt #{item.userAttempts.length + 1})</span>
+                                </button>
+                                {item.latestAttempt && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onViewResult(t, item.latestAttempt!)}
+                                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 cursor-pointer transition-colors shadow-2xs"
+                                  >
+                                    <span>View Result</span>
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onViewResult(t, item.latestAttempt || item.userAttempts[0])}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 px-5 py-2.5 text-xs font-bold text-blue-700 cursor-pointer transition-colors shadow-2xs"
+                            >
+                              <span>View Result</span>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -735,8 +734,8 @@ export function CandidateDashboard({
 
       {/* Mobile Bottom Navigation Bar matching modern app design */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-3 pt-2 pb-6 shadow-2xl flex items-center justify-around"
-        style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))', minHeight: '68px' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-3 pt-2 pb-5 shadow-2xl flex items-center justify-around"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))', minHeight: '64px' }}
       >
         <button
           type="button"
@@ -744,14 +743,20 @@ export function CandidateDashboard({
             setActiveTab('available-tests');
             setSearchQuery('');
           }}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl text-[11px] font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-all ${
             activeTab === 'available-tests'
-              ? 'text-blue-700 bg-blue-50/90 shadow-2xs'
-              : 'text-slate-500 hover:text-slate-900'
+              ? 'text-blue-700 font-bold'
+              : 'text-slate-500 hover:text-slate-900 font-medium'
           }`}
         >
-          <ClipboardList className="h-5 w-5 shrink-0" />
-          <span className="leading-tight text-center">Available Tests</span>
+          <div
+            className={`px-5 py-1 rounded-full flex items-center justify-center transition-colors ${
+              activeTab === 'available-tests' ? 'bg-blue-100 text-blue-700' : 'text-slate-500'
+            }`}
+          >
+            <ClipboardList className="h-5 w-5 shrink-0" />
+          </div>
+          <span className="text-[11px] leading-tight text-center">Available Tests</span>
         </button>
 
         <button
@@ -760,24 +765,32 @@ export function CandidateDashboard({
             setActiveTab('my-results');
             setSearchQuery('');
           }}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl text-[11px] font-bold transition-all cursor-pointer ${
+          className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 cursor-pointer transition-all ${
             activeTab === 'my-results'
-              ? 'text-blue-700 bg-blue-50/90 shadow-2xs'
-              : 'text-slate-500 hover:text-slate-900'
+              ? 'text-blue-700 font-bold'
+              : 'text-slate-500 hover:text-slate-900 font-medium'
           }`}
         >
-          <BarChart2 className="h-5 w-5 shrink-0" />
-          <span className="leading-tight text-center">My Results</span>
+          <div
+            className={`px-5 py-1 rounded-full flex items-center justify-center transition-colors ${
+              activeTab === 'my-results' ? 'bg-blue-100 text-blue-700' : 'text-slate-500'
+            }`}
+          >
+            <BarChart2 className="h-5 w-5 shrink-0" />
+          </div>
+          <span className="text-[11px] leading-tight text-center">My Results</span>
         </button>
 
         {isAdmin && onSwitchToAdmin && (
           <button
             type="button"
             onClick={onSwitchToAdmin}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-2xl text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-1 text-slate-500 hover:text-slate-900 font-medium transition-all cursor-pointer"
           >
-            <ExternalLink className="h-5 w-5 shrink-0 text-slate-400" />
-            <span className="leading-tight text-center">Admin Studio</span>
+            <div className="px-5 py-1 rounded-full flex items-center justify-center text-slate-500">
+              <ExternalLink className="h-5 w-5 shrink-0" />
+            </div>
+            <span className="text-[11px] leading-tight text-center">Admin Studio</span>
           </button>
         )}
       </nav>

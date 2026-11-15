@@ -194,7 +194,7 @@ export function ExamResultsScreen({
   const isCurrentWrong = isCurrentAnswered && currentResp?.selectedOptionId !== currentQ?.correctOptionId;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none pb-24 md:pb-8">
       {/* Top Bar matching Images 1, 2, 3, 4, 5 (Desktop persistent, clean on mobile) */}
       <div
         className={`w-full max-w-7xl mx-auto flex items-center justify-between pb-3 sm:pb-4 px-1 shrink-0 ${
@@ -212,18 +212,11 @@ export function ExamResultsScreen({
 
         {/* Right side: Student Profile + Log Out button */}
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-2xl bg-white/90 border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 border border-slate-200/80 shadow-2xs">
             <div className="h-6 w-6 rounded-full bg-blue-600 text-white font-bold text-[11px] flex items-center justify-center">
-              {(user?.displayName || user?.email || 'S').slice(0, 1).toUpperCase()}
+              {(user?.displayName || user?.email || 'R').slice(0, 1).toUpperCase()}
             </div>
-            <div className="text-left hidden sm:block">
-              <div className="text-xs font-bold text-slate-800 leading-tight">
-                {user?.displayName || 'Student'}
-              </div>
-              <div className="text-[10px] text-slate-400 leading-tight truncate max-w-[150px]">
-                {user?.email || ''}
-              </div>
-            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
           </div>
 
           {onSignOut && (
@@ -384,9 +377,9 @@ export function ExamResultsScreen({
                 </div>
               )}
 
-              {/* Top 2-Column Grid: Score Card + Question Breakdown matching Image 2 */}
+              {/* Top Grid: Score Card + Results Summary matching Reference Design */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Left Card: Score Summary */}
+                {/* Score Summary Card */}
                 <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <span className="text-xs font-semibold text-slate-500 block">Score</span>
@@ -396,24 +389,24 @@ export function ExamResultsScreen({
                     <div className="text-xs font-semibold text-slate-500">
                       ({percentage}%)
                     </div>
-                    <div className="text-[11px] text-slate-400 pt-2">
-                      Passing score: {test.passPercentage}%
+                    <div className="text-[11px] text-slate-400 pt-1">
+                      Passing score: {test.passPercentage || 50}%
                     </div>
                   </div>
 
-                  <DonutScoreGauge percentage={percentage} size={88} strokeWidth={8} />
+                  <DonutScoreGauge percentage={percentage} size={84} strokeWidth={8} />
                 </div>
 
-                {/* Right Card: Question Breakdown matching Image 2 */}
+                {/* Results Summary Card matching Reference Design */}
                 <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-3">
-                  <span className="text-xs font-semibold text-slate-700 block">
-                    Question breakdown
+                  <span className="text-xs font-bold text-slate-900 block">
+                    Results summary
                   </span>
 
                   <div className="space-y-2">
                     {/* Correct */}
                     <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
-                      <div className="flex items-center gap-2 text-slate-700">
+                      <div className="flex items-center gap-2.5 text-slate-700">
                         <div className="h-5 w-5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center">
                           <Check className="h-3.5 w-3.5" />
                         </div>
@@ -426,7 +419,7 @@ export function ExamResultsScreen({
 
                     {/* Incorrect */}
                     <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100">
-                      <div className="flex items-center gap-2 text-slate-700">
+                      <div className="flex items-center gap-2.5 text-slate-700">
                         <div className="h-5 w-5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center">
                           <X className="h-3.5 w-3.5" />
                         </div>
@@ -439,7 +432,7 @@ export function ExamResultsScreen({
 
                     {/* Unanswered */}
                     <div className="flex items-center justify-between text-xs py-1">
-                      <div className="flex items-center gap-2 text-slate-700">
+                      <div className="flex items-center gap-2.5 text-slate-700">
                         <div className="h-5 w-5 rounded-md border border-slate-300 bg-white flex items-center justify-center" />
                         <span className="font-medium">Unanswered</span>
                       </div>
@@ -447,63 +440,28 @@ export function ExamResultsScreen({
                         {unansweredCount}
                       </span>
                     </div>
+
+                    {/* Answered Highlighted Row */}
+                    <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-blue-50/80 border border-blue-100/90 text-blue-900 font-semibold mt-1.5">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span>Answered</span>
+                      </div>
+                      <span className="font-mono font-bold text-blue-900">
+                        {answeredCount} of {totalQuestions}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Middle Card: Attempt Summary matching Image 2 */}
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
-                <span className="text-xs font-semibold text-slate-700 block">
-                  Attempt summary
+              {/* Marking Scheme Callout Banner */}
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-center gap-2.5 text-xs text-blue-800">
+                <Info className="h-4 w-4 text-blue-600 shrink-0" />
+                <span>
+                  Marking scheme: +{test.marksPerQuestion || 1} marks for each correct answer,{' '}
+                  {test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks for a wrong answer.
                 </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Total questions */}
-                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Total questions</span>
-                      <span className="font-display font-bold text-base text-slate-900">
-                        {totalQuestions}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Answered */}
-                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Answered</span>
-                      <span className="font-display font-bold text-base text-slate-900">
-                        {answeredCount}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Unanswered */}
-                  <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl border-2 border-slate-300 flex items-center justify-center shrink-0" />
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Unanswered</span>
-                      <span className="font-display font-bold text-base text-slate-900">
-                        {unansweredCount}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Marking scheme line */}
-                <div className="flex items-center gap-2 text-xs text-slate-600 pt-1">
-                  <Info className="h-4 w-4 text-blue-600 shrink-0" />
-                  <span>
-                    Marking scheme: +{test.marksPerQuestion || 4} marks for each correct answer,{' '}
-                    {test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks for a wrong answer.
-                  </span>
-                </div>
               </div>
 
               {/* ======================================================== */}
@@ -518,7 +476,7 @@ export function ExamResultsScreen({
                       </div>
                       <div>
                         <h3 className="font-display text-base sm:text-lg font-bold text-slate-900">
-                          Section Performance Breakdown
+                          Section Performance
                         </h3>
                         <p className="text-xs text-slate-500">
                           Jump straight into review for any section or explore accuracy section-by-section.
@@ -530,57 +488,55 @@ export function ExamResultsScreen({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  <div className="space-y-3">
                     {sectionStats.map((stat) => {
                       const cleanSecName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
                       return (
                         <div
                           key={stat.section.id}
-                          className="rounded-2xl border border-slate-200/90 bg-slate-50/50 p-4 space-y-3 hover:border-blue-300 transition-colors shadow-2xs"
+                          className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-2.5 hover:border-blue-300 transition-colors shadow-2xs"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <h4 className="font-display font-bold text-sm text-slate-900 truncate">
+                            <div>
+                              <h4 className="font-display font-bold text-sm sm:text-base text-slate-900 truncate">
                                 {cleanSecName}
                               </h4>
-                              <span className="text-[11px] text-slate-500">
+                              <p className="text-[11px] sm:text-xs text-slate-500">
                                 {stat.totalQuestions} Questions · Max: {stat.maxScore} pts
-                              </span>
+                              </p>
                             </div>
-                            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 shrink-0">
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                               {stat.accuracy}%
                             </span>
                           </div>
 
-                          {/* Stats breakdown */}
-                          <div className="grid grid-cols-3 gap-1.5 text-center text-[11px]">
-                            <div className="bg-emerald-50 text-emerald-800 rounded-xl p-1.5 border border-emerald-100 font-semibold">
-                              <span className="block text-emerald-600 font-bold">{stat.correct}</span>
-                              <span className="text-[10px]">Correct</span>
+                          {/* Row with 3 pills on left and Review button on right matching Reference Screenshot */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg px-2.5 py-1 text-[11px] font-semibold">
+                                {stat.correct} Correct
+                              </span>
+                              <span className="bg-purple-50 text-purple-700 border border-purple-100 rounded-lg px-2.5 py-1 text-[11px] font-semibold">
+                                {stat.wrong} Wrong
+                              </span>
+                              <span className="bg-slate-50 text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-semibold">
+                                {stat.unanswered} Blank
+                              </span>
                             </div>
-                            <div className="bg-purple-50 text-purple-800 rounded-xl p-1.5 border border-purple-100 font-semibold">
-                              <span className="block text-purple-600 font-bold">{stat.wrong}</span>
-                              <span className="text-[10px]">Wrong</span>
-                            </div>
-                            <div className="bg-white text-slate-700 rounded-xl p-1.5 border border-slate-200 font-semibold">
-                              <span className="block text-slate-600 font-bold">{stat.unanswered}</span>
-                              <span className="text-[10px]">Blank</span>
-                            </div>
-                          </div>
 
-                          {/* Direct Jump to Review this section button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCurrentQuestionIndex(stat.firstQuestionIndex);
-                              setSelectedSectionFilter(stat.section.id);
-                              setMode('review');
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white hover:bg-blue-600 hover:text-white border border-slate-200 hover:border-blue-600 text-xs font-bold text-blue-700 cursor-pointer transition-colors shadow-2xs group"
-                          >
-                            <span>Review {cleanSecName}</span>
-                            <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCurrentQuestionIndex(stat.firstQuestionIndex);
+                                setSelectedSectionFilter(stat.section.id);
+                                setMode('review');
+                              }}
+                              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0"
+                            >
+                              <span>Review</span>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -592,7 +548,7 @@ export function ExamResultsScreen({
               {/* ALL ATTEMPTS BREAKDOWN & SCORE HISTORY TABLE             */}
               {/* ======================================================== */}
               <div className="rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex flex-col gap-2 border-b border-slate-100 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
                       <History className="h-5 w-5 text-blue-600" />
@@ -606,14 +562,16 @@ export function ExamResultsScreen({
                   </div>
 
                   {maxAttempts > sortedAttempts.length && onRetakeTest && (
-                    <button
-                      type="button"
-                      onClick={onRetakeTest}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 text-xs font-bold text-blue-700 transition-colors cursor-pointer self-start sm:self-center"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Retake Test ({maxAttempts - sortedAttempts.length} left)</span>
-                    </button>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={onRetakeTest}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 text-xs font-bold text-blue-700 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Retake Test ({maxAttempts - sortedAttempts.length} left)</span>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -623,11 +581,11 @@ export function ExamResultsScreen({
                       <tr className="border-b border-slate-200 bg-slate-50/90 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                         <th className="py-3 px-3.5 whitespace-nowrap">Attempt</th>
                         <th className="py-3 px-3 whitespace-nowrap">Submitted At</th>
-                        <th className="py-3 px-3 whitespace-nowrap">Score</th>
-                        <th className="py-3 px-3 whitespace-nowrap">Percentage</th>
-                        <th className="py-3 px-3 whitespace-nowrap">Correct / Wrong / Blank</th>
-                        <th className="py-3 px-3 whitespace-nowrap">Status</th>
-                        <th className="py-3 px-3.5 whitespace-nowrap text-right">Actions</th>
+                        <th className="hidden sm:table-cell py-3 px-3 whitespace-nowrap">Score</th>
+                        <th className="hidden sm:table-cell py-3 px-3 whitespace-nowrap">Percentage</th>
+                        <th className="hidden sm:table-cell py-3 px-3 whitespace-nowrap">Correct / Wrong / Blank</th>
+                        <th className="hidden sm:table-cell py-3 px-3 whitespace-nowrap">Status</th>
+                        <th className="hidden sm:table-cell py-3 px-3.5 whitespace-nowrap text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -676,10 +634,10 @@ export function ExamResultsScreen({
                             <td className="py-3 px-3 whitespace-nowrap text-slate-500 font-medium font-sans">
                               {formattedDate}
                             </td>
-                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold text-slate-900">
+                            <td className="hidden sm:table-cell py-3 px-3 whitespace-nowrap font-mono font-bold text-slate-900">
                               {att.score} / {att.maxScore}
                             </td>
-                            <td className="py-3 px-3 whitespace-nowrap font-mono font-bold">
+                            <td className="hidden sm:table-cell py-3 px-3 whitespace-nowrap font-mono font-bold">
                               <span
                                 className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${
                                   attPassed ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'
@@ -688,14 +646,14 @@ export function ExamResultsScreen({
                                 {attPct}%
                               </span>
                             </td>
-                            <td className="py-3 px-3 whitespace-nowrap font-mono text-xs">
+                            <td className="hidden sm:table-cell py-3 px-3 whitespace-nowrap font-mono text-xs">
                               <span className="text-emerald-600 font-bold">{att.correctCount || 0} ✓</span>
                               <span className="text-slate-300 mx-1">|</span>
                               <span className="text-purple-600 font-bold">{att.wrongCount || 0} ✕</span>
                               <span className="text-slate-300 mx-1">|</span>
                               <span className="text-slate-500">{unans} –</span>
                             </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
+                            <td className="hidden sm:table-cell py-3 px-3 whitespace-nowrap">
                               {attPassed ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                                   <Check className="h-3 w-3" /> Passed
@@ -706,7 +664,7 @@ export function ExamResultsScreen({
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3.5 whitespace-nowrap text-right">
+                            <td className="hidden sm:table-cell py-3 px-3.5 whitespace-nowrap text-right">
                               <div className="inline-flex items-center gap-2 justify-end whitespace-nowrap">
                                 {!isCurrent && (
                                   <button
@@ -742,7 +700,7 @@ export function ExamResultsScreen({
               </div>
 
               {/* Bottom Action Bar matching Image 2 */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+              <div className="hidden sm:flex flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={onBackToDashboard}
@@ -776,6 +734,33 @@ export function ExamResultsScreen({
                     <span>Review answers</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Sticky Bottom Action Bar on Mobile for Summary Mode */}
+              <div
+                className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/90 px-4 py-2.5 shadow-2xl flex items-center gap-3"
+                style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+              >
+                <button
+                  type="button"
+                  onClick={onBackToDashboard}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Tests</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentQuestionIndex(0);
+                    setMode('review');
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Review Answers</span>
+                </button>
               </div>
             </div>
           )}
