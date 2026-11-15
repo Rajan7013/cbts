@@ -194,7 +194,11 @@ export function ExamResultsScreen({
   const isCurrentWrong = isCurrentAnswered && currentResp?.selectedOptionId !== currentQ?.correctOptionId;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] p-3 sm:p-6 lg:p-8 flex flex-col font-sans select-none pb-24 md:pb-8">
+    <div
+      className={`min-h-screen bg-gradient-to-br from-[#dce7f8] via-[#eef3fb] to-[#e4ecf9] flex flex-col font-sans select-none pb-24 md:pb-8 ${
+        mode === 'review' ? 'p-0 sm:p-6 lg:p-8' : 'p-3 sm:p-6 lg:p-8'
+      }`}
+    >
       {/* Top Bar matching Images 1, 2, 3, 4, 5 (Desktop persistent, clean on mobile) */}
       <div
         className={`w-full max-w-7xl mx-auto flex items-center justify-between pb-3 sm:pb-4 px-1 shrink-0 ${
@@ -233,8 +237,14 @@ export function ExamResultsScreen({
         </div>
       </div>
 
-      {/* Main Container Card matching Images 1, 2, 3, 4, 5 */}
-      <div className="w-full max-w-7xl mx-auto rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5 backdrop-blur-xl flex flex-col md:flex-row overflow-hidden min-h-[82vh] flex-1">
+      {/* Main Container Card */}
+      <div
+        className={`w-full max-w-7xl mx-auto flex flex-col md:flex-row min-h-[82vh] flex-1 ${
+          mode === 'review'
+            ? 'rounded-none sm:rounded-3xl border-0 sm:border border-white/90 bg-transparent sm:bg-white/80 shadow-none sm:shadow-xl sm:shadow-blue-900/5'
+            : 'rounded-3xl border border-white/90 bg-white/80 shadow-xl shadow-blue-900/5'
+        } backdrop-blur-xl overflow-hidden`}
+      >
         {/* Left Sidebar on Desktop */}
         <aside className="hidden md:flex md:w-60 lg:w-64 border-r border-slate-100 bg-white/60 p-4 sm:p-5 flex-col justify-between shrink-0">
           <nav className="space-y-2">
@@ -284,7 +294,13 @@ export function ExamResultsScreen({
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 p-3.5 sm:p-7 lg:p-8 pb-32 md:pb-8 overflow-y-auto bg-white/40">
+        <main
+          className={`flex-1 overflow-y-auto ${
+            mode === 'review'
+              ? 'p-0 sm:p-7 lg:p-8 pb-32 md:pb-8 bg-transparent sm:bg-white/40'
+              : 'p-3.5 sm:p-7 lg:p-8 pb-32 md:pb-8 bg-white/40'
+          }`}
+        >
           {/* ======================================================== */}
           {/* VIEW 1: YOUR RESULT SUMMARY (Matching Image 2)           */}
           {/* ======================================================== */}
@@ -769,13 +785,13 @@ export function ExamResultsScreen({
           {/* VIEW 2: ANSWER REVIEW (Matching Images 3 & 4)            */}
           {/* ======================================================== */}
           {mode === 'review' && currentQ && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Mobile Header Bar for Answer Review matching Reference Screenshot */}
-              <div className="md:hidden -mx-3.5 sm:-mx-7 -mt-3.5 sm:-mt-7 mb-3 bg-blue-600 px-4 py-3 shadow-md flex items-center justify-between text-white">
+            <div className="space-y-3.5 sm:space-y-6">
+              {/* Mobile Header Bar for Answer Review (Edge-to-Edge full bleed) */}
+              <div className="md:hidden w-full bg-blue-600 px-4 py-3 shadow-md flex items-center justify-between text-white">
                 <button
                   type="button"
                   onClick={() => setMode('summary')}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-500/80 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-xs transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   <span>Result</span>
@@ -785,7 +801,7 @@ export function ExamResultsScreen({
                   <h1 className="font-display font-bold text-sm leading-tight text-white">
                     Answer Review
                   </h1>
-                  <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-full bg-blue-700/60 text-[11px] font-semibold text-white">
+                  <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[11px] font-semibold text-white">
                     Attempt #{currentAttemptNumber}
                   </span>
                 </div>
@@ -793,167 +809,38 @@ export function ExamResultsScreen({
                 <button
                   type="button"
                   onClick={() => setShowMobileNavigator(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/30 bg-blue-500/40 hover:bg-blue-500/60 text-white text-xs font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/30 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors cursor-pointer"
                 >
                   <Grid className="h-3.5 w-3.5" />
                   <span>Grid</span>
                 </button>
               </div>
 
-              {/* Mobile Subheader: Question Counter & Section Pills matching Reference Screenshot */}
-              <div className="md:hidden space-y-2 text-center pb-1">
-                <div className="font-display font-bold text-sm text-slate-800">
-                  Question {currentQuestionIndex + 1} of {questions.length}
-                </div>
-
-                {/* Horizontally scrollable section pills with counts */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 scrollbar-none">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSectionFilter('all')}
-                    className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
-                      selectedSectionFilter === 'all'
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div>All</div>
-                    <div className="text-[10px] font-normal opacity-90">({questions.length})</div>
-                  </button>
-
-                  {sectionStats.map((stat) => {
-                    const isFilterSelected = selectedSectionFilter === stat.section.id;
-                    const cleanName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
-                    return (
-                      <button
-                        key={stat.section.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSectionFilter(stat.section.id);
-                          setCurrentQuestionIndex(stat.firstQuestionIndex);
-                        }}
-                        className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
-                          isFilterSelected
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div>{cleanName}</div>
-                        <div className="text-[10px] font-normal opacity-90">
-                          ({stat.correct}/{stat.totalQuestions})
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Desktop Header Title with Subtitle & Back to Result matching Images 3 & 4 */}
-              <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                <div>
-                  <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-                    Answer review
-                  </h1>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                    <span className="font-display text-base font-bold text-slate-900">
-                      {test.title}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setMode('summary')}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline cursor-pointer"
-                    >
-                      <ArrowLeft className="h-3 w-3" />
-                      <span>Back to result</span>
-                    </button>
+              {/* Sub-container with padding on mobile */}
+              <div className="px-3.5 sm:px-0 space-y-3.5 sm:space-y-6">
+                {/* Mobile Subheader: Question Counter & Section Pills matching Reference Screenshot */}
+                <div className="md:hidden space-y-2 text-center pb-0.5">
+                  <div className="font-display font-bold text-sm sm:text-base text-slate-900">
+                    Question {currentQuestionIndex + 1} of {questions.length}
                   </div>
-                </div>
 
-                {/* Attempt # Pill on right */}
-                <div className="shrink-0 self-start sm:self-center">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60 px-3.5 py-1 text-xs font-semibold">
-                    <Info className="h-3.5 w-3.5 text-purple-600" />
-                    <span>
-                      Attempt #{currentAttemptNumber} of {maxAttempts}
-                    </span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Attempt Switcher in Review mode if 2+ attempts */}
-              {sortedAttempts.length > 1 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <History className="h-4 w-4 text-purple-600" />
-                    <span className="text-xs font-bold text-slate-700">
-                      Reviewing Attempt ({sortedAttempts.length} of {maxAttempts}):
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {sortedAttempts.map((att) => {
-                      const isSelected = att.attemptId === attempt.attemptId;
-                      const attPct =
-                        att.maxScore > 0 ? Math.max(0, Math.round((att.score / att.maxScore) * 100)) : 0;
-                      const attPassed = attPct >= (test.passPercentage || 50);
-                      return (
-                        <button
-                          key={att.attemptId}
-                          type="button"
-                          onClick={() => {
-                            if (onSelectAttempt && !isSelected) {
-                              onSelectAttempt(att);
-                            }
-                          }}
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-blue-600 text-white font-bold shadow-xs ring-2 ring-blue-400/40'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium'
-                          }`}
-                        >
-                          <span>Attempt #{att.attemptNumber || 1}</span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                              isSelected
-                                ? 'bg-blue-500 text-white'
-                                : attPassed
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {attPct}%
-                          </span>
-                          {isSelected && <span className="text-[10px] opacity-85">(Active)</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ======================================================== */}
-              {/* SECTION SWITCHER TABS (Jump to any section)              */}
-              {/* ======================================================== */}
-              {effectiveSections.length > 1 && (
-                <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-bold text-slate-800">Sections:</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                  {/* Horizontally scrollable section pills with counts */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 px-0.5 scrollbar-none">
                     <button
                       type="button"
                       onClick={() => setSelectedSectionFilter('all')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
                         selectedSectionFilter === 'all'
                           ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      <span>All Sections ({questions.length})</span>
+                      <div>All</div>
+                      <div className="text-[10px] font-normal opacity-90">({questions.length})</div>
                     </button>
+
                     {sectionStats.map((stat) => {
                       const isFilterSelected = selectedSectionFilter === stat.section.id;
-                      const isCurSec = currentSection.id === stat.section.id;
                       const cleanName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
                       return (
                         <button
@@ -963,162 +850,289 @@ export function ExamResultsScreen({
                             setSelectedSectionFilter(stat.section.id);
                             setCurrentQuestionIndex(stat.firstQuestionIndex);
                           }}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+                          className={`px-4 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer shrink-0 text-center ${
                             isFilterSelected
-                              ? 'bg-blue-600 text-white font-bold shadow-xs ring-2 ring-blue-400/40'
-                              : isCurSec
-                              ? 'bg-blue-50 text-blue-700 border border-blue-300 font-bold'
-                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium'
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          <span>{cleanName}</span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                              isFilterSelected
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-white text-slate-600 border border-slate-200'
-                            }`}
-                          >
-                            {stat.correct}/{stat.totalQuestions} ✓
-                          </span>
+                          <div>{cleanName}</div>
+                          <div className="text-[10px] font-normal opacity-90">
+                            ({stat.correct}/{stat.totalQuestions})
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* ======================================================== */}
-              {/* HORIZONTAL CBT QUESTION STRIP & DIRECT QUESTION JUMPER   */}
-              {/* ======================================================== */}
-              <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
-                {/* Left: Previous, Page Numbers, Next */}
-                <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
-                  <button
-                    type="button"
-                    disabled={currentQuestionIndex === 0}
-                    onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
-                    className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
-                    title="Previous Question"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  {visiblePageNumbers.map((idx) => {
-                    const q = questions[idx];
-                    const resp = attempt.responses[q?.questionId];
-                    const isCur = idx === currentQuestionIndex;
-                    const isAns = Boolean(resp?.selectedOptionId);
-                    const isCor = isAns && resp?.selectedOptionId === q?.correctOptionId;
-                    const isWr = isAns && resp?.selectedOptionId !== q?.correctOptionId;
-
-                    let btnBg = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60';
-                    if (isCor) {
-                      btnBg = 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700';
-                    } else if (isWr) {
-                      btnBg = 'bg-purple-600 text-white border border-purple-600 hover:bg-purple-700';
-                    }
-
-                    return (
+                {/* Desktop Header Title with Subtitle & Back to Result */}
+                <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                  <div>
+                    <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                      Answer review
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                      <span className="font-display text-base font-bold text-slate-900">
+                        {test.title}
+                      </span>
                       <button
-                        key={idx}
                         type="button"
-                        onClick={() => setCurrentQuestionIndex(idx)}
-                        className={`h-8 min-w-8 px-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${btnBg} ${
-                          isCur ? 'ring-2 ring-blue-600 shadow-xs ring-offset-1 font-extrabold scale-105' : ''
-                        }`}
-                        title={`Jump to Question ${idx + 1}`}
+                        onClick={() => setMode('summary')}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline cursor-pointer"
                       >
-                        {idx + 1}
+                        <ArrowLeft className="h-3 w-3" />
+                        <span>Back to result</span>
                       </button>
-                    );
-                  })}
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
-                    disabled={currentQuestionIndex === questions.length - 1}
-                    onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
-                    className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
-                    title="Next Question"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  {/* Attempt # Pill on right */}
+                  <div className="shrink-0 self-start sm:self-center">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60 px-3.5 py-1 text-xs font-semibold">
+                      <Info className="h-3.5 w-3.5 text-purple-600" />
+                      <span>
+                        Attempt #{currentAttemptNumber} of {maxAttempts}
+                      </span>
+                    </span>
+                  </div>
                 </div>
 
-                {/* Right: Quick Jump Select Dropdown */}
-                <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-xs font-bold text-slate-600 whitespace-nowrap hidden sm:inline flex items-center gap-1">
-                    <Hash className="h-3.5 w-3.5 text-blue-600" />
-                    <span>Jump to Question:</span>
-                  </span>
-                  <div className="relative">
-                    <select
-                      value={currentQuestionIndex}
-                      onChange={(e) => {
-                        const idx = Number(e.target.value);
-                        setCurrentQuestionIndex(idx);
-                        const q = questions[idx];
-                        if (q?.sectionId && selectedSectionFilter !== 'all' && selectedSectionFilter !== q.sectionId) {
-                          setSelectedSectionFilter('all');
-                        }
-                      }}
-                      className="h-8 pl-3 pr-8 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 cursor-pointer focus:ring-2 focus:ring-blue-500 appearance-none shadow-2xs"
-                    >
-                      {questions.map((q, idx) => {
-                        const resp = attempt.responses[q.questionId];
-                        const isAns = Boolean(resp?.selectedOptionId);
-                        const isCor = isAns && resp?.selectedOptionId === q.correctOptionId;
-                        const isWr = isAns && resp?.selectedOptionId !== q.correctOptionId;
-                        const sym = isCor ? '✓ Correct' : isWr ? '✕ Incorrect' : '– Blank';
-                        const secObj = effectiveSections.find((s) => s.id === (q.sectionId || 'default'));
-                        const secTag = secObj ? `${secObj.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '').slice(0, 10)} · ` : '';
+                {/* Attempt Switcher in Review mode if 2+ attempts */}
+                {sortedAttempts.length > 1 && (
+                  <div className="hidden md:flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <History className="h-4 w-4 text-purple-600" />
+                      <span className="text-xs font-bold text-slate-700">
+                        Reviewing Attempt ({sortedAttempts.length} of {maxAttempts}):
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {sortedAttempts.map((att) => {
+                        const isSelected = att.attemptId === attempt.attemptId;
+                        const attPct =
+                          att.maxScore > 0 ? Math.max(0, Math.round((att.score / att.maxScore) * 100)) : 0;
+                        const attPassed = attPct >= (test.passPercentage || 50);
                         return (
-                          <option key={q.questionId} value={idx}>
-                            Q{idx + 1}: {secTag}({sym})
-                          </option>
+                          <button
+                            key={att.attemptId}
+                            type="button"
+                            onClick={() => {
+                              if (onSelectAttempt && !isSelected) {
+                                onSelectAttempt(att);
+                              }
+                            }}
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-600 text-white font-bold shadow-xs ring-2 ring-blue-400/40'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium'
+                            }`}
+                          >
+                            <span>Attempt #{att.attemptNumber || 1}</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                isSelected
+                                  ? 'bg-blue-500 text-white'
+                                  : attPassed
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {attPct}%
+                            </span>
+                            {isSelected && <span className="text-[10px] opacity-85">(Active)</span>}
+                          </button>
                         );
                       })}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Desktop Section Switcher Tabs */}
+                {effectiveSections.length > 1 && (
+                  <div className="hidden md:flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-bold text-slate-800">Sections:</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSectionFilter('all')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          selectedSectionFilter === 'all'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        <span>All Sections ({questions.length})</span>
+                      </button>
+                      {sectionStats.map((stat) => {
+                        const isFilterSelected = selectedSectionFilter === stat.section.id;
+                        const isCurSec = currentSection.id === stat.section.id;
+                        const cleanName = stat.section.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '');
+                        return (
+                          <button
+                            key={stat.section.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSectionFilter(stat.section.id);
+                              setCurrentQuestionIndex(stat.firstQuestionIndex);
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer ${
+                              isFilterSelected
+                                ? 'bg-blue-600 text-white font-bold shadow-xs ring-2 ring-blue-400/40'
+                                : isCurSec
+                                ? 'bg-blue-50 text-blue-700 border border-blue-300 font-bold'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium'
+                            }`}
+                          >
+                            <span>{cleanName}</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                isFilterSelected
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-white text-slate-600 border border-slate-200'
+                              }`}
+                            >
+                              {stat.correct}/{stat.totalQuestions} ✓
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Desktop Horizontal CBT Question Strip */}
+                <div className="hidden md:flex flex-wrap items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
+                  {/* Left: Previous, Page Numbers, Next */}
+                  <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex === 0}
+                      onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
+                      className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
+                      title="Previous Question"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+
+                    {visiblePageNumbers.map((idx) => {
+                      const q = questions[idx];
+                      const resp = attempt.responses[q?.questionId];
+                      const isCur = idx === currentQuestionIndex;
+                      const isAns = Boolean(resp?.selectedOptionId);
+                      const isCor = isAns && resp?.selectedOptionId === q?.correctOptionId;
+                      const isWr = isAns && resp?.selectedOptionId !== q?.correctOptionId;
+
+                      let btnBg = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60';
+                      if (isCor) {
+                        btnBg = 'bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700';
+                      } else if (isWr) {
+                        btnBg = 'bg-purple-600 text-white border border-purple-600 hover:bg-purple-700';
+                      }
+
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCurrentQuestionIndex(idx)}
+                          className={`h-8 min-w-8 px-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${btnBg} ${
+                            isCur ? 'ring-2 ring-blue-600 shadow-xs ring-offset-1 font-extrabold scale-105' : ''
+                          }`}
+                          title={`Jump to Question ${idx + 1}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      disabled={currentQuestionIndex === questions.length - 1}
+                      onClick={() => setCurrentQuestionIndex((i) => Math.min(questions.length - 1, i + 1))}
+                      className="h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer text-xs transition-colors shrink-0 shadow-2xs"
+                      title="Next Question"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Right: Quick Jump Select Dropdown */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs font-bold text-slate-600 whitespace-nowrap hidden sm:inline flex items-center gap-1">
+                      <Hash className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Jump to Question:</span>
+                    </span>
+                    <div className="relative">
+                      <select
+                        value={currentQuestionIndex}
+                        onChange={(e) => {
+                          const idx = Number(e.target.value);
+                          setCurrentQuestionIndex(idx);
+                          const q = questions[idx];
+                          if (q?.sectionId && selectedSectionFilter !== 'all' && selectedSectionFilter !== q.sectionId) {
+                            setSelectedSectionFilter('all');
+                          }
+                        }}
+                        className="h-8 pl-3 pr-8 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-800 cursor-pointer focus:ring-2 focus:ring-blue-500 appearance-none shadow-2xs"
+                      >
+                        {questions.map((q, idx) => {
+                          const resp = attempt.responses[q.questionId];
+                          const isAns = Boolean(resp?.selectedOptionId);
+                          const isCor = isAns && resp?.selectedOptionId === q.correctOptionId;
+                          const isWr = isAns && resp?.selectedOptionId !== q.correctOptionId;
+                          const sym = isCor ? '✓ Correct' : isWr ? '✕ Incorrect' : '– Blank';
+                          const secObj = effectiveSections.find((s) => s.id === (q.sectionId || 'default'));
+                          const secTag = secObj ? `${secObj.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '').slice(0, 10)} · ` : '';
+                          return (
+                            <option key={q.questionId} value={idx}>
+                              Q{idx + 1}: {secTag}({sym})
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Two-Column Grid: Left 70% Question, Right 30% Navigator matching Images 3 & 4 */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left Column (Question Area) */}
-                <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-5">
-                  {/* Question Header: Section tag + Counter + Status pill */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-bold shadow-2xs">
-                        <Layers className="h-3.5 w-3.5 text-blue-600" />
-                        <span>{currentSection.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '')}</span>
-                      </span>
-                      <span className="text-xs sm:text-sm font-bold text-slate-900">
-                        Question {currentQuestionIndex + 1} of {questions.length}
-                      </span>
-                    </div>
+                {/* Two-Column Grid: Left 70% Question, Right 30% Navigator */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left Column (Question Area) */}
+                  <div className="lg:col-span-8 rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-7 shadow-xs space-y-4 sm:space-y-5">
+                    {/* Question Header: Section tag + Counter + Status pill */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold shadow-2xs">
+                          <Layers className="h-3.5 w-3.5 text-blue-600" />
+                          <span>{currentSection.name.replace(/^(?:section\s*[a-z0-9]*\s*:\s*)/i, '')}</span>
+                        </span>
+                        <span className="text-xs font-semibold text-slate-800 ml-1">
+                          Question {currentQuestionIndex + 1} of {questions.length}
+                        </span>
+                      </div>
 
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-2">
-                      {isCurrentCorrect && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-0.5 rounded-full">
-                          <Check className="h-3.5 w-3.5" /> Correct (+{currentQ.marks || test.marksPerQuestion || 4} marks)
-                        </span>
-                      )}
-                      {isCurrentWrong && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-3 py-0.5 rounded-full">
-                          <X className="h-3.5 w-3.5" /> Incorrect ({test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks)
-                        </span>
-                      )}
-                      {!isCurrentAnswered && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-0.5 rounded-full">
-                          – Unanswered (0 marks)
-                        </span>
-                      )}
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2">
+                        {isCurrentCorrect && (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full">
+                            <Check className="h-3.5 w-3.5" /> Correct (+{currentQ.marks || test.marksPerQuestion || 4} marks)
+                          </span>
+                        )}
+                        {isCurrentWrong && (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200/80 px-3 py-1 rounded-full">
+                            <X className="h-3.5 w-3.5" /> Incorrect ({test.negativeMarking ? `-${test.negativeMarkValue}` : '0'} marks)
+                          </span>
+                        )}
+                        {!isCurrentAnswered && (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+                            – Unanswered (0 marks)
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
                   {/* Question Stem with LaTeX support */}
                   <div className="text-base sm:text-lg font-bold text-slate-900 leading-relaxed">
